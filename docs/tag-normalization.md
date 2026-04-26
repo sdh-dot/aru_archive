@@ -319,7 +319,98 @@ Aru Archive 전체 기능에 영향을 주지 않습니다.
 
 ---
 
-## 12. 주의사항
+## 12. Alias 병합 (Alias Merge)
+
+같은 캐릭터를 의미하는 여러 raw tag를 하나의 canonical로 통합한다.
+
+### 문제 상황
+
+ワカモ(正月), 浅黄ワカモ, Wakamo가 각각 별도 canonical로 승인되면
+BySeries/Blue Archive/ 아래에 중복 폴더가 생성된다.
+병합을 통해 이 모든 tag를 `狐坂ワカモ` 하나로 귀속시킨다.
+
+### 병합 방법
+
+**TagCandidateView**: 후보 목록에서 항목 선택 후:
+- **[새 canonical로 승인]** — suggested_canonical 그대로 사용
+- **[기존 canonical에 병합]** — CanonicalMergeDialog에서 기존 canonical 선택
+- **[general로 처리]** — 분류에 영향 없는 general tag로 처리
+
+**DictionaryImportView**: 외부 사전 항목에서:
+- **[기존 canonical에 병합 승인]** — 선택한 canonical로 alias 등록
+
+### 서비스 모듈
+
+| 함수 | 역할 |
+|------|------|
+| `core/tag_merge.merge_alias_into_canonical()` | N aliases → 1 canonical 병합 |
+| `core/tag_merge.list_existing_canonicals()` | DB canonical 목록 조회 |
+| `core/tag_merge.find_canonical_alias_conflicts()` | alias 충돌 감지 |
+| `core/tag_candidate_actions.merge_tag_candidate_into_canonical()` | 후보 → 기존 canonical 병합 |
+| `core/tag_candidate_actions.accept_tag_candidate_as_general()` | 후보 → general 처리 |
+| `core/external_dictionary.accept_external_entry_with_override_canonical()` | 외부 사전 항목 → 선택 canonical 병합 |
+
+### 충돌 정책
+
+- alias가 이미 다른 canonical에 등록된 경우 기본적으로 건너뛴다.
+- `overwrite_conflicts=True`를 전달하면 덮어쓴다.
+
+---
+
+## 13. Variant Tag 정책
+
+Pixiv에서 계절/이벤트 코스튬 variant는 별도 캐릭터 canonical로 처리하지 않는다.
+
+### 패턴
+
+| 원본 태그 | base | variant suffix | 처리 |
+|-----------|------|----------------|------|
+| `ワカモ(正月)` | `ワカモ` | `正月` | base의 alias로 병합 |
+| `狐坂ワカモ(水着)` | `狐坂ワカモ` | `水着` | base의 alias로 병합 |
+| `wakamo_(blue_archive)` | (분리 안 함) | — | Danbooru 스타일, 그대로 유지 |
+
+### 규칙
+
+- `split_variant_suffix(tag)` → `(base, suffix | None)`
+- base가 소문자+밑줄 패턴이면 Danbooru 스타일로 간주, 분리하지 않는다.
+- variant tag는 TagCandidateView에서 [기존 canonical에 병합]으로 처리한다.
+
+---
+
+## 14. Tag Pack Export / Import
+
+### 공개용 내보내기 (사전 내보내기)
+
+`export_public_tag_pack(conn, pack_id, pack_name)` 함수로 내보낸다.
+
+- 포함: `tag_aliases` (aliases, canonical), `tag_localizations` (locale, display_name)
+- 제외: artwork_id, 파일 경로, `evidence_json` 등 개인 데이터
+- 형식: UTF-8, `ensure_ascii=False`, `indent=2`, `sort_keys=True`
+- 내보낸 JSON은 `seed_tag_pack()`에 그대로 전달 가능
+
+### 전체 백업 내보내기
+
+`export_dictionary_backup(conn)` 함수로 내보낸다.
+
+- 포함: `tag_aliases` + `tag_localizations` + `external_dictionary_entries` (evidence_json 포함)
+
+### UI
+
+메인 툴바:
+- **[사전 가져오기]** — DictionaryImportView (Danbooru / Safebooru)
+- **[사전 내보내기]** — export_public_tag_pack() → JSON 파일 저장
+- **[백업 내보내기]** — export_dictionary_backup() → JSON 파일 저장
+
+### Import 충돌 정책
+
+`seed_tag_pack()`은 alias가 이미 다른 canonical에 등록된 경우:
+- 충돌 alias는 건너뛴다 (INSERT OR IGNORE)
+- 반환값의 `conflicts` 리스트에 기록한다
+- 충돌 항목을 로그로 경고한다
+
+---
+
+## 15. 주의사항
 
 - 자동 승인은 구현되어 있지 않습니다. 모든 alias 생성에는 사용자 확인이 필요합니다.
 - `reject_candidate()`로 거부한 항목은 동일 `(raw_tag, suggested_alias)` 쌍에 대해 재생성되지 않습니다.

@@ -78,20 +78,24 @@ class TagCandidateView(QDialog):
 
         # 버튼 행
         btn_row = QHBoxLayout()
-        self._btn_accept     = QPushButton("✅ 승인")
+        self._btn_accept     = QPushButton("✅ 새 canonical로 승인")
+        self._btn_merge      = QPushButton("🔀 기존 canonical에 병합")
+        self._btn_general    = QPushButton("🏷 general로 처리")
         self._btn_reject     = QPushButton("❌ 거부")
         self._btn_ignore     = QPushButton("⏭ 무시")
         self._btn_regenerate = QPushButton("🔄 후보 재생성")
         self._btn_close      = QPushButton("닫기")
 
         self._btn_accept    .clicked.connect(self._on_accept)
+        self._btn_merge     .clicked.connect(self._on_merge)
+        self._btn_general   .clicked.connect(self._on_accept_as_general)
         self._btn_reject    .clicked.connect(self._on_reject)
         self._btn_ignore    .clicked.connect(self._on_ignore)
         self._btn_regenerate.clicked.connect(self._on_regenerate)
         self._btn_close     .clicked.connect(self.accept)
 
-        for btn in (self._btn_accept, self._btn_reject, self._btn_ignore,
-                    self._btn_regenerate):
+        for btn in (self._btn_accept, self._btn_merge, self._btn_general,
+                    self._btn_reject, self._btn_ignore, self._btn_regenerate):
             btn_row.addWidget(btn)
         btn_row.addStretch()
         btn_row.addWidget(self._btn_close)
@@ -163,6 +167,69 @@ class TagCandidateView(QDialog):
             QMessageBox.warning(self, "승인 실패", str(exc))
         except Exception as exc:
             logger.error("태그 후보 승인 오류: %s", exc)
+            QMessageBox.critical(self, "오류", str(exc))
+
+    def _on_merge(self) -> None:
+        candidate_id = self._selected_candidate_id()
+        if not candidate_id:
+            QMessageBox.warning(self, "선택 없음", "병합할 항목을 선택하세요.")
+            return
+        row = self._conn.execute(
+            "SELECT suggested_type, suggested_parent_series FROM tag_candidates "
+            "WHERE candidate_id=?", (candidate_id,)
+        ).fetchone()
+        if not row:
+            return
+        try:
+            from core.tag_merge import list_existing_canonicals
+            from app.views.canonical_merge_dialog import CanonicalMergeDialog
+            canonicals = list_existing_canonicals(self._conn, tag_type=row["suggested_type"])
+            if not canonicals:
+                QMessageBox.information(
+                    self, "canonical 없음",
+                    f"'{row['suggested_type']}' 타입의 기존 canonical이 없습니다.\n"
+                    "먼저 다른 후보를 승인하거나 외부 사전에서 가져오세요.",
+                )
+                return
+            raw_tag_row = self._conn.execute(
+                "SELECT raw_tag FROM tag_candidates WHERE candidate_id=?",
+                (candidate_id,)
+            ).fetchone()
+            raw_tag = raw_tag_row["raw_tag"] if raw_tag_row else ""
+            dlg = CanonicalMergeDialog(canonicals, raw_tag, self)
+            if dlg.exec() != CanonicalMergeDialog.DialogCode.Accepted:
+                return
+            chosen = dlg.selected_canonical()
+            if not chosen:
+                return
+            from core.tag_candidate_actions import merge_tag_candidate_into_canonical
+            merge_tag_candidate_into_canonical(
+                self._conn,
+                candidate_id,
+                chosen["canonical"],
+                chosen["tag_type"],
+                chosen.get("parent_series", ""),
+            )
+            self._load_candidates()
+        except ValueError as exc:
+            QMessageBox.warning(self, "병합 실패", str(exc))
+        except Exception as exc:
+            logger.error("태그 후보 병합 오류: %s", exc)
+            QMessageBox.critical(self, "오류", str(exc))
+
+    def _on_accept_as_general(self) -> None:
+        candidate_id = self._selected_candidate_id()
+        if not candidate_id:
+            QMessageBox.warning(self, "선택 없음", "처리할 항목을 선택하세요.")
+            return
+        try:
+            from core.tag_candidate_actions import accept_tag_candidate_as_general
+            accept_tag_candidate_as_general(self._conn, candidate_id)
+            self._load_candidates()
+        except ValueError as exc:
+            QMessageBox.warning(self, "처리 실패", str(exc))
+        except Exception as exc:
+            logger.error("태그 후보 general 처리 오류: %s", exc)
             QMessageBox.critical(self, "오류", str(exc))
 
     def _on_reject(self) -> None:

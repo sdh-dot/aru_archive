@@ -160,8 +160,8 @@ def _build_destinations(
             entry.update(extra)
         dests.append(entry)
 
-    series_tags = _parse_json_list(group_row.get("series_tags_json"))
-    char_tags   = _parse_json_list(group_row.get("character_tags_json"))
+    series_tags = list(dict.fromkeys(_parse_json_list(group_row.get("series_tags_json"))))
+    char_tags   = list(dict.fromkeys(_parse_json_list(group_row.get("character_tags_json"))))
     has_series  = bool(series_tags)
     has_char    = bool(char_tags)
 
@@ -220,7 +220,15 @@ def _build_destinations(
         for tag in _parse_json_list(group_row.get("tags_json")):
             _add("by_tag", base / "ByTag" / sanitize_path_component(tag))
 
-    return dests
+    # 같은 경로가 중복 생성된 경우 dedupe (먼저 등장한 항목 유지)
+    seen_paths: set[str] = set()
+    deduped: list[dict] = []
+    for d in dests:
+        p = d["dest_path"]
+        if p not in seen_paths:
+            seen_paths.add(p)
+            deduped.append(d)
+    return deduped
 
 
 # ---------------------------------------------------------------------------
@@ -375,6 +383,7 @@ def build_classify_preview(
         "folder_locale":       cfg.get("folder_locale", "canonical"),
         "fallback_tags":       fallback_tags,
         "classification_info": classification_info,
+        "deduped_destinations": len(dests),
     }
 
 

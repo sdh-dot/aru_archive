@@ -77,7 +77,7 @@ Pixiv 작품 페이지에서 팝업 **저장** 버튼으로 직접 저장도 가
 QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 ```
 
-현재 650개 이상 테스트 통과.
+현재 700개 이상 테스트 통과.
 
 ---
 

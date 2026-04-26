@@ -279,6 +279,60 @@ def accept_external_entry(conn: sqlite3.Connection, entry_id: str) -> None:
     conn.commit()
 
 
+def accept_external_entry_with_override_canonical(
+    conn: sqlite3.Connection,
+    entry_id: str,
+    override_canonical: str,
+    override_tag_type: str,
+    override_parent_series: str = "",
+) -> None:
+    """
+    entry를 승인하되 canonical / tag_type / parent_series를 지정값으로 덮어쓴다.
+
+    기존 canonical 병합 시 사용: entry의 alias를 다른 canonical에 등록한다.
+    localization은 별도 locale 정보가 있을 때만 승격한다.
+    """
+    row = conn.execute(
+        "SELECT * FROM external_dictionary_entries WHERE entry_id = ?",
+        (entry_id,),
+    ).fetchone()
+    if not row:
+        raise ValueError(f"entry_id 없음: {entry_id}")
+    if row["status"] not in ("staged", "ignored"):
+        raise ValueError(f"승인 불가 상태: {row['status']}")
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    if row["alias"]:
+        try:
+            conn.execute(
+                """INSERT OR REPLACE INTO tag_aliases
+                   (alias, canonical, tag_type, parent_series,
+                    source, confidence_score, enabled, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)""",
+                (
+                    row["alias"],
+                    override_canonical,
+                    override_tag_type,
+                    override_parent_series,
+                    f"external:{row['source']}:merged",
+                    row["confidence_score"],
+                    now,
+                    now,
+                ),
+            )
+        except Exception as exc:
+            logger.error("tag_aliases 승격(override) 실패 (%s): %s", row["alias"], exc)
+            raise
+
+    conn.execute(
+        "UPDATE external_dictionary_entries SET status='accepted', updated_at=? "
+        "WHERE entry_id=?",
+        (now, entry_id),
+    )
+    conn.commit()
+
+
 def reject_external_entry(conn: sqlite3.Connection, entry_id: str) -> None:
     """entry를 거부 처리한다."""
     now = datetime.now(timezone.utc).isoformat()

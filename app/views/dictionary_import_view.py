@@ -295,12 +295,14 @@ class DictionaryImportView(QDialog):
         # ── 버튼 행 ──
         btn_row = QHBoxLayout()
         self._btn_accept = QPushButton("✅ 선택 승인")
+        self._btn_merge  = QPushButton("🔀 기존 canonical에 병합 승인")
         self._btn_reject = QPushButton("❌ 선택 거부")
         self._btn_ignore = QPushButton("⏭ 선택 무시")
         self._btn_accept.clicked.connect(self._on_accept)
+        self._btn_merge .clicked.connect(self._on_merge)
         self._btn_reject.clicked.connect(self._on_reject)
         self._btn_ignore.clicked.connect(self._on_ignore)
-        for btn in (self._btn_accept, self._btn_reject, self._btn_ignore):
+        for btn in (self._btn_accept, self._btn_merge, self._btn_reject, self._btn_ignore):
             btn_row.addWidget(btn)
         btn_row.addStretch()
 
@@ -432,6 +434,64 @@ class DictionaryImportView(QDialog):
     def _on_accept_done(self, count: int) -> None:
         self._btn_accept.setEnabled(True)
         self.log_msg.emit(f"[INFO] 사전 후보 {count}건 승인 완료")
+        self._load_staged()
+
+    def _on_merge(self) -> None:
+        entry_ids = self._selected_entry_ids()
+        if not entry_ids:
+            QMessageBox.warning(self, "선택 없음", "병합할 항목을 선택하세요.")
+            return
+        if len(entry_ids) > 1:
+            QMessageBox.warning(
+                self, "단일 선택 필요",
+                "기존 canonical 병합은 한 번에 항목 1개만 처리 가능합니다.",
+            )
+            return
+        entry_id = entry_ids[0]
+        conn = self._factory()
+        try:
+            row = conn.execute(
+                "SELECT * FROM external_dictionary_entries WHERE entry_id=?",
+                (entry_id,),
+            ).fetchone()
+            if not row:
+                return
+            from core.tag_merge import list_existing_canonicals
+            from app.views.canonical_merge_dialog import CanonicalMergeDialog
+            canonicals = list_existing_canonicals(conn, tag_type=row["tag_type"])
+            if not canonicals:
+                QMessageBox.information(
+                    self, "canonical 없음",
+                    f"'{row['tag_type']}' 타입의 기존 canonical이 없습니다.\n"
+                    "먼저 다른 항목을 승인하거나 태그 팩을 로드하세요.",
+                )
+                return
+            dlg = CanonicalMergeDialog(
+                canonicals,
+                raw_tag=row.get("alias") or row.get("danbooru_tag") or "",
+                parent=self,
+            )
+            if dlg.exec() != CanonicalMergeDialog.DialogCode.Accepted:
+                return
+            chosen = dlg.selected_canonical()
+            if not chosen:
+                return
+            from core.external_dictionary import accept_external_entry_with_override_canonical
+            accept_external_entry_with_override_canonical(
+                conn,
+                entry_id,
+                chosen["canonical"],
+                chosen["tag_type"],
+                chosen.get("parent_series", ""),
+            )
+            self.log_msg.emit(
+                f"[INFO] 사전 후보 병합 승인: {row.get('alias')} → {chosen['canonical']}"
+            )
+        except Exception as exc:
+            logger.error("사전 후보 병합 오류: %s", exc)
+            QMessageBox.critical(self, "오류", str(exc))
+        finally:
+            conn.close()
         self._load_staged()
 
     def _on_reject(self) -> None:

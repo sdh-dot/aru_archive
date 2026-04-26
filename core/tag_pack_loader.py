@@ -52,8 +52,15 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
     pack의 series/characters aliases를 tag_aliases에 INSERT OR IGNORE.
     localizations를 tag_localizations에 INSERT OR IGNORE.
 
+    alias가 이미 다른 canonical에 등록되어 있으면 충돌로 기록하고 건너뛴다.
+
     반환:
-        {"series_aliases": N, "character_aliases": N, "localizations": N}
+        {
+            "series_aliases":    N,
+            "character_aliases": N,
+            "localizations":     N,
+            "conflicts": [{"alias": ..., "existing_canonical": ..., "pack_canonical": ...}],
+        }
     """
     validate_tag_pack(pack)
     pack_id = pack["pack_id"]
@@ -63,6 +70,7 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
     series_count = 0
     char_count = 0
     loc_count = 0
+    conflicts: list[dict] = []
 
     for series in pack.get("series", []):
         canonical = series["canonical"]
@@ -70,6 +78,22 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
 
         for alias in series.get("aliases", []):
             try:
+                existing = conn.execute(
+                    "SELECT canonical FROM tag_aliases "
+                    "WHERE alias=? AND tag_type='series' AND enabled=1",
+                    (alias,),
+                ).fetchone()
+                if existing and existing["canonical"] != canonical:
+                    conflicts.append({
+                        "alias":              alias,
+                        "existing_canonical": existing["canonical"],
+                        "pack_canonical":     canonical,
+                    })
+                    logger.debug(
+                        "series alias 충돌 (건너뜀): %s → %s (기존 %s)",
+                        alias, canonical, existing["canonical"],
+                    )
+                    continue
                 conn.execute(
                     """INSERT OR IGNORE INTO tag_aliases
                        (alias, canonical, tag_type, parent_series, media_type,
@@ -103,6 +127,22 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
 
         for alias in character.get("aliases", []):
             try:
+                existing = conn.execute(
+                    "SELECT canonical FROM tag_aliases "
+                    "WHERE alias=? AND tag_type='character' AND enabled=1",
+                    (alias,),
+                ).fetchone()
+                if existing and existing["canonical"] != canonical:
+                    conflicts.append({
+                        "alias":              alias,
+                        "existing_canonical": existing["canonical"],
+                        "pack_canonical":     canonical,
+                    })
+                    logger.debug(
+                        "character alias 충돌 (건너뜀): %s → %s (기존 %s)",
+                        alias, canonical, existing["canonical"],
+                    )
+                    continue
                 conn.execute(
                     """INSERT OR IGNORE INTO tag_aliases
                        (alias, canonical, tag_type, parent_series,
@@ -131,10 +171,17 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
                 logger.debug("character localization 삽입 실패 (%s/%s): %s", canonical, locale, exc)
 
     conn.commit()
+    if conflicts:
+        logger.warning(
+            "tag pack '%s' alias 충돌 %d건 (건너뜀): %s",
+            pack_id, len(conflicts),
+            [c["alias"] for c in conflicts],
+        )
     return {
-        "series_aliases": series_count,
+        "series_aliases":    series_count,
         "character_aliases": char_count,
-        "localizations": loc_count,
+        "localizations":     loc_count,
+        "conflicts":         conflicts,
     }
 
 

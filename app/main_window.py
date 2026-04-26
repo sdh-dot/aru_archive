@@ -401,7 +401,9 @@ class MainWindow(QMainWindow):
         self._btn_xmp_all          = _tb_btn("🔄 전체 XMP 재처리", tb)
         self._btn_retag            = _tb_btn("🏷 태그 재분류",   tb)
         self._btn_candidates       = _tb_btn("🏷 후보 태그",     tb)
-        self._btn_dict_import      = _tb_btn("🌐 웹 사전",       tb)
+        self._btn_dict_import      = _tb_btn("🌐 사전 가져오기",  tb)
+        self._btn_dict_export      = _tb_btn("📤 사전 내보내기", tb)
+        self._btn_dict_backup      = _tb_btn("💾 백업 내보내기", tb)
         tb.addSeparator()
         self._btn_work_log         = _tb_btn("🕘 작업 로그",     tb)
         self._btn_save_jobs        = _tb_btn("💾 저장 작업",     tb)
@@ -462,6 +464,8 @@ class MainWindow(QMainWindow):
         self._btn_retag           .clicked.connect(self._on_retag)
         self._btn_candidates      .clicked.connect(self._on_show_candidates)
         self._btn_dict_import     .clicked.connect(self._on_show_dict_import)
+        self._btn_dict_export     .clicked.connect(self._on_dict_export)
+        self._btn_dict_backup     .clicked.connect(self._on_dict_backup)
         self._btn_work_log        .clicked.connect(self._on_show_work_log)
         self._btn_save_jobs       .clicked.connect(self._on_show_save_jobs)
 
@@ -1234,6 +1238,56 @@ class MainWindow(QMainWindow):
             dlg.exec()
         except Exception as exc:
             self._log.append(f"[ERROR] 웹 사전 다이얼로그 오류: {exc}")
+
+    def _on_dict_export(self) -> None:
+        """공개용 tag pack (aliases + localizations) 을 JSON 파일로 내보낸다."""
+        try:
+            path, _ = QFileDialog.getSaveFileName(
+                self, "사전 내보내기", "tag_pack_export.json",
+                "JSON 파일 (*.json)"
+            )
+            if not path:
+                return
+            conn = self._get_conn()
+            try:
+                from core.tag_pack_exporter import export_public_tag_pack, save_to_file
+                pack_id   = Path(path).stem
+                pack_name = pack_id.replace("_", " ").title()
+                data = export_public_tag_pack(conn, pack_id, pack_name)
+                save_to_file(data, path)
+                self._log.append(
+                    f"[INFO] 사전 내보내기 완료: {path} "
+                    f"(series {len(data['series'])}건, characters {len(data['characters'])}건)"
+                )
+            finally:
+                conn.close()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 사전 내보내기 오류: {exc}")
+
+    def _on_dict_backup(self) -> None:
+        """전체 사전 백업 (aliases + localizations + external entries) 을 내보낸다."""
+        try:
+            path, _ = QFileDialog.getSaveFileName(
+                self, "백업 내보내기", "dictionary_backup.json",
+                "JSON 파일 (*.json)"
+            )
+            if not path:
+                return
+            conn = self._get_conn()
+            try:
+                from core.tag_pack_exporter import export_dictionary_backup, save_to_file
+                data = export_dictionary_backup(conn)
+                save_to_file(data, path)
+                self._log.append(
+                    f"[INFO] 백업 내보내기 완료: {path} "
+                    f"(aliases {len(data['tag_aliases'])}건, "
+                    f"localizations {len(data['tag_localizations'])}건, "
+                    f"external {len(data['external_dictionary_entries'])}건)"
+                )
+            finally:
+                conn.close()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 백업 내보내기 오류: {exc}")
 
     def _on_show_save_jobs(self) -> None:
         """저장 작업 상태 다이얼로그를 연다."""
