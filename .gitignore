@@ -1,15 +1,45 @@
+# Python
 .venv/
 .venv-*/
 __pycache__/
-.pytest_cache/
-.pytest_tmp/
-build/
-
 *.py[cod]
 *.pyo
 *.pyd
+.pytest_cache/
+.pytest_tmp/
+.mypy_cache/
+.ruff_cache/
 
+# 설정 (로컬 경로 포함)
 config.json
-*.log
 
+# 로그
+*.log
+logs/
+
+# 런타임 / 캐시
+.runtime/
+.thumbcache/
+.cache/
 .claude/
+
+# 로컬 아카이브 데이터 디렉터리
+AruArchive/
+Inbox/
+Classified/
+Managed/
+
+# build 산출물 (install_host.bat / uninstall_host.bat / gen_manifest.py / aru_archive.spec 은 포함)
+build/__pycache__/
+build/*.exe
+build/*.msi
+build/*.zip
+build/*.gif
+build/pytest_tmp*/
+build/runtime_probe*/
+
+# 설계 문서 (이진 파일 — 개인용)
+docs/*.docx
+
+# Native Host 로컬 오버라이드
+native_host/*.local.json
