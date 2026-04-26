@@ -1,79 +1,49 @@
 """
-Native Host 액션 핸들러.
-MainApp 실행 여부 확인 후 HTTP IPC 전달 또는 CoreWorker spawn.
+Native Host 액션 핸들러 (프로토콜 v2).
 """
 from __future__ import annotations
 
-import json
-import subprocess
 import sys
-import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
-def handle_save(message: dict, config: dict) -> dict:
+def handle_save_pixiv_artwork(payload: dict, config: dict) -> dict:
     """
-    save_artwork / save_ugoira 처리.
-    MainApp 실행 중 → HTTP IPC 전달.
-    MainApp 없음   → CoreWorker 서브프로세스 spawn.
+    save_pixiv_artwork 처리.
+    DB에 연결하여 CoreWorker save_pixiv_artwork를 직접 호출한다.
     """
-    from app.http_server import read_ipc_token
+    artwork_id   = payload.get("artwork_id", "")
+    page_url     = payload.get("page_url", "")
+    cookies      = payload.get("cookies") or {}
+    preload_data = payload.get("preload_data")
 
-    data_dir = config.get("data_dir", "D:/AruArchive")
-    token = read_ipc_token(data_dir)
+    if not artwork_id:
+        return {"success": False, "error": "artwork_id가 없습니다."}
 
-    if token:
-        return _forward_to_mainapp(message, config, token)
-    return _spawn_core_worker(message, config)
-
-
-def handle_no_metadata(message: dict, config: dict) -> dict:
-    """
-    save_no_metadata 처리: 파일 다운로드 후 no_metadata_queue에 기록.
-    MVP-A 골격.
-    """
-    # TODO (Sprint 3): 실제 다운로드 + 큐 기록 구현
-    return {"success": True, "data": {"queued": True}}
-
-
-def _forward_to_mainapp(message: dict, config: dict, token: str) -> dict:
-    """MainApp HTTP IPC로 저장 작업 전달 (X-Aru-Token 헤더)."""
+    db_path = config.get("db", {}).get("path", "aru_archive.db")
     try:
-        port = config.get("http_server", {}).get("port", 18456)
-        body = json.dumps(message, ensure_ascii=False).encode("utf-8")
-        req = urllib.request.Request(
-            f"http://127.0.0.1:{port}/api/jobs",
-            data=body,
-            headers={
-                "Content-Type": "application/json; charset=utf-8",
-                "X-Aru-Token": token,
-            },
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read())
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+        from db.database import initialize_database
+        from core.locks import LockAcquisitionError
+        from core.worker import save_pixiv_artwork
 
-
-def _spawn_core_worker(message: dict, config: dict) -> dict:
-    """MainApp 없을 때 CoreWorker 서브프로세스 직접 실행."""
-    try:
-        payload = {**message, "config": config}
-        proc = subprocess.run(
-            [sys.executable, "-m", "core.worker", "--json-stdin"],
-            input=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            capture_output=True,
-            timeout=120,
-            cwd=str(Path(__file__).resolve().parent.parent),
-        )
-        if proc.returncode != 0:
-            return {
-                "success": False,
-                "error": proc.stderr.decode("utf-8", errors="replace"),
-            }
-        return json.loads(proc.stdout)
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+        conn = initialize_database(db_path)
+        try:
+            result = save_pixiv_artwork(
+                conn,
+                config,
+                artwork_id,
+                page_url     = page_url,
+                cookies      = cookies,
+                preload_data = preload_data,
+            )
+            return {"success": True, "data": result}
+        except LockAcquisitionError as exc:
+            return {"success": False, "error": f"이미 처리 중입니다: {exc}"}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+        finally:
+            conn.close()
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}

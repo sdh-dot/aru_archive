@@ -74,6 +74,10 @@ def run_gui(config: dict, config_path: str = "config.json") -> int:
     app.setApplicationName("Aru Archive")
     app.setApplicationVersion("0.1.0")
 
+    from PyQt6.QtGui import QIcon
+    from app.resources import icon_path
+    app.setWindowIcon(QIcon(icon_path()))
+
     from app.main_window import MainWindow, _apply_wine_style  # type: ignore[import]
     _apply_wine_style(app)
 

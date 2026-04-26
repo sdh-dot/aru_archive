@@ -318,6 +318,11 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Aru Archive")
         self.resize(1400, 900)
+
+        from PyQt6.QtGui import QIcon
+        from app.resources import icon_path
+        self.setWindowIcon(QIcon(icon_path()))
+
         self._setup_ui()
         self._connect_signals()
         self._restore_archive_root()
@@ -351,6 +356,10 @@ class MainWindow(QMainWindow):
         self._btn_classify_preview = _tb_btn("📋 분류 미리보기", tb)
         self._btn_classify_run     = _tb_btn("▶ 분류 실행",     tb)
         self._btn_retag            = _tb_btn("🏷 태그 재분류",   tb)
+        self._btn_candidates       = _tb_btn("🏷 후보 태그",     tb)
+        tb.addSeparator()
+        self._btn_work_log         = _tb_btn("🕘 작업 로그",     tb)
+        self._btn_save_jobs        = _tb_btn("💾 저장 작업",     tb)
         tb.addSeparator()
 
         self._lbl_root = QLabel("Archive Root 미설정")
@@ -404,6 +413,9 @@ class MainWindow(QMainWindow):
         self._btn_classify_preview.clicked.connect(self._on_classify_preview)
         self._btn_classify_run    .clicked.connect(self._on_classify_run)
         self._btn_retag           .clicked.connect(self._on_retag)
+        self._btn_candidates      .clicked.connect(self._on_show_candidates)
+        self._btn_work_log        .clicked.connect(self._on_show_work_log)
+        self._btn_save_jobs       .clicked.connect(self._on_show_save_jobs)
 
         self._sidebar.category_selected.connect(self._on_category_changed)
         self._gallery.item_selected.connect(self._on_item_selected)
@@ -959,7 +971,7 @@ class MainWindow(QMainWindow):
                 except Exception:
                     pass
 
-            classified = classify_pixiv_tags(raw_tags)
+            classified = classify_pixiv_tags(raw_tags, conn=conn)
             now = _now_iso()
 
             conn.execute(
@@ -1000,6 +1012,43 @@ class MainWindow(QMainWindow):
             self._refresh_detail(group_id)
         except Exception as exc:
             self._log.append(f"[ERROR] 태그 재분류 실패: {exc}")
+
+    def _on_show_candidates(self) -> None:
+        """태그 후보 검토 다이얼로그를 연다."""
+        try:
+            conn = self._get_conn()
+            from app.views.tag_candidate_view import TagCandidateView
+            dlg = TagCandidateView(conn, parent=self)
+            dlg.exec()
+            conn.close()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 후보 태그 다이얼로그 오류: {exc}")
+
+    def _on_show_save_jobs(self) -> None:
+        """저장 작업 상태 다이얼로그를 연다."""
+        try:
+            conn = self._get_conn()
+            from app.views.save_jobs_view import SaveJobsView
+            dlg = SaveJobsView(conn, parent=self)
+            dlg.exec()
+            conn.close()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 저장 작업 뷰 오류: {exc}")
+
+    def _on_show_work_log(self) -> None:
+        """작업 로그 / Undo 다이얼로그를 연다."""
+        try:
+            conn = self._get_conn()
+            from app.views.work_log_view import WorkLogView
+            dlg = WorkLogView(conn, config=self.config, parent=self)
+            dlg.log_msg.connect(self._log.append)
+            dlg.exec()
+            conn.close()
+            # Undo 실행 여부에 관계없이 상태 갱신 (안전)
+            self._refresh_gallery()
+            self._refresh_counts()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 작업 로그 오류: {exc}")
 
     # ------------------------------------------------------------------
     # No Metadata 패널 핸들러
