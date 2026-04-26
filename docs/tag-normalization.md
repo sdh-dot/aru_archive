@@ -1,0 +1,138 @@
+# 태그 정규화 시스템
+
+Aru Archive의 태그 후보 생성 및 사용자 승인 기반 정규화 파이프라인입니다.
+
+---
+
+## 1. 핵심 원칙
+
+> **Aru Archive는 Pixiv 태그를 자동으로 확정하지 않습니다.**  
+> 관측 데이터와 동시 등장 패턴으로 후보를 생성하고,  
+> **사용자가 승인한 후보만** `tag_aliases`로 승격합니다.
+
+이 원칙은 오탐(false positive) 정규화로 인한 분류 오염을 방지합니다.
+
+---
+
+## 2. 구성 요소
+
+### DB 테이블
+
+| 테이블 | 역할 |
+|--------|------|
+| `tags` | 정규화된 태그 저장 (group_id 연결) |
+| `tag_aliases` | raw tag → canonical tag 1:1 매핑 |
+| `tag_observations` | 작품별 raw tag / translation 등장 이력 |
+| `tag_candidates` | 정규화 후보 큐 (confidence_score 포함) |
+
+### 모듈
+
+| 모듈 | 역할 |
+|------|------|
+| `core/tag_observer.py` | `record_tag_observations()` — 관측값 기록 |
+| `core/tag_candidate_generator.py` | `generate_tag_candidates_for_group()` — 후보 생성 |
+| `core/tag_candidate_actions.py` | `accept_candidate()` / `reject_candidate()` |
+| `app/views/tag_candidate_view.py` | TagCandidateView — 사용자 승인 UI |
+
+---
+
+## 3. 파이프라인 흐름
+
+```
+CoreWorker (저장 시)
+  │
+  ├─ tag_observer.record_tag_observations()
+  │    ↓
+  │  tag_observations 테이블에 기록
+  │  (source_site, artwork_id, group_id, raw_tag, translated_tag, artist_id)
+  │
+  └─ tag_candidate_generator.generate_tag_candidates_for_group()
+       ↓
+     tag_candidates 테이블에 후보 생성
+     (raw_tag, suggested_alias, confidence_score, status=pending)
+
+
+사용자 (TagCandidateView)
+  │
+  ├─ [승인] → accept_candidate()
+  │    ↓
+  │  tag_aliases INSERT (raw_tag → canonical_tag)
+  │  tag_candidates 상태 → accepted
+  │
+  └─ [거부] → reject_candidate()
+       ↓
+     tag_candidates 상태 → rejected (이후 동일 후보 재생성 억제)
+```
+
+---
+
+## 4. confidence_score
+
+`tag_candidates.confidence_score`는 0.0 ~ 1.0 범위의 자동 생성 신뢰도 점수입니다.
+
+| 점수 범위 | 의미 |
+|-----------|------|
+| 0.9 ~ 1.0 | 번역 정보 일치, 높은 신뢰 |
+| 0.5 ~ 0.9 | 동시 등장 패턴 기반 추정 |
+| 0.0 ~ 0.5 | 약한 패턴, 사용자 검토 필요 |
+
+> blacklist(거부 목록)에 등록된 태그는 `confidence_score`에 관계없이 후보 생성에서 제외됩니다.
+
+---
+
+## 5. tag_aliases 구조
+
+```sql
+CREATE TABLE tag_aliases (
+    alias_id       TEXT PRIMARY KEY,
+    raw_tag        TEXT NOT NULL,          -- 원본 태그 (예: "キャラA")
+    canonical_tag  TEXT NOT NULL,          -- 정규화 태그 (예: "CharacterA")
+    tag_type       TEXT DEFAULT 'general', -- general | character | series
+    source         TEXT DEFAULT 'user',    -- user | auto
+    created_at     TEXT NOT NULL
+);
+```
+
+- `raw_tag → canonical_tag` 1:1 매핑
+- `source='user'`: 사용자가 TagCandidateView에서 승인
+- `source='auto'`: 향후 자동 승인 기능 (현재 미구현)
+
+---
+
+## 6. tag_candidates 상태값
+
+| status | 의미 |
+|--------|------|
+| `pending` | 사용자 검토 대기 |
+| `accepted` | 승인됨 → `tag_aliases`에 반영 |
+| `rejected` | 거부됨 → 동일 패턴 재생성 억제 |
+| `superseded` | 더 높은 신뢰도 후보로 대체됨 |
+
+---
+
+## 7. TagCandidateView 사용법
+
+1. PyQt6 Main App → **`[🏷 태그 후보]`** 버튼 클릭
+2. 대기 중인 후보 목록 확인 (raw tag, 제안 alias, confidence score)
+3. 각 항목에서 **승인** 또는 **거부** 선택
+4. 승인된 항목은 즉시 `tag_aliases`에 반영되어 이후 분류에 사용됨
+
+---
+
+## 8. 분류와의 연계
+
+분류 엔진(`core/classifier.py`)은 경로 결정 시 `tag_aliases`를 조회합니다.
+
+```
+raw tag "キャラA" → alias 조회 → "CharacterA" → ByCharacter/CharacterA/
+```
+
+tag_aliases에 등록되지 않은 태그는 원본 Pixiv 태그 그대로 사용합니다.
+
+---
+
+## 9. 주의사항
+
+- 자동 승인은 구현되어 있지 않습니다. 모든 alias 생성에는 사용자 확인이 필요합니다.
+- `reject_candidate()`로 거부한 항목은 동일 `(raw_tag, suggested_alias)` 쌍에 대해 재생성되지 않습니다.
+- 이미 `tag_aliases`에 등록된 raw_tag에 대한 중복 후보는 생성되지 않습니다.
