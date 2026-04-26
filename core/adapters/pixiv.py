@@ -181,10 +181,13 @@ class PixivAdapter(SourceSiteAdapter):
         raw keys: illustId, title, tags.tags, userId, userName,
                   pageCount, illustType (2=ugoira), xRestrict
         """
+        from core.tag_classifier import classify_pixiv_tags
+
         artwork_id = str(raw.get("illustId", ""))
         user_id    = str(raw.get("userId", ""))
         tags_raw   = raw.get("tags", {}).get("tags", [])
-        tags       = [t.get("tag", "") for t in tags_raw if t.get("tag")]
+        all_tags   = [t.get("tag", "") for t in tags_raw if t.get("tag")]
+        classified = classify_pixiv_tags(all_tags)
         page_count = int(raw.get("pageCount", 1))
         is_ugoira  = int(raw.get("illustType", 0)) == 2
         now        = datetime.now(timezone.utc).isoformat()
@@ -200,7 +203,9 @@ class PixivAdapter(SourceSiteAdapter):
             artist_id=user_id,
             artist_name=raw.get("userName", ""),
             artist_url=f"https://www.pixiv.net/users/{user_id}",
-            tags=tags,
+            tags=classified["tags"],
+            series_tags=classified["series_tags"],
+            character_tags=classified["character_tags"],
             is_ugoira=is_ugoira,
             downloaded_at=now,
             _provenance={

@@ -202,6 +202,66 @@ class TestEnrichFileFromPixiv:
         assert result["status"] == "embed_failed"
         assert result["sync_status"] == "metadata_write_failed"
 
+    def test_series_character_tags_stored(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """classify_pixiv_tags() 통합: series/character 태그가 DB에 올바르게 저장된다."""
+        import io
+        from PIL import Image as PILImage
+        from core.adapters.pixiv import PixivAdapter
+
+        img_path = tmp_path / "12345678_p0.jpg"
+        buf = io.BytesIO()
+        PILImage.new("RGB", (1, 1), (64, 64, 64)).save(buf, format="JPEG")
+        img_path.write_bytes(buf.getvalue())
+
+        group_id = str(uuid.uuid4())
+        file_id  = str(uuid.uuid4())
+        _insert_group(db, group_id, "12345678")
+        _insert_file(db, file_id, group_id, str(img_path), "jpg")
+
+        real_adapter = PixivAdapter()
+        body = {
+            "illustId": "12345678", "title": "BA Art",
+            "userId": "999", "userName": "BAFan",
+            "pageCount": 1, "illustType": 0,
+            "tags": {"tags": [
+                {"tag": "ブルアカ"},
+                {"tag": "伊落マリー"},
+                {"tag": "ソロ"},
+            ]},
+        }
+        mock_adapter = MagicMock()
+        mock_adapter.fetch_metadata.return_value = body
+        mock_adapter.to_aru_metadata.side_effect = (
+            lambda *a, **kw: real_adapter.to_aru_metadata(*a, **kw)
+        )
+
+        result = enrich_file_from_pixiv(db, file_id, adapter=mock_adapter)
+        assert result["status"] == "success"
+
+        row = db.execute(
+            "SELECT series_tags_json, character_tags_json, tags_json "
+            "FROM artwork_groups WHERE group_id = ?",
+            (group_id,),
+        ).fetchone()
+        series = json.loads(row["series_tags_json"])
+        chars  = json.loads(row["character_tags_json"])
+        general = json.loads(row["tags_json"])
+
+        assert "Blue Archive" in series
+        assert "伊落マリー" in chars
+        assert "ソロ" in general
+        assert "ブルアカ" not in general
+
+        tags_rows = db.execute(
+            "SELECT tag, tag_type FROM tags WHERE group_id = ?", (group_id,)
+        ).fetchall()
+        type_map = {r["tag"]: r["tag_type"] for r in tags_rows}
+        assert type_map.get("Blue Archive") == "series"
+        assert type_map.get("伊落マリー")   == "character"
+        assert type_map.get("ソロ")         == "general"
+
     def test_png_success(self, db: sqlite3.Connection, tmp_path: Path) -> None:
         # 최소 유효 PNG
         png_data = (

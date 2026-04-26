@@ -3,6 +3,7 @@
 
   "data_dir": "C:/Users/YourName/AruArchive",
   "inbox_dir": "{data_dir}/Inbox",
+  "classified_dir": "{data_dir}/Classified",
 
   "db": {
     "path": "{data_dir}/aru_archive.db"
@@ -13,6 +14,18 @@
 
   "classify_rules_enabled": false,
   "_classify_rules_comment": "MVP-B에서 활성화",
+
+  "classification": {
+    "_comment": "기본은 series/character 기반 경로를 우선하고, 정보가 없으면 author로 폴백합니다.",
+    "primary_strategy": "series_character",
+    "enable_series_character": true,
+    "enable_series_uncategorized": true,
+    "enable_character_without_series": true,
+    "fallback_by_author": true,
+    "enable_by_author": false,
+    "enable_by_tag": false,
+    "on_conflict": "rename"
+  },
 
   "undo_retention_days": 7,
 

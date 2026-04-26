@@ -21,11 +21,13 @@ from PyQt6.QtWidgets import (
 )
 
 _RULE_LABEL: dict[str, str] = {
-    "by_author":    "ByAuthor",
-    "by_series":    "BySeries",
-    "by_character": "ByCharacter",
-    "by_tag":       "ByTag",
-    "builtin":      "기본",
+    "series_character":          "Series/Character",
+    "series_uncategorized":      "Series/Uncategorized",
+    "character":                 "Character",
+    "author_fallback":           "Author Fallback",
+    "author":                    "Author",
+    "by_tag":                    "Tag",
+    "builtin":                   "기본",
 }
 
 

@@ -1,5 +1,5 @@
 """
-Aru Archive 메인 윈도우 — MVP-A GUI.
+Aru Archive 메인 윈도우.
 
 레이아웃:
   QToolBar (Archive Root 선택 | Inbox 스캔 | DB 초기화)
@@ -13,6 +13,10 @@ Aru Archive 메인 윈도우 — MVP-A GUI.
 
 Archive Root 선택 시 Inbox / Classified / Managed / .thumbcache / .runtime
 폴더를 자동 생성하고, config.json에 영속 저장한다.
+
+이 파일은 UI 조립과 사용자 액션 orchestration을 담당한다.
+실제 도메인 로직은 core.* 모듈에 두고, 여기서는 백그라운드 스레드 실행,
+DB 연결 수명, 화면 갱신 순서를 관리한다.
 """
 from __future__ import annotations
 
@@ -131,7 +135,7 @@ def _now_iso() -> str:
 # ------------------------------------------------------------------
 
 class ClassifyThread(QThread):
-    """execute_classify_preview()를 별도 스레드에서 실행한다."""
+    """사용자 승인 후 execute_classify_preview()를 별도 스레드에서 실행한다."""
 
     log_msg       = Signal(str)
     classify_done = Signal(dict)
@@ -167,7 +171,7 @@ class ClassifyThread(QThread):
 
 
 class EnrichThread(QThread):
-    """enrich_file_from_pixiv()를 별도 스레드에서 실행한다."""
+    """Pixiv 메타데이터 보강을 UI freeze 없이 실행한다."""
 
     log_msg     = Signal(str)
     enrich_done = Signal(dict)
@@ -195,7 +199,7 @@ class EnrichThread(QThread):
 
 
 class ScanThread(QThread):
-    """InboxScanner를 별도 스레드에서 실행한다."""
+    """Archive Root의 Inbox 스캔을 UI freeze 없이 실행한다."""
 
     log_msg   = Signal(str)
     scan_done = Signal(object)   # ScanResult
@@ -346,6 +350,7 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         self._btn_classify_preview = _tb_btn("📋 분류 미리보기", tb)
         self._btn_classify_run     = _tb_btn("▶ 분류 실행",     tb)
+        self._btn_retag            = _tb_btn("🏷 태그 재분류",   tb)
         tb.addSeparator()
 
         self._lbl_root = QLabel("Archive Root 미설정")
@@ -398,6 +403,7 @@ class MainWindow(QMainWindow):
         self._btn_db_init.clicked.connect(self._on_db_init)
         self._btn_classify_preview.clicked.connect(self._on_classify_preview)
         self._btn_classify_run    .clicked.connect(self._on_classify_run)
+        self._btn_retag           .clicked.connect(self._on_retag)
 
         self._sidebar.category_selected.connect(self._on_category_changed)
         self._gallery.item_selected.connect(self._on_item_selected)
@@ -922,6 +928,78 @@ class MainWindow(QMainWindow):
             self._refresh_counts()
         else:
             self._log.append("[ERROR] 분류 실행 실패")
+
+    def _on_retag(self) -> None:
+        """
+        선택된 그룹의 원본 tags_json을 현재 alias 정책으로 다시 분류한다.
+
+        Pixiv adapter 보강 이후 alias 사전이 늘어난 경우, 기존 항목도 이 액션으로
+        series/character_tags_json과 tags 정규화 테이블을 최신 정책에 맞출 수 있다.
+        """
+        group_id = self._gallery.get_selected_group_id()
+        if not group_id:
+            self._log.append("[WARN] 선택된 파일 없음")
+            return
+        try:
+            from core.tag_classifier import classify_pixiv_tags
+
+            conn = self._get_conn()
+            row  = conn.execute(
+                "SELECT tags_json FROM artwork_groups WHERE group_id = ?", (group_id,)
+            ).fetchone()
+            if not row:
+                conn.close()
+                self._log.append("[WARN] 그룹 없음")
+                return
+
+            raw_tags: list[str] = []
+            if row["tags_json"]:
+                try:
+                    raw_tags = json.loads(row["tags_json"])
+                except Exception:
+                    pass
+
+            classified = classify_pixiv_tags(raw_tags)
+            now = _now_iso()
+
+            conn.execute(
+                "UPDATE artwork_groups SET "
+                "series_tags_json=?, character_tags_json=?, updated_at=? "
+                "WHERE group_id=?",
+                (
+                    json.dumps(classified["series_tags"],    ensure_ascii=False),
+                    json.dumps(classified["character_tags"], ensure_ascii=False),
+                    now,
+                    group_id,
+                ),
+            )
+            conn.execute("DELETE FROM tags WHERE group_id=?", (group_id,))
+            for tag in classified["tags"]:
+                conn.execute(
+                    "INSERT INTO tags (group_id, tag, tag_type) VALUES (?, ?, 'general')",
+                    (group_id, tag),
+                )
+            for tag in classified["series_tags"]:
+                conn.execute(
+                    "INSERT INTO tags (group_id, tag, tag_type) VALUES (?, ?, 'series')",
+                    (group_id, tag),
+                )
+            for tag in classified["character_tags"]:
+                conn.execute(
+                    "INSERT INTO tags (group_id, tag, tag_type) VALUES (?, ?, 'character')",
+                    (group_id, tag),
+                )
+            conn.commit()
+            conn.close()
+
+            self._log.append(
+                f"[INFO] 태그 재분류 완료: "
+                f"series={classified['series_tags']}, "
+                f"character={classified['character_tags']}"
+            )
+            self._refresh_detail(group_id)
+        except Exception as exc:
+            self._log.append(f"[ERROR] 태그 재분류 실패: {exc}")
 
     # ------------------------------------------------------------------
     # No Metadata 패널 핸들러

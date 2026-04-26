@@ -4,7 +4,11 @@
 흐름:
   file_id → DB 조회 → 파일명에서 artwork_id 추출
   → Pixiv AJAX fetch → AruMetadata 변환
-  → 파일에 JSON 기록 → DB(artwork_groups, artwork_files) 갱신
+  → 파일에 JSON 기록 → DB(artwork_groups, artwork_files, tags) 갱신
+
+이 모듈은 "외부 소스에서 가져온 메타데이터"와 "앱 내부 DB 상태"를
+동기화하는 경계다. Pixiv별 파싱은 adapter에 맡기고, 여기서는 성공/실패
+상태 전이와 DB 반영을 한곳에서 관리한다.
 """
 from __future__ import annotations
 
@@ -164,6 +168,7 @@ def _update_group_from_meta(
     sync_status: str,
     now: str,
 ) -> None:
+    """AruMetadata를 artwork_groups 요약 컬럼과 tags 정규화 테이블에 반영한다."""
     conn.execute(
         """UPDATE artwork_groups SET
             artwork_title        = ?,
@@ -171,6 +176,8 @@ def _update_group_from_meta(
             artist_name          = ?,
             artist_url           = ?,
             tags_json            = ?,
+            series_tags_json     = ?,
+            character_tags_json  = ?,
             metadata_sync_status = ?,
             updated_at           = ?
         WHERE group_id = ?""",
@@ -180,8 +187,27 @@ def _update_group_from_meta(
             meta.artist_name,
             meta.artist_url,
             json.dumps(meta.tags, ensure_ascii=False),
+            json.dumps(meta.series_tags, ensure_ascii=False),
+            json.dumps(meta.character_tags, ensure_ascii=False),
             sync_status,
             now,
             group_id,
         ),
     )
+
+    conn.execute("DELETE FROM tags WHERE group_id = ?", (group_id,))
+    for tag in meta.tags:
+        conn.execute(
+            "INSERT INTO tags (group_id, tag, tag_type) VALUES (?, ?, 'general')",
+            (group_id, tag),
+        )
+    for tag in meta.series_tags:
+        conn.execute(
+            "INSERT INTO tags (group_id, tag, tag_type) VALUES (?, ?, 'series')",
+            (group_id, tag),
+        )
+    for tag in meta.character_tags:
+        conn.execute(
+            "INSERT INTO tags (group_id, tag, tag_type) VALUES (?, ?, 'character')",
+            (group_id, tag),
+        )

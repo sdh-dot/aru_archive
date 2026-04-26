@@ -129,11 +129,13 @@ def _config(tmp_path: Path) -> dict:
         "classified_dir": str(classified),
         "undo_retention_days": 7,
         "classification": {
-            "enable_by_author":    True,
-            "enable_by_series":    True,
-            "enable_by_character": True,
-            "enable_by_tag":       False,
-            "on_conflict":         "rename",
+            "enable_series_character":         True,
+            "enable_series_uncategorized":     True,
+            "enable_character_without_series": True,
+            "fallback_by_author":              True,
+            "enable_by_author":                False,
+            "enable_by_tag":                   False,
+            "on_conflict":                     "rename",
         },
     }
 
@@ -273,7 +275,7 @@ class TestBuildClassifyPreview:
 
         preview = build_classify_preview(db, gid, _config(tmp_path))
         assert preview is not None
-        by_author = [d for d in preview["destinations"] if d["rule_type"] == "by_author"]
+        by_author = [d for d in preview["destinations"] if d["rule_type"] == "author_fallback"]
         assert len(by_author) == 1
         assert "ByAuthor" in by_author[0]["dest_path"]
         assert "伊落マリー" in by_author[0]["dest_path"]
@@ -289,10 +291,11 @@ class TestBuildClassifyPreview:
 
         preview = build_classify_preview(db, gid, _config(tmp_path))
         assert preview is not None
-        by_series = [d for d in preview["destinations"] if d["rule_type"] == "by_series"]
+        by_series = [d for d in preview["destinations"] if d["rule_type"] == "series_uncategorized"]
         assert len(by_series) == 1
         assert "BySeries" in by_series[0]["dest_path"]
         assert "ブルーアーカイブ" in by_series[0]["dest_path"]
+        assert "_uncategorized" in by_series[0]["dest_path"]
 
     def test_by_character_path(
         self, db: sqlite3.Connection, tmp_path: Path
@@ -304,7 +307,7 @@ class TestBuildClassifyPreview:
 
         preview = build_classify_preview(db, gid, _config(tmp_path))
         assert preview is not None
-        by_char = [d for d in preview["destinations"] if d["rule_type"] == "by_character"]
+        by_char = [d for d in preview["destinations"] if d["rule_type"] == "character"]
         assert len(by_char) == 1
         assert "ByCharacter" in by_char[0]["dest_path"]
 
@@ -358,7 +361,8 @@ class TestBuildClassifyPreview:
 
         preview = build_classify_preview(db, gid, _config(tmp_path))
         assert preview is not None
-        by_author = [d for d in preview["destinations"] if d["rule_type"] == "by_author"]
+        by_author = [d for d in preview["destinations"] if d["rule_type"] == "author_fallback"]
+        assert len(by_author) == 1
         assert "_unknown_artist" in by_author[0]["dest_path"]
 
     def test_estimated_bytes(
@@ -372,6 +376,77 @@ class TestBuildClassifyPreview:
         preview = build_classify_preview(db, gid, _config(tmp_path))
         assert preview is not None
         assert preview["estimated_bytes"] == 2048 * preview["estimated_copies"]
+
+    def test_series_character_path(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        gid = str(uuid.uuid4())
+        img = _make_file(tmp_path / "file.jpg")
+        _insert_group(db, gid,
+                      series_tags_json='["Blue Archive"]',
+                      character_tags_json='["伊落マリー"]')
+        _insert_file(db, str(uuid.uuid4()), gid, str(img))
+
+        preview = build_classify_preview(db, gid, _config(tmp_path))
+        assert preview is not None
+        sc = [d for d in preview["destinations"] if d["rule_type"] == "series_character"]
+        assert len(sc) == 1
+        assert "BySeries" in sc[0]["dest_path"]
+        assert "Blue Archive" in sc[0]["dest_path"]
+        assert "伊落マリー" in sc[0]["dest_path"]
+        assert sc[0]["dest_path"].endswith("file.jpg")
+
+    def test_series_only_uncategorized(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        gid = str(uuid.uuid4())
+        img = _make_file(tmp_path / "file.jpg")
+        _insert_group(db, gid, series_tags_json='["Blue Archive"]')
+        _insert_file(db, str(uuid.uuid4()), gid, str(img))
+
+        preview = build_classify_preview(db, gid, _config(tmp_path))
+        assert preview is not None
+        su = [d for d in preview["destinations"] if d["rule_type"] == "series_uncategorized"]
+        assert len(su) == 1
+        assert "_uncategorized" in su[0]["dest_path"]
+        assert "Blue Archive" in su[0]["dest_path"]
+
+    def test_no_author_when_series_char_present(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        gid = str(uuid.uuid4())
+        img = _make_file(tmp_path / "file.jpg")
+        _insert_group(db, gid, artist_name="작가",
+                      series_tags_json='["Blue Archive"]',
+                      character_tags_json='["伊落マリー"]')
+        _insert_file(db, str(uuid.uuid4()), gid, str(img))
+
+        preview = build_classify_preview(db, gid, _config(tmp_path))
+        assert preview is not None
+        author_dests = [
+            d for d in preview["destinations"]
+            if d["rule_type"] in ("author_fallback", "author")
+        ]
+        assert len(author_dests) == 0
+
+    def test_enable_by_author_adds_extra(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        gid = str(uuid.uuid4())
+        img = _make_file(tmp_path / "file.jpg")
+        _insert_group(db, gid, artist_name="작가",
+                      series_tags_json='["Blue Archive"]',
+                      character_tags_json='["伊落マリー"]')
+        _insert_file(db, str(uuid.uuid4()), gid, str(img))
+
+        cfg = _config(tmp_path)
+        cfg["classification"]["enable_by_author"] = True
+        preview = build_classify_preview(db, gid, cfg)
+        assert preview is not None
+        sc     = [d for d in preview["destinations"] if d["rule_type"] == "series_character"]
+        author = [d for d in preview["destinations"] if d["rule_type"] == "author"]
+        assert len(sc) == 1
+        assert len(author) == 1
 
 
 # ===========================================================================

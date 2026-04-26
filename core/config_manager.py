@@ -1,4 +1,9 @@
-"""Config 로드/저장/갱신 — Aru Archive."""
+"""
+Config 로드/저장/갱신.
+
+config.json은 사용자별 로컬 파일이므로 Git에는 올리지 않는다.
+GitHub에는 config.example.json과 이 모듈의 _DEFAULTS가 설정 계약을 설명한다.
+"""
 from __future__ import annotations
 
 import json
@@ -24,11 +29,17 @@ _DEFAULTS: dict[str, Any] = {
     "ui_language": "ko",
     "db": {"path": ""},
     "classification": {
-        "enable_by_author":    True,
-        "enable_by_series":    True,
-        "enable_by_character": True,
-        "enable_by_tag":       False,
-        "on_conflict":         "rename",
+        # primary_strategy는 현재 문서화용 값이다. 실제 분기 플래그는 아래 bool 옵션들이다.
+        "primary_strategy":               "series_character",
+        # 기본 분류는 series/character를 우선하고, 정보가 부족할 때 author로 폴백한다.
+        "enable_series_character":        True,
+        "enable_series_uncategorized":    True,
+        "enable_character_without_series": True,
+        "fallback_by_author":             True,
+        # 보조 경로. True로 켜면 위 기본 경로와 별개로 추가 복사 목적지를 만든다.
+        "enable_by_author":               False,
+        "enable_by_tag":                  False,
+        "on_conflict":                    "rename",
     },
 }
 

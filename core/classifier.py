@@ -1,11 +1,11 @@
 """
-분류 엔진 — MVP-B 1차.
+파일 분류 엔진.
 
-기본 내장 규칙:
-  Classified/ByAuthor/{artist_name}/{filename}
-  Classified/BySeries/{series_tag}/{filename}
-  Classified/ByCharacter/{character_tag}/{filename}
-  Classified/ByTag/{tag}/{filename}         ← config 기본 비활성
+역할:
+  1. 분류 가능한 artwork group인지 확인한다.
+  2. 복사 대상 파일을 고른다. managed 우선, BMP original은 제외한다.
+  3. series/character/artist/tag 정책에 따라 목적지 경로 미리보기를 만든다.
+  4. 사용자가 승인한 preview를 실제 파일 복사와 DB 기록으로 확정한다.
 
 분류 가능 상태: full | json_only | xmp_write_failed
 분류 불가 상태: pending | metadata_missing | 실패 계열 전부
@@ -76,13 +76,16 @@ def select_classify_target(
 # ---------------------------------------------------------------------------
 
 def _cls_cfg(config: dict) -> dict:
+    """classification 설정의 현재 정책값을 기본값과 병합한다."""
     c = config.get("classification", {})
     return {
-        "enable_by_author":    c.get("enable_by_author", True),
-        "enable_by_series":    c.get("enable_by_series", True),
-        "enable_by_character": c.get("enable_by_character", True),
-        "enable_by_tag":       c.get("enable_by_tag", False),
-        "on_conflict":         c.get("on_conflict", "rename"),
+        "enable_series_character":         c.get("enable_series_character", True),
+        "enable_series_uncategorized":     c.get("enable_series_uncategorized", True),
+        "enable_character_without_series": c.get("enable_character_without_series", True),
+        "fallback_by_author":              c.get("fallback_by_author", True),
+        "enable_by_author":                c.get("enable_by_author", False),
+        "enable_by_tag":                   c.get("enable_by_tag", False),
+        "on_conflict":                     c.get("on_conflict", "rename"),
     }
 
 
@@ -98,8 +101,12 @@ def _build_destinations(
 ) -> list[dict]:
     """
     그룹·파일 정보를 바탕으로 복사 목적지 목록을 만든다.
+
     각 항목: {rule_type, dest_path, conflict, will_copy}
-    conflict / will_copy는 미리보기 단계에서 실제 경로 존재 여부로 채워진다.
+    conflict / will_copy는 preview 단계에서 실제 경로 존재 여부로 채워진다.
+
+    경로 정책은 상호 배타적인 1차 목적지를 먼저 고르고, 설정에 따라
+    작성자/일반 태그 기반 보조 목적지를 추가하는 구조다.
     """
     filename  = Path(source_file["file_path"]).name
     base      = Path(classified_dir)
@@ -113,50 +120,53 @@ def _build_destinations(
             "will_copy": True,
         })
 
-    # ByAuthor
+    def _parse_json_list(raw: str | None) -> list[str]:
+        if not raw:
+            return []
+        try:
+            return [t.strip() for t in json.loads(raw) if (t or "").strip()]
+        except Exception:
+            return []
+
+    series_tags = _parse_json_list(group_row.get("series_tags_json"))
+    char_tags   = _parse_json_list(group_row.get("character_tags_json"))
+    has_series  = bool(series_tags)
+    has_char    = bool(char_tags)
+
+    # Tier 1: BySeries/{series}/{char} — 시리즈 + 캐릭터 모두 있을 때
+    if has_series and has_char and cfg["enable_series_character"]:
+        for series in series_tags:
+            s = sanitize_path_component(series)
+            for char in char_tags:
+                c = sanitize_path_component(char)
+                _add("series_character", base / "BySeries" / s / c)
+
+    # Tier 2: BySeries/{series}/_uncategorized — 시리즈만 있을 때
+    elif has_series and cfg["enable_series_uncategorized"]:
+        for series in series_tags:
+            s = sanitize_path_component(series)
+            _add("series_uncategorized", base / "BySeries" / s / "_uncategorized")
+
+    # Tier 3: ByCharacter/{char} — 캐릭터만 있을 때
+    elif has_char and cfg["enable_character_without_series"]:
+        for char in char_tags:
+            c = sanitize_path_component(char)
+            _add("character", base / "ByCharacter" / c)
+
+    # Author fallback: 시리즈/캐릭터 모두 없을 때만
+    if not has_series and not has_char and cfg["fallback_by_author"]:
+        artist = (group_row.get("artist_name") or "").strip()
+        _add("author_fallback", base / "ByAuthor" / sanitize_path_component(artist, "_unknown_artist"))
+
+    # Always-on author: 시리즈/캐릭터 유무와 무관하게 항상 추가
     if cfg["enable_by_author"]:
         artist = (group_row.get("artist_name") or "").strip()
-        folder_name = sanitize_path_component(artist, "_unknown_artist")
-        _add("by_author", base / "ByAuthor" / folder_name)
-
-    # BySeries
-    if cfg["enable_by_series"]:
-        series_raw = group_row.get("series_tags_json")
-        if series_raw:
-            try:
-                series_tags: list[str] = json.loads(series_raw)
-            except Exception:
-                series_tags = []
-            for tag in series_tags:
-                tag = (tag or "").strip()
-                if tag:
-                    _add("by_series", base / "BySeries" / sanitize_path_component(tag))
-
-    # ByCharacter
-    if cfg["enable_by_character"]:
-        char_raw = group_row.get("character_tags_json")
-        if char_raw:
-            try:
-                char_tags: list[str] = json.loads(char_raw)
-            except Exception:
-                char_tags = []
-            for tag in char_tags:
-                tag = (tag or "").strip()
-                if tag:
-                    _add("by_character", base / "ByCharacter" / sanitize_path_component(tag))
+        _add("author", base / "ByAuthor" / sanitize_path_component(artist, "_unknown_artist"))
 
     # ByTag (기본 비활성)
     if cfg["enable_by_tag"]:
-        tags_raw = group_row.get("tags_json")
-        if tags_raw:
-            try:
-                tags: list[str] = json.loads(tags_raw)
-            except Exception:
-                tags = []
-            for tag in tags:
-                tag = (tag or "").strip()
-                if tag:
-                    _add("by_tag", base / "ByTag" / sanitize_path_component(tag))
+        for tag in _parse_json_list(group_row.get("tags_json")):
+            _add("by_tag", base / "ByTag" / sanitize_path_component(tag))
 
     return dests
 
