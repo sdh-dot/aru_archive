@@ -130,6 +130,31 @@ def enrich_file_from_pixiv(
     _set_file_embedded(conn, file_id, 1)
     conn.commit()
 
+    # 7. 태그 관측 기록 + 후보 생성 (실패해도 보강 결과에는 영향 없음)
+    try:
+        from core.tag_observer import record_tag_observations
+        from core.tag_candidate_generator import generate_tag_candidates_for_group
+
+        tags_raw_list = raw.get("tags", {}).get("tags", []) if isinstance(raw, dict) else []
+        translated_tags = {
+            t.get("tag", ""): (t.get("translation") or {}).get("en", "")
+            for t in tags_raw_list
+            if t.get("tag") and (t.get("translation") or {}).get("en")
+        }
+        all_tags = meta.tags + meta.series_tags + meta.character_tags
+        record_tag_observations(
+            conn,
+            source_site="pixiv",
+            artwork_id=artwork_id,
+            group_id=group_id,
+            tags=all_tags,
+            translated_tags=translated_tags or None,
+            artist_id=meta.artist_id,
+        )
+        generate_tag_candidates_for_group(conn, group_id)
+    except Exception as exc:
+        logger.debug("태그 관측 기록 실패 (무시): %s", exc)
+
     return {
         "status": "success",
         "sync_status": sync_status,

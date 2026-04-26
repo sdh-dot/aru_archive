@@ -34,27 +34,58 @@ CHARACTER_ALIASES: dict[str, dict] = {
 }
 
 
-def classify_pixiv_tags(raw_tags: list[str]) -> dict:
+def load_db_aliases(conn) -> tuple[dict[str, str], dict[str, dict]]:
+    """DB tag_aliases (enabled=1)에서 시리즈/캐릭터 alias를 로드한다."""
+    series: dict[str, str] = {}
+    chars: dict[str, dict] = {}
+    try:
+        rows = conn.execute(
+            "SELECT alias, canonical, tag_type, parent_series "
+            "FROM tag_aliases WHERE enabled = 1"
+        ).fetchall()
+        for row in rows:
+            if row["tag_type"] == "series":
+                series[row["alias"]] = row["canonical"]
+            elif row["tag_type"] == "character":
+                chars[row["alias"]] = {
+                    "canonical": row["canonical"],
+                    "series":    row["parent_series"] or "",
+                }
+    except Exception:
+        pass
+    return series, chars
+
+
+def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
     """
     Pixiv 태그 목록을 general / series / character로 분류한다.
 
-    - SERIES_ALIASES에 있는 태그 → series_tags (canonical명)
-    - CHARACTER_ALIASES에 있는 태그 → character_tags (canonical명) + 연관 series 자동 추가
+    - SERIES_ALIASES(+ DB aliases)에 있는 태그 → series_tags (canonical명)
+    - CHARACTER_ALIASES(+ DB aliases)에 있는 태그 → character_tags (canonical명) + 연관 series 자동 추가
     - 그 외 → tags (일반 태그, 원본 순서 유지·중복 제거)
+
+    conn: sqlite3.Connection (None이면 built-in aliases만 사용)
 
     Returns:
         {"tags": [...], "series_tags": [...], "character_tags": [...]}
     """
+    series_aliases = dict(SERIES_ALIASES)
+    char_aliases   = dict(CHARACTER_ALIASES)
+    if conn is not None:
+        db_series, db_chars = load_db_aliases(conn)
+        series_aliases.update(db_series)
+        char_aliases.update(db_chars)
+
     series_set: set[str] = set()
     character_set: set[str] = set()
     classified_raw: set[str] = set()
 
     for tag in raw_tags:
-        if tag in SERIES_ALIASES:
-            series_set.add(SERIES_ALIASES[tag])
+        if tag in series_aliases:
+            series_set.add(series_aliases[tag])
             classified_raw.add(tag)
-        elif tag in CHARACTER_ALIASES:
-            info = CHARACTER_ALIASES[tag]
+        elif tag in char_aliases:
+            info = char_aliases[tag]
             character_set.add(info["canonical"])
             if info.get("series"):
                 series_set.add(info["series"])
