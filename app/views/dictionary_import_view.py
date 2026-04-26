@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
 
 logger = logging.getLogger(__name__)
 
-_SOURCE_OPTIONS = [("danbooru", "Danbooru")]
+_SOURCE_OPTIONS = [("danbooru", "Danbooru"), ("safebooru", "Safebooru")]
 
 _COLS = [
     "source", "danbooru_tag", "tag_type", "parent_series",
@@ -28,7 +28,7 @@ _COLS = [
     "confidence", "status",
 ]
 _COL_LABELS = [
-    "소스", "Danbooru 태그", "타입", "시리즈",
+    "소스", "외부 태그", "타입", "시리즈",
     "alias", "canonical", "locale", "표시명",
     "신뢰도", "상태",
 ]
@@ -48,30 +48,52 @@ class _FetchThread(QThread):
         source: str,
         series_query: str,
         char_query: str,
+        fallback_to_safebooru: bool = False,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
-        self._factory     = conn_factory
-        self._source      = source
+        self._factory      = conn_factory
+        self._source       = source
         self._series_query = series_query
         self._char_query   = char_query
+        self._fallback     = fallback_to_safebooru
+
+    def _create_adapter(self, source: str):
+        if source == "safebooru":
+            from core.dictionary_sources.safebooru_source import SafebooruSourceAdapter
+            return SafebooruSourceAdapter()
+        from core.dictionary_sources.danbooru_source import DanbooruSourceAdapter
+        return DanbooruSourceAdapter()
+
+    def _fetch_from(self, adapter, series_slug: str) -> list[dict]:
+        if self._char_query:
+            return adapter.fetch_character_candidates(series_slug, self._char_query)
+        return (
+            adapter.fetch_character_candidates(series_slug)
+            + adapter.fetch_series_candidates(self._series_query)
+        )
 
     def run(self) -> None:
         try:
-            from core.dictionary_sources.danbooru_source import DanbooruSourceAdapter
-            adapter = DanbooruSourceAdapter()
             series_slug = self._series_query.lower().replace(" ", "_")
-
             candidates: list[dict] = []
-            if self._char_query:
-                candidates += adapter.fetch_character_candidates(
-                    series_slug, self._char_query
-                )
-            else:
-                candidates += adapter.fetch_character_candidates(series_slug)
-                candidates += adapter.fetch_series_candidates(self._series_query)
 
-            # staging에 저장
+            adapter = self._create_adapter(self._source)
+            try:
+                candidates = self._fetch_from(adapter, series_slug)
+            except Exception as primary_exc:
+                if self._source == "danbooru" and self._fallback:
+                    self.err_msg.emit(
+                        f"Danbooru 오류, Safebooru로 재시도합니다: {primary_exc}"
+                    )
+                    try:
+                        fallback = self._create_adapter("safebooru")
+                        candidates = self._fetch_from(fallback, series_slug)
+                    except Exception as fallback_exc:
+                        raise fallback_exc from primary_exc
+                else:
+                    raise
+
             from core.external_dictionary import import_external_entries
             from datetime import datetime, timezone
             now = datetime.now(timezone.utc).isoformat()
@@ -85,7 +107,16 @@ class _FetchThread(QThread):
             self.done.emit(candidates)
         except Exception as exc:
             logger.error("사전 후보 수집 오류: %s", exc)
-            self.err_msg.emit(str(exc))
+            self.err_msg.emit(
+                f"후보 수집에 실패했습니다.\n\n"
+                f"가능한 원인:\n"
+                f"  - 네트워크 오류\n"
+                f"  - 사이트 접속 제한\n"
+                f"  - timeout\n"
+                f"  - API 응답 형식 변경\n\n"
+                f"Aru Archive는 기존 로컬 사전과 Pixiv 관측 데이터를 계속 사용합니다.\n"
+                f"오류: {exc}"
+            )
             self.done.emit([])
 
 
@@ -189,6 +220,10 @@ class DictionaryImportView(QDialog):
         self._btn_fetch = QPushButton("🔍 후보 수집")
         self._btn_fetch.clicked.connect(self._on_fetch)
         search_row.addWidget(self._btn_fetch)
+
+        search_row.addSpacing(16)
+        self._fallback_checkbox = QCheckBox("Danbooru 실패 시 Safebooru로 재시도")
+        search_row.addWidget(self._fallback_checkbox)
         search_row.addStretch()
         root.addLayout(search_row)
 
@@ -336,7 +371,9 @@ class DictionaryImportView(QDialog):
         query = self._query_input.text().strip()
         source = self._source_combo.currentData()
         self._fetch_thread = _FetchThread(
-            self._factory, source, series, query, self
+            self._factory, source, series, query,
+            fallback_to_safebooru=self._fallback_checkbox.isChecked(),
+            parent=self,
         )
         self._fetch_thread.done   .connect(self._on_fetch_done)
         self._fetch_thread.err_msg.connect(lambda m: self.log_msg.emit(f"[ERROR] {m}"))

@@ -180,7 +180,33 @@ grep -r "PySide6" --include="*.py" .
 
 ---
 
-## 7. 로그 파일 위치
+## 7. 외부 사전 소스 접속 불가 (External Dictionary Source Unavailable)
+
+Danbooru 또는 Safebooru에 접속할 수 없는 경우에도 Aru Archive의 핵심 기능은 계속 동작합니다.
+
+### 증상
+- `[🌐 웹 사전]` → `[🔍 후보 수집]` 클릭 후 오류 메시지 표시
+- "후보 수집에 실패했습니다" 메시지 출력
+
+### 가능한 원인
+- 네트워크 오류 또는 사이트 접속 차단
+- timeout (기본 15초)
+- API 응답 형식 변경
+
+### 해결 방법
+
+1. **다른 source 시도**: source 콤보에서 Danbooru ↔ Safebooru 전환
+2. **fallback 옵션 활성화**: "Danbooru 실패 시 Safebooru로 재시도" 체크박스 활성화
+3. **로컬 태그 팩 사용**: `[🏷 태그 후보]` 뷰에서 기존 tag_candidates 검토
+4. **기존 staged 후보 검토**: 이전에 수집한 staged 항목이 있으면 계속 사용 가능
+5. **Pixiv observation 기반 후보**: 저장된 tag_observations에서 자동 생성된 후보 확인
+
+> 외부 사전 접속 실패는 로컬 분류 / Undo / tag_aliases / tag_localizations 기능에
+> **영향을 주지 않습니다**.
+
+---
+
+## 8. 로그 파일 위치
 
 | 로그 | 경로 |
 |------|------|

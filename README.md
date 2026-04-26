@@ -77,7 +77,7 @@ Pixiv 작품 페이지에서 팝업 **저장** 버튼으로 직접 저장도 가
 QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 ```
 
-현재 589개 테스트 통과.
+현재 650개 이상 테스트 통과.
 
 ---
 
@@ -128,7 +128,7 @@ Detail 패널 `[🔄 XMP 재시도]` 또는 툴바 `[🔄 전체 XMP 재처리]`
 - **Tag Pack 시스템** — `resources/tag_packs/*.json`에서 시리즈/캐릭터 alias + 로컬라이제이션 자동 시드
 - **4단계 alias 매칭** — DB → built-in → 정규화(normalize_tag_key) 순서, 전각/공백 변형 처리
 - **미분류 태그 후보 생성** — `series_uncategorized` / `author_fallback` 감지 → `tag_candidates` 생성 (사용자 승인 필요)
-- **외부 사전 가져오기** — Danbooru에서 캐릭터/시리즈 후보 수집, confidence 점수 기반 스테이징, 사용자 승인 후 `tag_aliases` 반영 (`[🌐 웹 사전]`)
+- **외부 사전 가져오기** — Danbooru / Safebooru에서 캐릭터·시리즈 후보 수집, confidence 점수 기반 스테이징, 사용자 승인 후 `tag_aliases` 반영 (`[🌐 웹 사전]`); Danbooru 차단 시 Safebooru fallback 지원
 - 다국어 폴더명 (ko/ja/en) — `tag_localizations` DB + 내장 Blue Archive 데이터
 - 일괄 분류 (Batch Classification) — 재분류 옵션, 실패 원인 요약, Ctrl+Click 다중 선택
 - Undo 시스템, 저장 작업 실시간 모니터링
