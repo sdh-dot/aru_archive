@@ -1,54 +1,52 @@
 /**
  * Pixiv content script.
- * preload_data (window.__INITIAL_STATE__ 또는 globalThis.__NEXT_DATA__)를 추출하여
- * background service worker로 전달한다.
- *
- * MVP-A: save 버튼 메시지 수신 시 현재 페이지의 artwork 데이터를 응답한다.
+ * background service worker의 "save_artwork" 메시지에 응답하여
+ * 현재 페이지의 artwork_id, title, preload_data를 반환한다.
  */
 
 "use strict";
 
-/** Pixiv 작품 상세 페이지 URL 패턴 */
-const ARTWORK_URL_PATTERN = /^https:\/\/www\.pixiv\.net\/(?:en\/)?artworks\/(\d+)/;
-
-/**
- * window.__NEXT_DATA__ 또는 window.__INITIAL_STATE__ 에서
- * preload_data JSON을 추출한다.
- * 없으면 null 반환.
- */
-function extractPreloadData() {
-  try {
-    // Next.js 기반 (현재 Pixiv)
-    if (window.__NEXT_DATA__) {
-      const props = window.__NEXT_DATA__.props?.pageProps;
-      if (props) return props;
-    }
-    // 구형 fallback
-    if (window.__INITIAL_STATE__) {
-      return window.__INITIAL_STATE__;
-    }
-  } catch (_) {
-    // 접근 오류 무시
-  }
-  return null;
-}
-
-/**
- * 현재 URL에서 artwork_id를 추출한다.
- * artwork 상세 페이지가 아니면 null 반환.
- */
-function getArtworkId() {
-  const m = location.href.match(ARTWORK_URL_PATTERN);
+/** Pixiv 작품 URL에서 artwork_id를 추출한다 (순수 함수, 테스트 가능). */
+function extractPixivArtworkIdFromUrl(url) {
+  const m = url.match(/\/artworks\/(\d+)/);
   return m ? m[1] : null;
 }
 
 /**
- * background service worker의 "save_artwork" 메시지에 응답한다.
+ * window.__NEXT_DATA__ 또는 window.__INITIAL_STATE__에서
+ * preload_data JSON을 추출한다. 없으면 null 반환.
  */
+function extractPreloadData() {
+  try {
+    if (globalThis.__NEXT_DATA__) {
+      const props = globalThis.__NEXT_DATA__.props?.pageProps;
+      if (props) return props;
+    }
+    if (globalThis.__INITIAL_STATE__) {
+      return globalThis.__INITIAL_STATE__;
+    }
+  } catch (e) {
+    console.debug("[AruArchive] preload_data 접근 오류:", e);
+  }
+  return null;
+}
+
+/** 페이지 타이틀에서 artwork_id 이후 부분을 잘라 제목을 추출한다. */
+function extractTitle() {
+  try {
+    if (globalThis.__NEXT_DATA__?.props?.pageProps?.illust?.title) {
+      return globalThis.__NEXT_DATA__.props.pageProps.illust.title;
+    }
+  } catch (e) {
+    console.debug("[AruArchive] title 추출 오류:", e);
+  }
+  return document.title || "";
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "save_artwork") return false;
 
-  const artwork_id = getArtworkId();
+  const artwork_id = extractPixivArtworkIdFromUrl(location.href);
   if (!artwork_id) {
     sendResponse({ ok: false, error: "not_artwork_page" });
     return false;
@@ -63,7 +61,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   sendResponse({
     ok: true,
     artwork_id,
-    url: location.href,
+    url:   location.href,
+    title: extractTitle(),
     preload_data,
   });
   return false;

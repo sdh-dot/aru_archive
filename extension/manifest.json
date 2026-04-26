@@ -1,17 +1,20 @@
 {
   "manifest_version": 3,
   "name": "Aru Archive",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pixiv 작품을 Aru Archive로 저장합니다.",
 
   "permissions": [
     "nativeMessaging",
     "storage",
-    "activeTab"
+    "activeTab",
+    "contextMenus",
+    "scripting"
   ],
 
   "host_permissions": [
-    "https://www.pixiv.net/*"
+    "https://www.pixiv.net/*",
+    "https://i.pximg.net/*"
   ],
 
   "background": {

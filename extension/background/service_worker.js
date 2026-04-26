@@ -1,11 +1,15 @@
 /**
  * Aru Archive background service worker (Manifest V3).
  *
- * 역할:
- *  1. popup → SW: "save_request" 수신
- *  2. SW → content_script: "save_artwork" 전송 → preload_data 수집
- *  3. SW → native host: {type:"save", ...} 전달
- *  4. native host 응답 → popup에 결과 중계
+ * 프로토콜 v2:
+ *   SW → native host: {action, request_id, payload}
+ *   native host → SW: {success, request_id, data} | {success, request_id, error}
+ *
+ * 액션:
+ *   ping               — 연결 확인
+ *   save_pixiv_artwork — 현재 Pixiv 페이지 저장
+ *   open_main_app      — Aru Archive GUI 실행
+ *   get_job_status     — 저장 작업 상태 조회
  */
 
 "use strict";
@@ -17,80 +21,119 @@ const NATIVE_HOST = "net.aru_archive.host";
 // ---------------------------------------------------------------------------
 
 let _port = null;
-const _pendingCallbacks = new Map(); // requestId → {resolve, reject}
-let _requestCounter = 0;
+const _pending = new Map(); // request_id → {resolve, reject}
+let _reqCounter = 0;
 
 function getNativePort() {
   if (_port) return _port;
   _port = chrome.runtime.connectNative(NATIVE_HOST);
+
   _port.onMessage.addListener((msg) => {
-    const cb = _pendingCallbacks.get(msg.request_id);
+    const cb = _pending.get(msg.request_id);
     if (cb) {
-      _pendingCallbacks.delete(msg.request_id);
-      if (msg.ok) cb.resolve(msg);
-      else cb.reject(new Error(msg.error || "native_error"));
+      _pending.delete(msg.request_id);
+      if (msg.success) cb.resolve(msg.data ?? {});
+      else cb.reject(new Error(msg.error ?? "native_error"));
     }
   });
+
   _port.onDisconnect.addListener(() => {
     _port = null;
-    for (const [id, cb] of _pendingCallbacks) {
-      cb.reject(new Error("native_host_disconnected"));
-    }
-    _pendingCallbacks.clear();
+    const err = chrome.runtime.lastError?.message ?? "native_host_disconnected";
+    for (const cb of _pending.values()) cb.reject(new Error(err));
+    _pending.clear();
   });
+
   return _port;
 }
 
-function sendNative(message) {
+function sendNative(action, payload = {}) {
   return new Promise((resolve, reject) => {
-    const request_id = ++_requestCounter;
-    _pendingCallbacks.set(request_id, { resolve, reject });
+    const request_id = String(++_reqCounter);
+    _pending.set(request_id, { resolve, reject });
     try {
-      getNativePort().postMessage({ ...message, request_id });
+      getNativePort().postMessage({ action, request_id, payload });
     } catch (e) {
-      _pendingCallbacks.delete(request_id);
+      _pending.delete(request_id);
       reject(e);
     }
   });
 }
 
 // ---------------------------------------------------------------------------
+// Context menu
+// ---------------------------------------------------------------------------
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id:                  "aru_save",
+    title:               "Aru Archive에 저장",
+    contexts:            ["page"],
+    documentUrlPatterns: ["https://www.pixiv.net/*/artworks/*", "https://www.pixiv.net/artworks/*"],
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "aru_save" && tab?.id) {
+    handleSaveRequest(tab.id).catch((err) => console.error("[AruArchive] Context menu save failed:", err));
+  }
+});
+
+// ---------------------------------------------------------------------------
 // popup 메시지 처리
 // ---------------------------------------------------------------------------
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "save_request") {
     handleSaveRequest(message.tab_id)
       .then((result) => sendResponse({ ok: true, ...result }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
-    return true; // 비동기 응답
+      .catch((err)   => sendResponse({ ok: false, error: err.message }));
+    return true;
   }
+
+  if (message.type === "ping_request") {
+    sendNative("ping")
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (message.type === "job_status_request") {
+    sendNative("get_job_status", { job_id: message.job_id })
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
   return false;
 });
 
+// ---------------------------------------------------------------------------
+// 저장 흐름
+// ---------------------------------------------------------------------------
+
 async function handleSaveRequest(tabId) {
-  // 1. content_script에서 preload_data 수집
+  // content_script에서 artwork_id + preload_data 수집
   let contentResp;
   try {
     contentResp = await chrome.tabs.sendMessage(tabId, { type: "save_artwork" });
-  } catch (e) {
+  } catch {
     throw new Error("content_script_unavailable");
   }
 
   if (!contentResp.ok) {
-    throw new Error(contentResp.error || "content_script_error");
+    throw new Error(contentResp.error ?? "content_script_error");
   }
 
-  const { artwork_id, url, preload_data } = contentResp;
+  const { artwork_id, url, title, preload_data } = contentResp;
 
-  // 2. native host로 전달
-  const nativeResp = await sendNative({
-    type: "save",
-    source_site: "pixiv",
+  // native host로 save_pixiv_artwork 요청
+  const data = await sendNative("save_pixiv_artwork", {
     artwork_id,
-    url,
+    page_url:     url,
+    title,
     preload_data,
   });
 
-  return { artwork_id, job_id: nativeResp.job_id };
+  return { artwork_id, job_id: data.job_id };
 }
