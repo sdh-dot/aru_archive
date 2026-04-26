@@ -13,8 +13,7 @@ a = Analysis(
     datas=[
         (str(ROOT / "db" / "schema.sql"), "db"),
         (str(ROOT / "config.example.json"), "."),
-        (str(ROOT / "app" / "resources" / "icons" / "aru_archive_icon.ico"),
-         "app/resources/icons"),
+        (str(ROOT / "assets" / "icon"), "assets/icon"),
     ],
     hiddenimports=[
         "piexif",
@@ -52,7 +51,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(ROOT / "app" / "resources" / "icons" / "aru_archive_icon.ico"),
+    icon=str(ROOT / "assets" / "icon" / "aru_archive_icon.ico"),
 )
 
 coll = COLLECT(

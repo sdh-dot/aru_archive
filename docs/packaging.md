@@ -4,6 +4,30 @@ Aru Archive를 배포하기 위한 패키징 절차와 릴리즈 구성입니다
 
 ---
 
+## Icon Assets
+
+아이콘 리소스는 아래 원본 이미지에서 생성됩니다.
+
+- 원본: `docs/icon_1.png`
+
+생성 산출물:
+
+| 경로 | 용도 |
+|------|------|
+| `assets/icon/aru_archive_icon_master.png` | 공식 master asset (RGBA, 투명 배경) |
+| `assets/icon/aru_archive_icon.ico` | Windows 앱 / PyInstaller 아이콘 |
+| `assets/icon/aru_archive_icon_{size}.png` | 16·32·48·64·128·256·512·1024px PNG 세트 |
+| `extension/icons/icon{size}.png` | 브라우저 확장 전용 아이콘 (16·32·48·128) |
+| `docs/icon.png` | README 대표 이미지 (256px) |
+
+아이콘 재생성:
+
+```bash
+python build/generate_icons.py
+```
+
+---
+
 ## 1. 현재 배포 방법
 
 ### Python 직접 실행 (개발자 / 개인 사용)

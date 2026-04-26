@@ -1,5 +1,9 @@
 # Aru Archive
 
+<p align="center">
+  <img src="docs/icon.png" width="160" alt="Aru Archive icon">
+</p>
+
 개인 아트워크 아카이브 관리 도구.  
 Pixiv 등 소스에서 수집한 파일을 메타데이터 기반으로 분류·관리합니다.
 
