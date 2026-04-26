@@ -197,6 +197,7 @@ def execute_classify_batch(
     conn: sqlite3.Connection,
     batch_preview: dict,
     config: dict,
+    progress_fn=None,
 ) -> dict:
     """
     batch_preview를 기준으로 실제 복사를 수행한다.
@@ -236,6 +237,8 @@ def execute_classify_batch(
     group_results: list[dict] = []
 
     for preview in previews:
+        if progress_fn:
+            progress_fn(len(group_results), n_groups, preview["group_id"], "running")
         try:
             result = execute_classify_preview(
                 conn, preview, config,
@@ -250,6 +253,8 @@ def execute_classify_batch(
                 "copied":   result["copied"],
                 "skipped":  result["skipped"],
             })
+            if progress_fn:
+                progress_fn(len(group_results), n_groups, preview["group_id"], "ok")
         except Exception as exc:
             total_failed += 1
             group_results.append({
@@ -257,6 +262,8 @@ def execute_classify_batch(
                 "status":   "error",
                 "error":    str(exc),
             })
+            if progress_fn:
+                progress_fn(len(group_results), n_groups, preview["group_id"], "error")
 
     # undo_entries.undo_result_json에 요약 기록
     import json as _json

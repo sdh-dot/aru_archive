@@ -42,6 +42,22 @@ python main.py --config path/to/config.json
 
 `config.example.json`을 `config.json`으로 복사하여 `data_dir`, `inbox_dir`, `db.path`를 수정하세요.
 
+### 작업 마법사 (권장 진입점)
+
+앱 실행 후 툴바의 **[🧭 작업 마법사]** 를 클릭하면 9단계 순서형 가이드가 시작됩니다:
+
+1. **Archive Root** — 아카이브 루트 폴더 설정
+2. **Scan** — Inbox 파일 스캔
+3. **메타데이터 확인** — 상태 요약 및 경고 표시
+4. **메타데이터 보강** — Pixiv에서 메타데이터 가져오기
+5. **사전 정규화** — 태그 alias / 후보 검토
+6. **태그 재분류** — 사전 업데이트 반영
+7. **분류 미리보기** — 경로·위험도 확인
+8. **분류 실행** — Classified 폴더에 복사
+9. **결과 / Undo** — 작업 이력 및 Undo
+
+자세한 설명: [docs/workflow-wizard.md](docs/workflow-wizard.md)
+
 ---
 
 ## 브라우저 확장 설치
@@ -77,22 +93,65 @@ Pixiv 작품 페이지에서 팝업 **저장** 버튼으로 직접 저장도 가
 QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 ```
 
-현재 700개 이상 테스트 통과.
+현재 750개 이상 테스트 통과.
 
 ---
 
-## ExifTool XMP 설정 (선택)
+## Bundled ExifTool (내장 ExifTool)
 
-ExifTool이 설치되어 있으면 저장·보강 시 XMP 표준 필드를 자동 기록합니다.
+Aru Archive는 XMP 메타데이터 기록을 위해 Portable ExifTool을 내장할 수 있습니다.
 
-1. [ExifTool](https://exiftool.org/) 다운로드 후 임의 폴더에 배치
-2. `설정 → 고급 → ExifTool 경로`에 실행 파일 경로 지정
+### 내장 ExifTool 배치 경로
 
-   ```json
-   { "exiftool_path": "C:/exiftool/exiftool.exe" }
-   ```
+```text
+tools/
+└── exiftool/
+    ├── exiftool.exe          ← 실행 파일
+    └── exiftool_files/       ← Perl 런타임 및 라이브러리
+```
 
-3. ExifTool 없이 실행하면 AruArchive JSON만 기록 (`json_only` 상태 유지)
+> Windows 공식 배포판은 `exiftool(-k).exe` 이름으로 배포됩니다.  
+> `exiftool.exe` 로 이름을 변경하면 표준 동작이 됩니다.  
+> 이름 변경 없이 `exiftool(-k).exe` 를 그대로 두어도 자동 탐색됩니다.
+
+### 탐색 우선순위
+
+| 순서 | 경로 |
+|------|------|
+| 1 | `config.json`의 `exiftool_path` |
+| 2 | `tools/exiftool/exiftool.exe` (개발 / onedir 배포) |
+| 3 | `sys._MEIPASS/tools/exiftool/exiftool.exe` (onefile 배포) |
+| 4 | 시스템 PATH의 `exiftool` |
+| 5 | (없으면) `json_only` 유지 |
+
+`config.json`의 `exiftool_path`를 `null` 또는 생략하면 자동 탐색합니다:
+
+```json
+{ "exiftool_path": null }
+```
+
+### 번들 검증
+
+```bash
+python build/check_exiftool_bundle.py
+```
+
+### 라이선스
+
+ExifTool은 Phil Harvey가 개발했으며 Artistic License 또는 GPL v2 이상으로 배포됩니다.  
+→ [LICENSES/ExifTool.txt](LICENSES/ExifTool.txt)
+
+---
+
+## ExifTool XMP 설정 (사용자 지정 경로)
+
+내장 ExifTool 대신 별도 설치 버전을 사용하려면 config.json에 경로를 지정합니다:
+
+```json
+{ "exiftool_path": "C:/exiftool/exiftool.exe" }
+```
+
+ExifTool이 없으면 AruArchive JSON만 기록됩니다 (`json_only` 상태 유지).
 
 기록되는 XMP 필드: `XMP-dc:Title/Creator/Subject/Source/Identifier`,  
 `XMP:MetadataDate`, `XMP:Rating`, `XMP:Label`

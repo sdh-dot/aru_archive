@@ -14,6 +14,10 @@ a = Analysis(
         (str(ROOT / "db" / "schema.sql"), "db"),
         (str(ROOT / "config.example.json"), "."),
         (str(ROOT / "assets" / "icon"), "assets/icon"),
+        # Bundled ExifTool — Windows portable 배포에 포함
+        # onedir: dist/aru_archive/tools/exiftool/
+        # onefile: sys._MEIPASS/tools/exiftool/ (임시 압축 해제)
+        (str(ROOT / "tools" / "exiftool"), "tools/exiftool"),
     ],
     hiddenimports=[
         "piexif",

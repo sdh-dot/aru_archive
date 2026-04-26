@@ -1,0 +1,1417 @@
+"""
+Aru Archive 작업 마법사.
+
+9단계 순서형 워크플로우로 Archive Root 설정부터 분류 실행·결과 확인까지 안내한다.
+
+  1. Archive Root
+  2. Scan / Load
+  3. Metadata Check
+  4. Metadata Enrichment
+  5. Dictionary / Tag Normalization
+  6. Tag Reclassification
+  7. Classification Preview
+  8. Execute Classification
+  9. Result / Undo
+
+기존 버튼은 "고급 도구"로 유지되며, 이 wizard가 기본 진입점이다.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import subprocess
+import sys
+from pathlib import Path
+from typing import Optional
+
+from PyQt6.QtCore import Qt, QThread, pyqtSignal as Signal
+from PyQt6.QtWidgets import (
+    QCheckBox, QComboBox, QDialog, QFileDialog,
+    QFrame, QHBoxLayout, QLabel, QMessageBox,
+    QProgressBar, QPushButton, QScrollArea, QSizePolicy, QSplitter,
+    QStackedWidget, QTableWidget, QTableWidgetItem,
+    QTextEdit, QVBoxLayout, QWidget,
+)
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# 상수
+# ---------------------------------------------------------------------------
+
+_STEPS = [
+    (1, "Root",     "Archive Root"),
+    (2, "Scan",     "Scan / Load"),
+    (3, "Metadata", "메타데이터 확인"),
+    (4, "Enrich",   "메타데이터 보강"),
+    (5, "Dict",     "사전 정규화"),
+    (6, "Retag",    "태그 재분류"),
+    (7, "Preview",  "분류 미리보기"),
+    (8, "Execute",  "분류 실행"),
+    (9, "Result",   "결과 / Undo"),
+]
+
+_RISK_STYLE = {
+    "low":    "color:#5CDB8F; font-weight:bold;",
+    "medium": "color:#FFD166; font-weight:bold;",
+    "high":   "color:#FF6B7A; font-weight:bold;",
+}
+
+_LOCALE_OPTIONS = [
+    ("canonical", "canonical (변경 없음)"),
+    ("ko", "한국어"),
+    ("ja", "일본어"),
+    ("en", "영어"),
+]
+
+_SCOPE_OPTIONS = [
+    ("all_classifiable", "전체 분류 가능 항목"),
+    ("current_filter",   "현재 목록 (메인 창 필터)"),
+]
+
+
+# ---------------------------------------------------------------------------
+# 배경 스레드
+# ---------------------------------------------------------------------------
+
+class _ScanThread(QThread):
+    log_msg  = Signal(str)
+    done     = Signal(dict)   # {"new": N, "skipped": N, "failed": N}
+
+    def __init__(self, data_dir: str, inbox: str, db_path: str, parent=None):
+        super().__init__(parent)
+        self._data_dir = data_dir
+        self._inbox    = inbox
+        self._db_path  = db_path
+
+    def run(self) -> None:
+        from db.database import initialize_database
+        from core.inbox_scanner import InboxScanner
+        conn = initialize_database(self._db_path)
+        try:
+            scanner = InboxScanner(conn, self._data_dir, log_fn=self.log_msg.emit)
+            result  = scanner.scan(self._inbox)
+            conn.commit()
+            self.done.emit({"new": result.new, "skipped": result.skipped, "failed": result.failed})
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] 스캔 실패: {exc}")
+            self.done.emit({"new": 0, "skipped": 0, "failed": 1})
+        finally:
+            conn.close()
+
+
+class _EnrichThread(QThread):
+    log_msg  = Signal(str)
+    progress = Signal(int, int)  # (done, total)
+    done     = Signal(dict)      # {"success": N, "failed": N, "skipped": N}
+
+    def __init__(self, db_path: str, exiftool_path: Optional[str], parent=None):
+        super().__init__(parent)
+        self._db_path       = db_path
+        self._exiftool_path = exiftool_path
+
+    def run(self) -> None:
+        from db.database import initialize_database
+        from core.metadata_enricher import enrich_file_from_pixiv
+        conn = initialize_database(self._db_path)
+        try:
+            # metadata_missing AND artwork_id not empty
+            rows = conn.execute(
+                "SELECT af.file_id FROM artwork_files af "
+                "JOIN artwork_groups ag ON ag.group_id = af.group_id "
+                "WHERE ag.metadata_sync_status = 'metadata_missing' "
+                "  AND (ag.artwork_id IS NOT NULL AND ag.artwork_id != '') "
+                "  AND af.file_role = 'original' "
+                "ORDER BY ag.indexed_at DESC"
+            ).fetchall()
+            total   = len(rows)
+            success = failed = skipped = 0
+            for idx, row in enumerate(rows):
+                self.progress.emit(idx + 1, total)
+                try:
+                    r = enrich_file_from_pixiv(conn, row["file_id"], exiftool_path=self._exiftool_path)
+                    if r.get("status") == "success":
+                        success += 1
+                    elif r.get("status") in ("no_artwork_id", "not_found"):
+                        skipped += 1
+                    else:
+                        failed += 1
+                except Exception as exc:
+                    self.log_msg.emit(f"[ERROR] 보강 실패 ({row['file_id'][:8]}): {exc}")
+                    failed += 1
+            conn.commit()
+            self.done.emit({"success": success, "failed": failed, "skipped": skipped})
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] 보강 스레드 예외: {exc}")
+            self.done.emit({"success": 0, "failed": 0, "skipped": 0})
+        finally:
+            conn.close()
+
+
+class _RetagThread(QThread):
+    log_msg = Signal(str)
+    done    = Signal(int)   # retagged count
+
+    def __init__(self, db_path: str, parent=None):
+        super().__init__(parent)
+        self._db_path = db_path
+
+    def run(self) -> None:
+        from db.database import initialize_database
+        from core.tag_reclassifier import retag_groups_from_existing_tags
+        conn = initialize_database(self._db_path)
+        try:
+            rows = conn.execute(
+                "SELECT group_id FROM artwork_groups ORDER BY indexed_at DESC"
+            ).fetchall()
+            group_ids = [r["group_id"] for r in rows]
+            retag_groups_from_existing_tags(conn, group_ids)
+            self.done.emit(len(group_ids))
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] 태그 재분류 실패: {exc}")
+            self.done.emit(0)
+        finally:
+            conn.close()
+
+
+class _PreviewThread(QThread):
+    log_msg = Signal(str)
+    done    = Signal(dict)
+
+    def __init__(self, conn_factory, group_ids: list[str], config: dict, parent=None):
+        super().__init__(parent)
+        self._factory   = conn_factory
+        self._group_ids = group_ids
+        self._config    = config
+
+    def run(self) -> None:
+        from core.batch_classifier import build_classify_batch_preview
+        conn = self._factory()
+        try:
+            result = build_classify_batch_preview(conn, self._group_ids, self._config)
+            self.done.emit(result)
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] 미리보기 실패: {exc}")
+            self.done.emit({})
+        finally:
+            conn.close()
+
+
+class _ExecuteThread(QThread):
+    log_msg = Signal(str)
+    progress = Signal(int, int, str)
+    done    = Signal(dict)
+
+    def __init__(self, conn_factory, batch_preview: dict, config: dict, parent=None):
+        super().__init__(parent)
+        self._factory       = conn_factory
+        self._batch_preview = batch_preview
+        self._config        = config
+
+    def run(self) -> None:
+        from core.batch_classifier import execute_classify_batch
+        conn = self._factory()
+        try:
+            total = len(self._batch_preview.get("previews", []))
+            self.log_msg.emit(f"[INFO] 일괄 분류 실행 시작: {total}개 그룹")
+
+            def _progress(done: int, total_groups: int, group_id: str, status: str) -> None:
+                label = {
+                    "running": "처리 중",
+                    "ok":      "완료",
+                    "error":   "오류",
+                }.get(status, status)
+                self.progress.emit(done, total_groups, f"{label}: {group_id[:8]}…")
+                if status != "running":
+                    self.log_msg.emit(
+                        f"[INFO] 분류 진행: {done}/{total_groups} — {label} ({group_id[:8]}…)"
+                    )
+
+            result = execute_classify_batch(
+                conn, self._batch_preview, self._config, progress_fn=_progress
+            )
+            self.done.emit(result)
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] 실행 실패: {exc}")
+            self.done.emit({"success": False, "error": str(exc)})
+        finally:
+            conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 공통 헬퍼
+# ---------------------------------------------------------------------------
+
+def _h_sep() -> QFrame:
+    f = QFrame()
+    f.setFrameShape(QFrame.Shape.HLine)
+    f.setFrameShadow(QFrame.Shadow.Sunken)
+    return f
+
+
+def _label(text: str, bold: bool = False) -> QLabel:
+    lbl = QLabel(text)
+    if bold:
+        lbl.setStyleSheet("font-weight: bold;")
+    return lbl
+
+
+def _kv_table(rows: list[tuple[str, str]]) -> QTableWidget:
+    """키-값 2열 테이블을 생성한다."""
+    tbl = QTableWidget(len(rows), 2)
+    tbl.setHorizontalHeaderLabels(["항목", "값"])
+    tbl.horizontalHeader().setStretchLastSection(True)
+    tbl.verticalHeader().setVisible(False)
+    tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+    tbl.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+    tbl.setMaximumHeight(min(len(rows) * 26 + 30, 360))
+    for r, (k, v) in enumerate(rows):
+        tbl.setItem(r, 0, QTableWidgetItem(k))
+        tbl.setItem(r, 1, QTableWidgetItem(str(v)))
+    return tbl
+
+
+def _fmt_size(b: int) -> str:
+    if b >= 1024 ** 3:
+        return f"{b / (1024 ** 3):.1f} GB"
+    if b >= 1024 ** 2:
+        return f"{b / (1024 ** 2):.1f} MB"
+    if b >= 1024:
+        return f"{b / 1024:.1f} KB"
+    return f"{b} B"
+
+
+# ---------------------------------------------------------------------------
+# 개별 단계 패널
+# ---------------------------------------------------------------------------
+
+class _StepPanel(QWidget):
+    """모든 단계 패널의 기반 클래스."""
+
+    log_msg = Signal(str)
+    refresh_main = Signal()   # MainWindow에 갱신 요청
+
+    def __init__(self, wizard: "WorkflowWizardView", parent=None):
+        super().__init__(parent)
+        self._wizard = wizard
+
+    def _conn_factory(self):
+        return self._wizard._conn_factory()
+
+    def _config(self) -> dict:
+        return self._wizard._config
+
+    def _db_path(self) -> str:
+        return self._wizard._db_path()
+
+    def refresh(self) -> None:
+        """단계 데이터 새로고침. 서브클래스에서 오버라이드."""
+
+
+# ── Step 1: Archive Root ────────────────────────────────────────────────────
+
+class _Step1Root(_StepPanel):
+    def __init__(self, wizard, parent=None):
+        super().__init__(wizard, parent)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        layout.addWidget(_label("Archive Root 설정", bold=True))
+        layout.addWidget(_h_sep())
+
+        self._status_table = QTableWidget(0, 2)
+        self._status_table.setHorizontalHeaderLabels(["항목", "상태"])
+        self._status_table.horizontalHeader().setStretchLastSection(True)
+        self._status_table.verticalHeader().setVisible(False)
+        self._status_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._status_table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        layout.addWidget(self._status_table)
+
+        btn_row = QHBoxLayout()
+        btn_select = QPushButton("📁 Archive Root 선택")
+        btn_open   = QPushButton("📂 폴더 열기")
+        btn_select.clicked.connect(self._on_select_root)
+        btn_open  .clicked.connect(self._on_open_folder)
+        btn_row.addWidget(btn_select)
+        btn_row.addWidget(btn_open)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+        layout.addStretch()
+
+    def refresh(self) -> None:
+        cfg = self._config()
+        data_dir = cfg.get("data_dir", "")
+        inbox    = cfg.get("inbox_dir") or (f"{data_dir}/Inbox" if data_dir else "")
+        db_path  = cfg.get("db", {}).get("path") or (
+            f"{data_dir}/.runtime/aru_archive.db" if data_dir else ""
+        )
+
+        def _chk(path: str) -> str:
+            if not path:
+                return "⚠ 미설정"
+            return "✅ 존재" if Path(path).exists() else "❌ 없음"
+
+        db_ok = False
+        if db_path and Path(db_path).exists():
+            try:
+                from db.database import initialize_database
+                c = initialize_database(db_path)
+                c.execute("SELECT 1 FROM artwork_groups LIMIT 1")
+                c.close()
+                db_ok = True
+            except Exception:
+                pass
+
+        rows = [
+            ("Archive Root",  data_dir or "미설정"),
+            ("Inbox 폴더",    _chk(inbox)),
+            ("Classified 폴더", _chk(f"{data_dir}/Classified" if data_dir else "")),
+            ("Managed 폴더",  _chk(f"{data_dir}/Managed" if data_dir else "")),
+            (".thumbcache",   _chk(f"{data_dir}/.thumbcache" if data_dir else "")),
+            (".runtime",      _chk(f"{data_dir}/.runtime" if data_dir else "")),
+            ("DB 파일",       "✅ 정상" if db_ok else ("❌ 연결 실패" if db_path else "⚠ 미설정")),
+        ]
+        self._status_table.setRowCount(len(rows))
+        for r, (k, v) in enumerate(rows):
+            self._status_table.setItem(r, 0, QTableWidgetItem(k))
+            self._status_table.setItem(r, 1, QTableWidgetItem(v))
+
+    def _on_select_root(self) -> None:
+        cfg   = self._config()
+        start = cfg.get("data_dir") or str(Path.home())
+        path  = QFileDialog.getExistingDirectory(self, "Archive Root 폴더 선택", start)
+        if not path:
+            return
+        from core.config_manager import update_archive_root, save_config
+        update_archive_root(cfg, path)
+        for sub in ["Inbox", "Classified", "Managed", ".thumbcache", ".runtime"]:
+            (Path(path) / sub).mkdir(parents=True, exist_ok=True)
+        try:
+            save_config(cfg, self._wizard._config_path)
+        except Exception as exc:
+            logger.warning("config 저장 실패: %s", exc)
+        self.refresh()
+        self.refresh_main.emit()
+
+    def _on_open_folder(self) -> None:
+        data_dir = self._config().get("data_dir", "")
+        if not data_dir:
+            return
+        try:
+            if sys.platform == "win32":
+                subprocess.Popen(["explorer", data_dir])
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", data_dir])
+            else:
+                subprocess.Popen(["xdg-open", data_dir])
+        except Exception as exc:
+            logger.warning("폴더 열기 실패: %s", exc)
+
+
+# ── Step 2: Scan / Load ─────────────────────────────────────────────────────
+
+class _Step2Scan(_StepPanel):
+    def __init__(self, wizard, parent=None):
+        super().__init__(wizard, parent)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        layout.addWidget(_label("Inbox 스캔 / 파일 로드", bold=True))
+        layout.addWidget(_h_sep())
+
+        self._tbl = _kv_table([])
+        layout.addWidget(self._tbl)
+
+        self._last_result_lbl = QLabel("")
+        layout.addWidget(self._last_result_lbl)
+
+        btn_row = QHBoxLayout()
+        self._btn_scan = QPushButton("🔍 Inbox 스캔 실행")
+        self._btn_scan.clicked.connect(self._on_scan)
+        btn_row.addWidget(self._btn_scan)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+        layout.addStretch()
+
+        self._scan_thread: Optional[_ScanThread] = None
+
+    def refresh(self) -> None:
+        cfg      = self._config()
+        data_dir = cfg.get("data_dir", "")
+        inbox    = cfg.get("inbox_dir") or (f"{data_dir}/Inbox" if data_dir else "")
+        db_path  = self._db_path()
+
+        total_groups = files_count = inbox_files = 0
+        ext_counts: dict = {}
+        try:
+            conn = self._conn_factory()
+            row  = conn.execute("SELECT COUNT(*) FROM artwork_groups").fetchone()
+            total_groups = row[0] if row else 0
+            row  = conn.execute("SELECT COUNT(*) FROM artwork_files").fetchone()
+            files_count = row[0] if row else 0
+            for r in conn.execute(
+                "SELECT file_format, COUNT(*) AS cnt FROM artwork_files GROUP BY file_format"
+            ).fetchall():
+                ext_counts[r["file_format"]] = r["cnt"]
+            conn.close()
+        except Exception:
+            pass
+
+        if inbox and Path(inbox).exists():
+            inbox_files = sum(
+                1 for p in Path(inbox).rglob("*")
+                if p.is_file() and p.suffix.lower() in
+                   {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".zip"}
+            )
+
+        rows: list[tuple[str, str]] = [
+            ("Inbox 폴더",        inbox or "미설정"),
+            ("Inbox 파일 수",     str(inbox_files)),
+            ("DB artwork_groups", str(total_groups)),
+            ("DB artwork_files",  str(files_count)),
+        ]
+        for ext, cnt in sorted(ext_counts.items()):
+            rows.append((f"  {ext.upper()}", str(cnt)))
+
+        self._tbl.setRowCount(len(rows))
+        for r, (k, v) in enumerate(rows):
+            self._tbl.setItem(r, 0, QTableWidgetItem(k))
+            self._tbl.setItem(r, 1, QTableWidgetItem(v))
+
+    def _on_scan(self) -> None:
+        if self._scan_thread and self._scan_thread.isRunning():
+            return
+        cfg      = self._config()
+        data_dir = cfg.get("data_dir", "")
+        inbox    = cfg.get("inbox_dir") or (f"{data_dir}/Inbox" if data_dir else "")
+        db_path  = self._db_path()
+        if not inbox:
+            QMessageBox.warning(self, "설정 필요", "먼저 Archive Root를 설정하세요.")
+            return
+        self._btn_scan.setEnabled(False)
+        self._btn_scan.setText("스캔 중…")
+        self._scan_thread = _ScanThread(data_dir, inbox, db_path, self)
+        self._scan_thread.log_msg.connect(self.log_msg)
+        self._scan_thread.done.connect(self._on_scan_done)
+        self._scan_thread.start()
+
+    def _on_scan_done(self, result: dict) -> None:
+        self._btn_scan.setEnabled(True)
+        self._btn_scan.setText("🔍 Inbox 스캔 실행")
+        self._last_result_lbl.setText(
+            f"완료 — 신규: {result['new']}, 스킵: {result['skipped']}, 실패: {result['failed']}"
+        )
+        self.refresh()
+        self.refresh_main.emit()
+
+
+# ── Step 3: Metadata Check ──────────────────────────────────────────────────
+
+class _Step3Meta(_StepPanel):
+    def __init__(self, wizard, parent=None):
+        super().__init__(wizard, parent)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        layout.addWidget(_label("파일 상태 분석", bold=True))
+        layout.addWidget(_h_sep())
+
+        self._tbl = _kv_table([])
+        layout.addWidget(self._tbl)
+
+        self._warnings_lbl = QLabel("")
+        self._warnings_lbl.setWordWrap(True)
+        layout.addWidget(self._warnings_lbl)
+        layout.addStretch()
+
+    def refresh(self) -> None:
+        from core.workflow_summary import build_workflow_file_status_summary, classify_workflow_warnings
+        try:
+            conn = self._conn_factory()
+            fs   = build_workflow_file_status_summary(conn)
+            conn.close()
+        except Exception as exc:
+            self._tbl.setRowCount(1)
+            self._tbl.setItem(0, 0, QTableWidgetItem("오류"))
+            self._tbl.setItem(0, 1, QTableWidgetItem(str(exc)))
+            return
+
+        status_counts = fs.get("metadata_status_counts", {})
+        rows: list[tuple[str, str]] = [
+            ("총 작품 수",           str(fs.get("total_groups", 0))),
+            ("Inbox 상태",          str(fs.get("inbox_count", 0))),
+            ("Classified 상태",     str(fs.get("classified_count", 0))),
+            ("분류 가능",            str(fs.get("classifiable", 0))),
+            ("분류 제외",            str(fs.get("excluded", 0))),
+            ("XMP 기록 가능",        str(fs.get("xmp_capable", 0))),
+            ("Pixiv ID 보유",        str(fs.get("pixiv_id_extractable", 0))),
+            ("Pixiv ID 없음",        str(fs.get("pixiv_id_missing", 0))),
+        ]
+        for status, cnt in sorted(status_counts.items(), key=lambda x: -x[1]):
+            rows.append((f"  {status}", str(cnt)))
+
+        self._tbl.setRowCount(len(rows))
+        self._tbl.setMaximumHeight(min(len(rows) * 26 + 30, 400))
+        for r, (k, v) in enumerate(rows):
+            self._tbl.setItem(r, 0, QTableWidgetItem(k))
+            self._tbl.setItem(r, 1, QTableWidgetItem(v))
+
+        try:
+            from core.workflow_summary import build_dictionary_status_summary
+            conn2 = self._conn_factory()
+            ds    = build_dictionary_status_summary(conn2)
+            conn2.close()
+            warns = classify_workflow_warnings(fs, ds)
+        except Exception:
+            warns = []
+
+        if warns:
+            txt = "\n".join(
+                f"{'⚠' if w['level']=='warning' else ('❌' if w['level']=='danger' else 'ℹ')} {w['message']}"
+                for w in warns
+            )
+            self._warnings_lbl.setText(txt)
+        else:
+            self._warnings_lbl.setText("✅ 상태 이상 없음")
+
+
+# ── Step 4: Metadata Enrichment ─────────────────────────────────────────────
+
+class _Step4Enrich(_StepPanel):
+    def __init__(self, wizard, parent=None):
+        super().__init__(wizard, parent)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        layout.addWidget(_label("메타데이터 보강 (Pixiv)", bold=True))
+        layout.addWidget(_h_sep())
+
+        self._tbl = _kv_table([])
+        layout.addWidget(self._tbl)
+
+        self._progress_lbl = QLabel("")
+        layout.addWidget(self._progress_lbl)
+
+        layout.addWidget(QLabel(
+            "ℹ Pixiv ID가 있는 metadata_missing 항목만 보강합니다.\n"
+            "  Pixiv ID 없는 항목은 SauceNao 등으로 수동 처리하세요."
+        ))
+
+        btn_row = QHBoxLayout()
+        self._btn_enrich = QPushButton("🔄 Pixiv ID 추출 가능 항목 보강")
+        self._btn_enrich.clicked.connect(self._on_enrich)
+        btn_row.addWidget(self._btn_enrich)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+        layout.addStretch()
+
+        self._enrich_thread: Optional[_EnrichThread] = None
+
+    def refresh(self) -> None:
+        from core.workflow_summary import build_workflow_file_status_summary
+        try:
+            conn = self._conn_factory()
+            fs   = build_workflow_file_status_summary(conn)
+            conn.close()
+        except Exception:
+            return
+        missing  = fs.get("metadata_status_counts", {}).get("metadata_missing", 0)
+        rows = [
+            ("metadata_missing",      str(missing)),
+            ("Pixiv ID 있음 (보강 가능)", str(fs.get("pixiv_id_extractable", 0))),
+            ("Pixiv ID 없음",         str(fs.get("pixiv_id_missing", 0))),
+        ]
+        self._tbl.setRowCount(len(rows))
+        for r, (k, v) in enumerate(rows):
+            self._tbl.setItem(r, 0, QTableWidgetItem(k))
+            self._tbl.setItem(r, 1, QTableWidgetItem(v))
+
+    def _on_enrich(self) -> None:
+        if self._enrich_thread and self._enrich_thread.isRunning():
+            return
+        db_path = self._db_path()
+        from core.exiftool_resolver import resolve_exiftool_path
+        exiftool = resolve_exiftool_path(self._config())
+        self._btn_enrich.setEnabled(False)
+        self._btn_enrich.setText("보강 중…")
+        self._enrich_thread = _EnrichThread(db_path, exiftool, self)
+        self._enrich_thread.log_msg .connect(self.log_msg)
+        self._enrich_thread.progress.connect(
+            lambda done, total: self._progress_lbl.setText(f"진행: {done}/{total}")
+        )
+        self._enrich_thread.done.connect(self._on_enrich_done)
+        self._enrich_thread.start()
+
+    def _on_enrich_done(self, result: dict) -> None:
+        self._btn_enrich.setEnabled(True)
+        self._btn_enrich.setText("🔄 Pixiv ID 추출 가능 항목 보강")
+        self._progress_lbl.setText(
+            f"완료 — 성공: {result['success']}, 실패: {result['failed']}, 스킵: {result['skipped']}"
+        )
+        self.refresh()
+        self.refresh_main.emit()
+
+
+# ── Step 5: Dictionary / Tag Normalization ───────────────────────────────────
+
+class _Step5Dict(_StepPanel):
+    def __init__(self, wizard, parent=None):
+        super().__init__(wizard, parent)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        layout.addWidget(_label("사전 / 태그 정규화 상태", bold=True))
+        layout.addWidget(_h_sep())
+
+        self._tbl = _kv_table([])
+        layout.addWidget(self._tbl)
+
+        self._warn_lbl = QLabel("")
+        self._warn_lbl.setWordWrap(True)
+        layout.addWidget(self._warn_lbl)
+
+        btn_row = QHBoxLayout()
+        for label, handler in [
+            ("🏷 후보 태그",     self._open_candidates),
+            ("🌐 웹 사전",       self._open_dict_import),
+            ("📤 사전 내보내기", self._export_dict),
+        ]:
+            b = QPushButton(label)
+            b.clicked.connect(handler)
+            btn_row.addWidget(b)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+        layout.addStretch()
+
+    def refresh(self) -> None:
+        from core.workflow_summary import build_dictionary_status_summary
+        try:
+            conn = self._conn_factory()
+            ds   = build_dictionary_status_summary(conn)
+            conn.close()
+        except Exception as exc:
+            return
+
+        rows = [
+            ("tag_aliases (전체)",         str(ds.get("tag_aliases_count", 0))),
+            ("  series aliases",           str(ds.get("series_aliases_count", 0))),
+            ("  character aliases",        str(ds.get("character_aliases_count", 0))),
+            ("tag_localizations",          str(ds.get("tag_localizations_count", 0))),
+            ("pending 태그 후보",          str(ds.get("pending_candidates", 0))),
+            ("외부 사전 staged",           str(ds.get("staged_external_entries", 0))),
+            ("외부 사전 accepted",         str(ds.get("accepted_external_entries", 0))),
+            ("classification_failure 후보", str(ds.get("classification_failure_candidates", 0))),
+        ]
+        self._tbl.setRowCount(len(rows))
+        for r, (k, v) in enumerate(rows):
+            self._tbl.setItem(r, 0, QTableWidgetItem(k))
+            self._tbl.setItem(r, 1, QTableWidgetItem(v))
+
+        warns = []
+        if ds.get("pending_candidates", 0) > 0:
+            warns.append(f"⚠ pending 후보 {ds['pending_candidates']}개 — [후보 태그]에서 승인/거부하세요.")
+        if ds.get("staged_external_entries", 0) > 0:
+            warns.append(f"ℹ staged 외부 사전 {ds['staged_external_entries']}개 — [웹 사전]에서 승인하세요.")
+        self._warn_lbl.setText("\n".join(warns) if warns else "✅ 검토 대기 항목 없음")
+
+    def _open_candidates(self) -> None:
+        try:
+            from app.views.tag_candidate_view import TagCandidateView
+            conn = self._conn_factory()
+            dlg  = TagCandidateView(conn, parent=self._wizard)
+            dlg.exec()
+            conn.close()
+            self.refresh()
+        except Exception as exc:
+            QMessageBox.critical(self._wizard, "오류", str(exc))
+
+    def _open_dict_import(self) -> None:
+        try:
+            from app.views.dictionary_import_view import DictionaryImportView
+            dlg = DictionaryImportView(self._conn_factory, parent=self._wizard)
+            dlg.exec()
+            self.refresh()
+        except Exception as exc:
+            QMessageBox.critical(self._wizard, "오류", str(exc))
+
+    def _export_dict(self) -> None:
+        try:
+            path, _ = QFileDialog.getSaveFileName(
+                self._wizard, "사전 내보내기", "tag_pack_export.json", "JSON 파일 (*.json)"
+            )
+            if not path:
+                return
+            from core.tag_pack_exporter import export_public_tag_pack, save_to_file
+            conn = self._conn_factory()
+            pack_id = Path(path).stem
+            data = export_public_tag_pack(conn, pack_id, pack_id.replace("_", " ").title())
+            conn.close()
+            save_to_file(data, path)
+            self.log_msg.emit(f"[INFO] 사전 내보내기 완료: {path}")
+        except Exception as exc:
+            QMessageBox.critical(self._wizard, "오류", str(exc))
+
+
+# ── Step 6: Tag Reclassification ────────────────────────────────────────────
+
+class _Step6Retag(_StepPanel):
+    def __init__(self, wizard, parent=None):
+        super().__init__(wizard, parent)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        layout.addWidget(_label("태그 재분류", bold=True))
+        layout.addWidget(_h_sep())
+
+        self._tbl = _kv_table([])
+        layout.addWidget(self._tbl)
+
+        layout.addWidget(QLabel(
+            "⚠ 사전(aliases) 변경 후 태그 재분류를 하지 않으면\n"
+            "  분류 결과(series_tags / character_tags)가 갱신되지 않습니다."
+        ))
+
+        self._result_lbl = QLabel("")
+        layout.addWidget(self._result_lbl)
+
+        btn_row = QHBoxLayout()
+        self._btn_retag = QPushButton("🏷 전체 태그 재분류")
+        self._btn_retag.clicked.connect(self._on_retag_all)
+        btn_row.addWidget(self._btn_retag)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+        layout.addStretch()
+
+        self._retag_thread: Optional[_RetagThread] = None
+
+    def refresh(self) -> None:
+        try:
+            conn = self._conn_factory()
+            total = conn.execute("SELECT COUNT(*) FROM artwork_groups").fetchone()[0]
+            classifiable = conn.execute(
+                "SELECT COUNT(*) FROM artwork_groups "
+                "WHERE metadata_sync_status IN ('full','json_only','xmp_write_failed')"
+            ).fetchone()[0]
+            has_char = conn.execute(
+                "SELECT COUNT(*) FROM artwork_groups "
+                "WHERE character_tags_json IS NOT NULL AND character_tags_json != '[]'"
+            ).fetchone()[0]
+            conn.close()
+        except Exception:
+            return
+
+        rows = [
+            ("총 작품 수",           str(total)),
+            ("분류 가능",            str(classifiable)),
+            ("character_tags 있음",  str(has_char)),
+            ("character_tags 없음",  str(classifiable - has_char)),
+        ]
+        self._tbl.setRowCount(len(rows))
+        for r, (k, v) in enumerate(rows):
+            self._tbl.setItem(r, 0, QTableWidgetItem(k))
+            self._tbl.setItem(r, 1, QTableWidgetItem(v))
+
+    def _on_retag_all(self) -> None:
+        if self._retag_thread and self._retag_thread.isRunning():
+            return
+        self._btn_retag.setEnabled(False)
+        self._btn_retag.setText("재분류 중…")
+        self._retag_thread = _RetagThread(self._db_path(), self)
+        self._retag_thread.log_msg.connect(self.log_msg)
+        self._retag_thread.done.connect(self._on_retag_done)
+        self._retag_thread.start()
+
+    def _on_retag_done(self, count: int) -> None:
+        self._btn_retag.setEnabled(True)
+        self._btn_retag.setText("🏷 전체 태그 재분류")
+        self._result_lbl.setText(f"완료 — {count}개 그룹 재분류됨")
+        self.refresh()
+        self.refresh_main.emit()
+
+
+# ── Step 7: Classification Preview ──────────────────────────────────────────
+
+class _Step7Preview(_StepPanel):
+    preview_ready = Signal(dict)   # batch_preview 전달
+
+    def __init__(self, wizard, parent=None):
+        super().__init__(wizard, parent)
+        self._batch_preview: Optional[dict] = None
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+        layout.addWidget(_label("분류 미리보기", bold=True))
+        layout.addWidget(_h_sep())
+
+        # 설정 행
+        opt_row = QHBoxLayout()
+        opt_row.addWidget(QLabel("대상:"))
+        self._scope_combo = QComboBox()
+        for val, label in _SCOPE_OPTIONS:
+            self._scope_combo.addItem(label, val)
+        opt_row.addWidget(self._scope_combo)
+
+        opt_row.addSpacing(12)
+        opt_row.addWidget(QLabel("폴더명 언어:"))
+        self._locale_combo = QComboBox()
+        for val, label in _LOCALE_OPTIONS:
+            self._locale_combo.addItem(label, val)
+        idx = self._locale_combo.findData(
+            self._config().get("classification", {}).get("folder_locale", "ko")
+        )
+        if idx >= 0:
+            self._locale_combo.setCurrentIndex(idx)
+        opt_row.addWidget(self._locale_combo)
+        opt_row.addStretch()
+        layout.addLayout(opt_row)
+
+        self._tbl = _kv_table([])
+        layout.addWidget(self._tbl)
+
+        self._risk_lbl = QLabel("")
+        layout.addWidget(self._risk_lbl)
+
+        self._preview_table = QTableWidget(0, 5)
+        self._preview_table.setHorizontalHeaderLabels(
+            ["파일", "복사", "규칙", "목적지 경로", "주의"]
+        )
+        self._preview_table.horizontalHeader().setStretchLastSection(True)
+        self._preview_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._preview_table.setAlternatingRowColors(True)
+        self._preview_table.setStyleSheet(
+            "QTableWidget { background: #1A0F14; color: #D8AEBB; "
+            "alternate-background-color: #211018; border: 1px solid #4A2030; }"
+        )
+        layout.addWidget(self._preview_table, 1)
+
+        btn_row = QHBoxLayout()
+        self._btn_preview = QPushButton("📋 미리보기 생성")
+        self._btn_preview.clicked.connect(self._on_preview)
+        btn_row.addWidget(self._btn_preview)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+        layout.addStretch()
+
+        self._preview_thread: Optional[_PreviewThread] = None
+
+    def refresh(self) -> None:
+        if self._batch_preview:
+            self._show_preview_summary(self._batch_preview)
+
+    def _build_config_override(self) -> dict:
+        cfg  = dict(self._config())
+        cls  = dict(cfg.get("classification", {}))
+        cls["folder_locale"] = self._locale_combo.currentData() or "canonical"
+        cfg["classification"] = cls
+        return cfg
+
+    def _on_preview(self) -> None:
+        if self._preview_thread and self._preview_thread.isRunning():
+            return
+        self._btn_preview.setEnabled(False)
+        self._btn_preview.setText("생성 중…")
+        self._batch_preview = None
+        cfg     = self._build_config_override()
+        db_path = self._db_path()
+
+        from db.database import initialize_database
+        from core.batch_classifier import collect_classifiable_group_ids
+
+        try:
+            conn     = self._conn_factory()
+            scope    = self._scope_combo.currentData() or "all_classifiable"
+            gathered = collect_classifiable_group_ids(
+                conn, scope,
+                classified_dir=cfg.get("classified_dir", ""),
+            )
+            group_ids = gathered.get("included_group_ids", [])
+            conn.close()
+        except Exception as exc:
+            self._btn_preview.setEnabled(True)
+            self._btn_preview.setText("📋 미리보기 생성")
+            QMessageBox.critical(self._wizard, "오류", str(exc))
+            return
+
+        self._preview_thread = _PreviewThread(
+            self._conn_factory, group_ids, cfg, self
+        )
+        self._preview_thread.log_msg.connect(self.log_msg)
+        self._preview_thread.done.connect(self._on_preview_done)
+        self._preview_thread.start()
+
+    def _on_preview_done(self, result: dict) -> None:
+        self._btn_preview.setEnabled(True)
+        self._btn_preview.setText("📋 미리보기 생성")
+        self._batch_preview = result
+        self._show_preview_summary(result)
+        self.preview_ready.emit(result)
+
+    def _show_preview_summary(self, result: dict) -> None:
+        from core.workflow_summary import compute_preview_risk_level
+        summary = self._build_preview_summary(result)
+        rows = [
+            ("대상 작품 수",        str(result.get("total_groups", 0))),
+            ("분류 가능",           str(result.get("classifiable_groups", result.get("total_groups", 0)))),
+            ("제외",                str(result.get("excluded_groups", 0))),
+            ("예상 복사본 수",      str(result.get("estimated_copies", 0))),
+            ("예상 용량",           _fmt_size(result.get("estimated_bytes", 0))),
+            ("series_uncategorized",str(result.get("series_uncategorized_count", 0))),
+            ("author_fallback",     str(result.get("author_fallback_count", 0))),
+            ("후보 생성",           str(result.get("candidate_count", 0))),
+            ("충돌",                str(summary.get("conflict_count", 0))),
+            ("목적지",              str(summary.get("destination_count", 0))),
+        ]
+        self._tbl.setRowCount(len(rows))
+        for r, (k, v) in enumerate(rows):
+            self._tbl.setItem(r, 0, QTableWidgetItem(k))
+            self._tbl.setItem(r, 1, QTableWidgetItem(v))
+
+        self._populate_preview_table(result.get("previews", []))
+
+        risk = compute_preview_risk_level(summary)
+        _risk_label = {"low": "낮음", "medium": "보통", "high": "높음"}.get(risk, risk)
+        self._risk_lbl.setText(
+            f"위험도: {_risk_label}"
+        )
+        self._risk_lbl.setStyleSheet(_RISK_STYLE.get(risk, ""))
+
+    def _build_preview_summary(self, result: dict) -> dict:
+        previews = result.get("previews", [])
+        conflict_count = 0
+        destination_count = 0
+        for preview in previews:
+            for dest in preview.get("destinations", []):
+                destination_count += 1
+                if dest.get("conflict") not in (None, "", "none"):
+                    conflict_count += 1
+        return {
+            "total_groups":          result.get("total_groups", 0),
+            "excluded_count":        result.get("excluded_groups", 0),
+            "author_fallback_count": result.get("author_fallback_count", 0),
+            "conflict_count":        conflict_count,
+            "destination_count":     destination_count,
+        }
+
+    def _populate_preview_table(self, previews: list[dict]) -> None:
+        self._preview_table.setRowCount(0)
+        for preview in previews:
+            filename = Path(preview.get("source_path", "")).name
+            ci = preview.get("classification_info") or {}
+            ci_warn = ""
+            reason = ci.get("classification_reason", "")
+            if reason == "series_detected_but_character_missing":
+                ci_warn = "series_uncategorized"
+            elif reason == "series_and_character_missing":
+                ci_warn = "author_fallback"
+
+            for dest in preview.get("destinations", []):
+                row = self._preview_table.rowCount()
+                self._preview_table.insertRow(row)
+                self._preview_table.setItem(row, 0, QTableWidgetItem(filename))
+                self._preview_table.setItem(
+                    row, 1, QTableWidgetItem("예" if dest.get("will_copy") else "아니오")
+                )
+                self._preview_table.setItem(row, 2, QTableWidgetItem(dest.get("rule_type", "")))
+                self._preview_table.setItem(row, 3, QTableWidgetItem(dest.get("dest_path", "")))
+
+                warn_parts = []
+                if dest.get("used_fallback"):
+                    warn_parts.append("fallback")
+                if dest.get("conflict") not in (None, "", "none"):
+                    warn_parts.append(str(dest.get("conflict")))
+                if ci_warn:
+                    warn_parts.append(ci_warn)
+                self._preview_table.setItem(row, 4, QTableWidgetItem(", ".join(warn_parts)))
+
+
+# ── Step 8: Execute Classification ──────────────────────────────────────────
+
+class _Step8Execute(_StepPanel):
+    def __init__(self, wizard, parent=None):
+        super().__init__(wizard, parent)
+        self._batch_preview: Optional[dict] = None
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+        layout.addWidget(_label("분류 실행", bold=True))
+        layout.addWidget(_h_sep())
+
+        layout.addWidget(QLabel(
+            "ℹ 이 작업은 원본 파일을 이동/삭제하지 않습니다.\n"
+            "  Classified 폴더에 복사본을 생성합니다.\n"
+            "  copy_records와 undo_entries가 기록됩니다.\n"
+            "  WorkLog에서 Undo할 수 있습니다."
+        ))
+
+        self._tbl = _kv_table([])
+        layout.addWidget(self._tbl)
+
+        self._result_lbl = QLabel("")
+        self._result_lbl.setWordWrap(True)
+        layout.addWidget(self._result_lbl)
+
+        self._progress_lbl = QLabel("대기 중")
+        layout.addWidget(self._progress_lbl)
+
+        self._progress = QProgressBar()
+        self._progress.setRange(0, 1)
+        self._progress.setValue(0)
+        self._progress.hide()
+        layout.addWidget(self._progress)
+
+        btn_row = QHBoxLayout()
+        self._btn_execute = QPushButton("▶ 분류 실행")
+        self._btn_execute.setEnabled(False)
+        self._btn_execute.clicked.connect(self._on_execute)
+        btn_row.addWidget(self._btn_execute)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+        layout.addStretch()
+
+        self._execute_thread: Optional[_ExecuteThread] = None
+
+    def set_preview(self, batch_preview: dict) -> None:
+        self._batch_preview = batch_preview
+        self._btn_execute.setEnabled(bool(batch_preview))
+        total_groups = len(batch_preview.get("previews", []))
+        rows = [
+            ("대상 그룹",    str(total_groups)),
+            ("예상 복사본",  str(batch_preview.get("estimated_copies", 0))),
+            ("예상 용량",    _fmt_size(batch_preview.get("estimated_bytes", 0))),
+        ]
+        self._tbl.setRowCount(len(rows))
+        for r, (k, v) in enumerate(rows):
+            self._tbl.setItem(r, 0, QTableWidgetItem(k))
+            self._tbl.setItem(r, 1, QTableWidgetItem(v))
+
+    def refresh(self) -> None:
+        pass
+
+    def _on_execute(self) -> None:
+        if not self._batch_preview:
+            QMessageBox.warning(self._wizard, "미리보기 필요", "먼저 7단계에서 미리보기를 생성하세요.")
+            return
+        if self._execute_thread and self._execute_thread.isRunning():
+            return
+
+        if QMessageBox.question(
+            self._wizard, "분류 실행 확인",
+            f"복사본 {self._batch_preview.get('estimated_copies',0)}개를 생성합니다.\n계속하시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        ) != QMessageBox.StandardButton.Yes:
+            return
+
+        self._btn_execute.setEnabled(False)
+        self._btn_execute.setText("실행 중…")
+        total_groups = len(self._batch_preview.get("previews", []))
+        self._progress.setRange(0, max(total_groups, 1))
+        self._progress.setValue(0)
+        self._progress.show()
+        self._progress_lbl.setText(f"실행 준비 중 — 대상 {total_groups}개 그룹")
+        self._execute_thread = _ExecuteThread(
+            self._conn_factory, self._batch_preview, self._config(), self
+        )
+        self._execute_thread.log_msg.connect(self.log_msg)
+        self._execute_thread.progress.connect(self._on_execute_progress)
+        self._execute_thread.done.connect(self._on_execute_done)
+        self._execute_thread.start()
+
+    def _on_execute_progress(self, done: int, total: int, message: str) -> None:
+        self._progress.setRange(0, max(total, 1))
+        self._progress.setValue(done)
+        self._progress_lbl.setText(f"{done}/{total} — {message}")
+
+    def _on_execute_done(self, result: dict) -> None:
+        self._btn_execute.setEnabled(True)
+        self._btn_execute.setText("▶ 분류 실행")
+        self._progress.hide()
+        if result.get("success", False):
+            self._result_lbl.setText(
+                f"✅ 완료 — 복사: {result.get('copied',0)}, "
+                f"스킵: {result.get('skipped',0)}, "
+                f"entry_id: {result.get('entry_id','')[:8]}…"
+            )
+        else:
+            self._result_lbl.setText(
+                f"❌ 실패: {result.get('error', '알 수 없는 오류')}"
+            )
+        self._progress_lbl.setText("완료")
+        self.refresh_main.emit()
+
+
+# ── Step 9: Result / Undo ───────────────────────────────────────────────────
+
+class _Step9Result(_StepPanel):
+    def __init__(self, wizard, parent=None):
+        super().__init__(wizard, parent)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        layout.addWidget(_label("결과 / Undo", bold=True))
+        layout.addWidget(_h_sep())
+
+        self._tbl = QTableWidget(0, 5)
+        self._tbl.setHorizontalHeaderLabels(["작업 시각", "유형", "상태", "복사본 수", "만료일"])
+        self._tbl.horizontalHeader().setStretchLastSection(True)
+        self._tbl.verticalHeader().setVisible(False)
+        self._tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        layout.addWidget(self._tbl)
+
+        btn_row = QHBoxLayout()
+        for label, handler in [
+            ("🕘 작업 로그 열기",      self._open_work_log),
+            ("📂 Classified 폴더 열기", self._open_classified),
+            ("처음으로",               lambda: self._wizard._go_to_step(0)),
+        ]:
+            b = QPushButton(label)
+            b.clicked.connect(handler)
+            btn_row.addWidget(b)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+        layout.addStretch()
+
+    def refresh(self) -> None:
+        try:
+            conn = self._conn_factory()
+            from core.undo_manager import list_undo_entries
+            entries = list_undo_entries(conn)
+            conn.close()
+        except Exception:
+            return
+
+        self._tbl.setRowCount(len(entries))
+        for r, e in enumerate(entries):
+            from core.undo_manager import STATUS_LABEL
+            from datetime import datetime
+            try:
+                dt_str = datetime.fromisoformat(e["performed_at"]).strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                dt_str = e.get("performed_at", "")
+            self._tbl.setItem(r, 0, QTableWidgetItem(dt_str))
+            self._tbl.setItem(r, 1, QTableWidgetItem(e.get("operation_type", "")))
+            self._tbl.setItem(r, 2, QTableWidgetItem(STATUS_LABEL.get(e.get("undo_status", ""), e.get("undo_status", ""))))
+            self._tbl.setItem(r, 3, QTableWidgetItem(str(e.get("copy_count", ""))))
+            self._tbl.setItem(r, 4, QTableWidgetItem((e.get("undo_expires_at") or "")[:10]))
+
+    def _open_work_log(self) -> None:
+        try:
+            from app.views.work_log_view import WorkLogView
+            conn = self._conn_factory()
+            dlg  = WorkLogView(conn, parent=self._wizard)
+            dlg.exec()
+            conn.close()
+            self.refresh()
+        except Exception as exc:
+            QMessageBox.critical(self._wizard, "오류", str(exc))
+
+    def _open_classified(self) -> None:
+        cfg = self._config()
+        classified = cfg.get("classified_dir") or (
+            f"{cfg.get('data_dir','')}/Classified" if cfg.get("data_dir") else ""
+        )
+        if not classified:
+            return
+        try:
+            if sys.platform == "win32":
+                subprocess.Popen(["explorer", classified])
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", classified])
+            else:
+                subprocess.Popen(["xdg-open", classified])
+        except Exception as exc:
+            logger.warning("폴더 열기 실패: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# 메인 Wizard 다이얼로그
+# ---------------------------------------------------------------------------
+
+class WorkflowWizardView(QDialog):
+    """
+    Aru Archive 작업 마법사.
+
+    사용법:
+        wizard = WorkflowWizardView(conn_factory, config, config_path, parent=self)
+        wizard.refresh_main.connect(self._refresh_gallery)
+        wizard.exec()
+    """
+
+    refresh_main = Signal()   # MainWindow가 갤러리/카운트를 갱신해야 할 때
+
+    def __init__(
+        self,
+        conn_factory,
+        config: dict,
+        config_path: str,
+        *,
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self._conn_factory = conn_factory
+        self._config       = config
+        self._config_path  = config_path
+
+        self.setWindowTitle("🧭 Aru Archive 작업 마법사")
+        self.setMinimumSize(800, 600)
+        self.resize(920, 680)
+
+        self._build_ui()
+        self._go_to_step(0)
+
+    # ------------------------------------------------------------------
+    # UI 구성
+    # ------------------------------------------------------------------
+
+    def _build_ui(self) -> None:
+        root = QVBoxLayout(self)
+        root.setSpacing(0)
+        root.setContentsMargins(0, 0, 0, 0)
+
+        # ── 진행 표시 헤더 ──
+        header = QWidget()
+        header.setStyleSheet("background:#2B1720; padding:6px;")
+        hbox = QHBoxLayout(header)
+        hbox.setSpacing(4)
+        hbox.setContentsMargins(8, 4, 8, 4)
+
+        self._step_btns: list[QPushButton] = []
+        for idx, (num, short, _) in enumerate(_STEPS):
+            btn = QPushButton(f"{num}. {short}")
+            btn.setFlat(True)
+            btn.setFixedHeight(28)
+            btn.clicked.connect(lambda checked, i=idx: self._go_to_step(i))
+            btn.setStyleSheet(
+                "QPushButton {color:#8F6874; background:transparent; border:none; font-size:11px;}"
+                "QPushButton:hover {color:#D8AEBB;}"
+            )
+            self._step_btns.append(btn)
+            hbox.addWidget(btn)
+            if idx < len(_STEPS) - 1:
+                arrow = QLabel("→")
+                arrow.setStyleSheet("color:#4A2030; font-size:10px;")
+                hbox.addWidget(arrow)
+
+        root.addWidget(header)
+
+        # ── 단계 제목 ──
+        self._step_title = QLabel("")
+        self._step_title.setStyleSheet(
+            "background:#1A0F14; color:#D8AEBB; font-size:14px; "
+            "font-weight:bold; padding:8px 16px;"
+        )
+        root.addWidget(self._step_title)
+
+        # ── 스텝 스택 ──
+        self._stack = QStackedWidget()
+        self._panels: list[_StepPanel] = []
+
+        for PanelClass in [
+            _Step1Root, _Step2Scan, _Step3Meta, _Step4Enrich,
+            _Step5Dict,  _Step6Retag, _Step7Preview, _Step8Execute,
+            _Step9Result,
+        ]:
+            panel = PanelClass(self)
+            panel.setContentsMargins(16, 12, 16, 8)
+            panel.log_msg    .connect(self._on_log)
+            panel.refresh_main.connect(self.refresh_main)
+            # Step 7 → Step 8 연결
+            if isinstance(panel, _Step7Preview):
+                panel.preview_ready.connect(self._on_preview_ready)
+            scroll = QScrollArea()
+            scroll.setWidget(panel)
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QFrame.Shape.NoFrame)
+            self._stack.addWidget(scroll)
+            self._panels.append(panel)
+
+        root.addWidget(self._stack, 1)
+
+        # ── 로그 패널 ──
+        self._log_area = QTextEdit()
+        self._log_area.setReadOnly(True)
+        self._log_area.setFixedHeight(70)
+        self._log_area.setStyleSheet(
+            "QTextEdit {background:#110A0D; color:#8F8890; font-size:11px; border:none;}"
+        )
+        root.addWidget(self._log_area)
+
+        # ── 네비게이션 ──
+        nav = QWidget()
+        nav.setStyleSheet("background:#1A0F14; padding:4px;")
+        nav_box = QHBoxLayout(nav)
+        nav_box.setContentsMargins(12, 6, 12, 6)
+
+        self._btn_prev    = QPushButton("◀ 이전")
+        self._btn_next    = QPushButton("다음 ▶")
+        self._btn_refresh = QPushButton("🔄 새로고침")
+        self._btn_close   = QPushButton("닫기")
+
+        self._btn_prev   .clicked.connect(self._on_prev)
+        self._btn_next   .clicked.connect(self._on_next)
+        self._btn_refresh.clicked.connect(self._on_refresh)
+        self._btn_close  .clicked.connect(self.accept)
+
+        for btn in (self._btn_prev, self._btn_next, self._btn_refresh):
+            nav_box.addWidget(btn)
+        nav_box.addStretch()
+        nav_box.addWidget(self._btn_close)
+
+        root.addWidget(nav)
+
+    # ------------------------------------------------------------------
+    # 내부 헬퍼
+    # ------------------------------------------------------------------
+
+    def _db_path(self) -> str:
+        cfg = self._config
+        raw = cfg.get("db", {}).get("path", "")
+        if raw:
+            return raw
+        dd = cfg.get("data_dir", "")
+        return f"{dd}/.runtime/aru_archive.db" if dd else "aru_archive.db"
+
+    def _go_to_step(self, idx: int) -> None:
+        idx = max(0, min(idx, len(_STEPS) - 1))
+        self._current = idx
+        self._stack.setCurrentIndex(idx)
+
+        # 헤더 강조
+        for i, btn in enumerate(self._step_btns):
+            if i == idx:
+                btn.setStyleSheet(
+                    "QPushButton {color:#FF9EBB; background:transparent; "
+                    "border:none; font-size:11px; font-weight:bold;}"
+                )
+            else:
+                btn.setStyleSheet(
+                    "QPushButton {color:#8F6874; background:transparent; "
+                    "border:none; font-size:11px;}"
+                    "QPushButton:hover {color:#D8AEBB;}"
+                )
+
+        num, short, title = _STEPS[idx]
+        self._step_title.setText(f"Step {num}: {title}")
+        self._btn_prev.setEnabled(idx > 0)
+        self._btn_next.setEnabled(idx < len(_STEPS) - 1)
+
+        # 단계 진입 시 자동 새로고침
+        self._panels[idx].refresh()
+
+    def _on_prev(self) -> None:
+        self._go_to_step(self._current - 1)
+
+    def _on_next(self) -> None:
+        self._go_to_step(self._current + 1)
+
+    def _on_refresh(self) -> None:
+        self._panels[self._current].refresh()
+
+    def _on_log(self, msg: str) -> None:
+        self._log_area.append(msg)
+
+    def _on_preview_ready(self, batch_preview: dict) -> None:
+        # Step 8에 preview 전달
+        step8 = self._panels[7]
+        if isinstance(step8, _Step8Execute):
+            step8.set_preview(batch_preview)

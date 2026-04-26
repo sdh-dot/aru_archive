@@ -58,10 +58,43 @@ pyinstaller build/aru_archive.spec
 | 항목 | 내용 |
 |------|------|
 | 진입점 | `main.py` |
-| 아이콘 | `app/resources/icons/aru_archive_icon.ico` |
-| 포함 데이터 | `db/schema.sql`, `config.example.json`, `app/resources/icons/` |
+| 아이콘 | `assets/icon/aru_archive_icon.ico` |
+| 포함 데이터 | `db/schema.sql`, `config.example.json`, `assets/icon/`, **`tools/exiftool/`** |
 | 숨겨진 임포트 | `piexif`, `httpx`, `PyQt6` 관련 플러그인 |
-| 빌드 모드 | `onedir` (단일 폴더) |
+| 빌드 모드 | `onedir` (단일 폴더) — Portable 배포 권장 |
+
+### Bundled ExifTool 포함 정책
+
+포터블 빌드에는 반드시 ExifTool 폴더가 포함되어야 합니다:
+
+```text
+Portable 빌드 필수 파일:
+  tools/exiftool/exiftool.exe          (또는 exiftool(-k).exe)
+  tools/exiftool/exiftool_files/       (Perl 런타임)
+```
+
+PyInstaller onedir 빌드 결과:
+
+```text
+dist/aru_archive/
+├── aru_archive.exe
+├── tools/
+│   └── exiftool/
+│       ├── exiftool.exe
+│       └── exiftool_files/
+└── ...
+```
+
+PyInstaller onefile 빌드에서는 `sys._MEIPASS/tools/exiftool/` 에 압축 해제됩니다.
+
+> **권장:** onedir 빌드. onefile 빌드는 시작 시간이 길고, ExifTool 임시 압축 해제로  
+> 바이러스 백신 오탐지가 발생할 수 있습니다.
+
+### 빌드 전 ExifTool 번들 검증
+
+```bash
+python build/check_exiftool_bundle.py
+```
 
 ### PyInstaller 주의사항
 
@@ -116,12 +149,18 @@ zip -r ../dist/aru_archive_extension_v0.3.0.zip .
 
 ```
 AruArchive_v0.3.0/
-├── AruArchive.exe              ← PyInstaller 빌드 (또는 Python 패키지)
+├── aru_archive.exe             ← PyInstaller onedir 빌드 실행 파일
+├── tools/
+│   └── exiftool/
+│       ├── exiftool.exe        ← Bundled ExifTool (필수)
+│       └── exiftool_files/     ← Perl 런타임
 ├── aru_archive_extension.zip   ← 브라우저 확장
 ├── install_host.bat            ← Native Host 설치
 ├── uninstall_host.bat          ← Native Host 제거
 ├── gen_manifest.py             ← manifest 생성기 (Python 직접 실행 시)
 ├── config.example.json         ← 설정 파일 템플릿
+├── LICENSES/
+│   └── ExifTool.txt            ← ExifTool 라이선스 고지
 ├── README.md
 └── docs/
     ├── extension-setup.md
@@ -155,6 +194,17 @@ QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 # PySide6 잔존 검사 (0건이어야 함)
 grep -r "PySide6" --include="*.py" --include="*.js" --include="*.html" .
 
+# ExifTool 번들 검증
+python build/check_exiftool_bundle.py
+
 # PyInstaller 빌드 테스트
 pyinstaller build/aru_archive.spec --clean
 ```
+
+### 배포 체크리스트 (ExifTool)
+
+- [ ] `tools/exiftool/exiftool.exe` (또는 `exiftool(-k).exe`) 존재
+- [ ] `tools/exiftool/exiftool_files/` 존재
+- [ ] `python build/check_exiftool_bundle.py` — 경고 없음
+- [ ] `LICENSES/ExifTool.txt` 포함
+- [ ] onedir 빌드 후 `dist/aru_archive/tools/exiftool/exiftool.exe` 존재 확인

@@ -259,6 +259,24 @@ def test_execute_returns_copied_count(mem_db, tmp_path, tmp_classified_dir):
     assert result["copied"] >= 2
 
 
+def test_execute_reports_progress(mem_db, tmp_path, tmp_classified_dir):
+    ids = _make_groups(mem_db, tmp_path, 2)
+    config = {"classified_dir": tmp_classified_dir}
+    preview = build_classify_batch_preview(mem_db, ids, config)
+    events = []
+
+    execute_classify_batch(
+        mem_db,
+        preview,
+        config,
+        progress_fn=lambda done, total, gid, status: events.append((done, total, status)),
+    )
+
+    assert events
+    assert any(status == "running" for _, _, status in events)
+    assert events[-1][0] == events[-1][1] == len(preview["previews"])
+
+
 def test_execute_copy_records_created(mem_db, tmp_path, tmp_classified_dir):
     ids = _make_groups(mem_db, tmp_path, 2)
     config = {"classified_dir": tmp_classified_dir}

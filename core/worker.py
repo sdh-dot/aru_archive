@@ -172,9 +172,10 @@ def _run_pipeline(
                     logger.warning("메타데이터 임베딩 실패: %s", we)
                     sync_status = "metadata_write_failed"
 
-                # XMP 기록 시도 (ExifTool이 설정된 경우, 포맷 적합 시만)
+                # XMP 기록 시도 (ExifTool이 탐색된 경우, 포맷 적합 시만)
                 if sync_status == "json_only" and ext not in ("gif", "bmp", "zip"):
-                    exiftool_path = config.get("exiftool_path")
+                    from core.exiftool_resolver import resolve_exiftool_path
+                    exiftool_path = resolve_exiftool_path(config)
                     if exiftool_path:
                         from core.metadata_writer import (
                             XmpWriteError, write_xmp_metadata_with_exiftool,

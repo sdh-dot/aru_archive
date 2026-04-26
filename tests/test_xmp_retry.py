@@ -9,6 +9,7 @@ import pytest
 from core.xmp_retry import (
     retry_xmp_for_all,
     retry_xmp_for_group,
+    retry_xmp_for_groups,
     select_xmp_target_file,
 )
 
@@ -322,3 +323,53 @@ def test_retry_all_no_exiftool_all_skipped():
     assert summary["total"] == 2
     assert summary["skipped"] == 2
     assert summary["success"] == 0
+
+
+# ---------------------------------------------------------------------------
+# retry_xmp_for_groups
+# ---------------------------------------------------------------------------
+
+def test_retry_groups_only_selected_items():
+    conn = _make_conn()
+    for i in range(3):
+        _insert_group(conn, group_id=f"g{i}", status="json_only")
+        _insert_file(conn, file_id=f"f{i}", group_id=f"g{i}", file_format="jpg")
+
+    with patch("core.metadata_writer.write_xmp_metadata_with_exiftool", return_value=True):
+        summary = retry_xmp_for_groups(conn, ["g0", "g2"], "/usr/bin/exiftool")
+
+    assert summary["total"] == 2
+    assert summary["success"] == 2
+    assert summary["group_ids"] == ["g0", "g2"]
+
+    rows = conn.execute(
+        "SELECT group_id, metadata_sync_status FROM artwork_groups ORDER BY group_id"
+    ).fetchall()
+    assert [(row[0], row[1]) for row in rows] == [
+        ("g0", "full"),
+        ("g1", "json_only"),
+        ("g2", "full"),
+    ]
+
+
+def test_retry_groups_deduplicates_selected_items_and_reports_progress():
+    conn = _make_conn()
+    _insert_group(conn, group_id="g1", status="json_only")
+    _insert_file(conn, file_id="f1", group_id="g1", file_format="jpg")
+    progress = []
+
+    with patch("core.metadata_writer.write_xmp_metadata_with_exiftool", return_value=True):
+        summary = retry_xmp_for_groups(
+            conn,
+            ["g1", "g1"],
+            "/usr/bin/exiftool",
+            progress_fn=lambda *args: progress.append(args),
+        )
+
+    assert summary["total"] == 1
+    assert summary["success"] == 1
+    assert summary["group_ids"] == ["g1"]
+    assert progress == [
+        (0, 1, "g1", "running"),
+        (1, 1, "g1", "success"),
+    ]

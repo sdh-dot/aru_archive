@@ -145,26 +145,48 @@ class XmpRetryThread(QThread):
         group_id: Optional[str],   # None = 전체 재처리
         db_path:  str,
         exiftool_path: Optional[str],
+        group_ids: Optional[list[str]] = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self._group_id     = group_id
+        self._group_ids    = group_ids or []
         self._db_path      = db_path
         self._exiftool_path = exiftool_path
 
     def run(self) -> None:
         conn = initialize_database(self._db_path)
         try:
-            from core.xmp_retry import retry_xmp_for_all, retry_xmp_for_group
-            if self._group_id:
+            from core.xmp_retry import (
+                retry_xmp_for_all, retry_xmp_for_group, retry_xmp_for_groups,
+            )
+            if self._group_ids:
+                total = len(self._group_ids)
+                self.log_msg.emit(f"[INFO] 선택 XMP 재처리 대상: {total}개")
+
+                def _progress(done: int, total_groups: int, gid: str, status: str) -> None:
+                    if status == "running":
+                        self.log_msg.emit(
+                            f"[INFO] XMP 재처리 진행: {done + 1}/{total_groups} — {gid[:8]}…"
+                        )
+
+                r = retry_xmp_for_groups(
+                    conn, self._group_ids, self._exiftool_path, progress_fn=_progress
+                )
+                self.xmp_done.emit({"mode": "selected", **r})
+            elif self._group_id:
                 r = retry_xmp_for_group(conn, self._group_id, self._exiftool_path)
-                self.xmp_done.emit({"mode": "single", **r})
+                self.xmp_done.emit({"mode": "single", "group_ids": [self._group_id], **r})
             else:
                 r = retry_xmp_for_all(conn, self._exiftool_path)
                 self.xmp_done.emit({"mode": "all", **r})
         except Exception as exc:
             self.log_msg.emit(f"[ERROR] XMP 재처리 예외: {exc}")
-            self.xmp_done.emit({"mode": "single" if self._group_id else "all", "status": "error"})
+            if self._group_ids:
+                mode = "selected"
+            else:
+                mode = "single" if self._group_id else "all"
+            self.xmp_done.emit({"mode": mode, "status": "error"})
         finally:
             conn.close()
 
@@ -390,6 +412,8 @@ class MainWindow(QMainWindow):
         )
         self.addToolBar(tb)
 
+        self._btn_wizard  = _tb_btn("🧭 작업 마법사", tb)
+        tb.addSeparator()
         self._btn_root    = _tb_btn("📁 Archive Root 선택", tb)
         tb.addSeparator()
         self._btn_scan    = _tb_btn("🔍 Inbox 스캔", tb)
@@ -398,6 +422,7 @@ class MainWindow(QMainWindow):
         self._btn_classify_preview = _tb_btn("📋 분류 미리보기", tb)
         self._btn_classify_run     = _tb_btn("▶ 분류 실행",     tb)
         self._btn_batch_classify   = _tb_btn("📋 일괄 분류",    tb)
+        self._btn_xmp_selected     = _tb_btn("🔄 선택 XMP 재처리", tb)
         self._btn_xmp_all          = _tb_btn("🔄 전체 XMP 재처리", tb)
         self._btn_retag            = _tb_btn("🏷 태그 재분류",   tb)
         self._btn_candidates       = _tb_btn("🏷 후보 태그",     tb)
@@ -454,12 +479,14 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _connect_signals(self) -> None:
+        self._btn_wizard .clicked.connect(self._on_show_wizard)
         self._btn_root   .clicked.connect(self._on_select_root)
         self._btn_scan   .clicked.connect(self._on_inbox_scan)
         self._btn_db_init.clicked.connect(self._on_db_init)
         self._btn_classify_preview.clicked.connect(self._on_classify_preview)
         self._btn_classify_run    .clicked.connect(self._on_classify_run)
         self._btn_batch_classify  .clicked.connect(self._on_batch_classify)
+        self._btn_xmp_selected    .clicked.connect(self._on_xmp_retry_selected)
         self._btn_xmp_all         .clicked.connect(self._on_xmp_retry_all)
         self._btn_retag           .clicked.connect(self._on_retag)
         self._btn_candidates      .clicked.connect(self._on_show_candidates)
@@ -801,7 +828,7 @@ class MainWindow(QMainWindow):
 
             thread = EnrichThread(
                 file_id, self._db_path(),
-                exiftool_path=self.config.get("exiftool_path"),
+                exiftool_path=self._exiftool_path(),
                 parent=self,
             )
             thread.log_msg.connect(self._log.append)
@@ -1032,7 +1059,8 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _exiftool_path(self) -> Optional[str]:
-        return self.config.get("exiftool_path") or None
+        from core.exiftool_resolver import resolve_exiftool_path
+        return resolve_exiftool_path(self.config)
 
     def _on_xmp_retry(self, group_id: str) -> None:
         """선택 group XMP 재시도."""
@@ -1049,6 +1077,32 @@ class MainWindow(QMainWindow):
             return
         self._log.append(f"[INFO] XMP 재시도 시작: {group_id[:8]}…")
         thread = XmpRetryThread(group_id, self._db_path(), et, parent=self)
+        thread.log_msg .connect(self._log.append)
+        thread.xmp_done.connect(self._on_xmp_done)
+        thread.start()
+        self._xmp_thread = thread
+
+    def _on_xmp_retry_selected(self) -> None:
+        """갤러리에서 다중 선택된 group의 XMP를 일괄 재시도."""
+        group_ids = self._gallery.get_selected_group_ids()
+        if not group_ids:
+            self._log.append("[WARN] XMP 재처리할 파일을 먼저 선택해주세요")
+            return
+        et = self._exiftool_path()
+        if not et:
+            self._log.append(
+                "[WARN] ExifTool 경로가 설정되어 있지 않습니다. "
+                "config.json의 exiftool_path를 설정해주세요. "
+                "(docs/metadata-policy.md 참고)"
+            )
+            return
+        if getattr(self, "_xmp_thread", None) and self._xmp_thread.isRunning():
+            self._log.append("[WARN] 이미 XMP 작업이 진행 중입니다")
+            return
+        self._log.append(f"[INFO] 선택 XMP 재처리 시작 — {len(group_ids)}개")
+        thread = XmpRetryThread(
+            None, self._db_path(), et, group_ids=group_ids, parent=self
+        )
         thread.log_msg .connect(self._log.append)
         thread.xmp_done.connect(self._on_xmp_done)
         thread.start()
@@ -1092,16 +1146,18 @@ class MainWindow(QMainWindow):
             success = result.get("success", 0)
             failed  = result.get("failed", 0)
             skipped = result.get("skipped", 0)
+            label   = "선택 XMP 재처리" if mode == "selected" else "전체 XMP 재처리"
             self._log.append(
-                f"[INFO] 전체 XMP 재처리 완료 — "
+                f"[INFO] {label} 완료 — "
                 f"전체: {total}  성공: {success}  실패: {failed}  건너뜀: {skipped}"
             )
             for err in result.get("errors", [])[:5]:
                 self._log.append(f"[WARN] {err}")
 
+        for done_gid in result.get("group_ids", []):
+            self._refresh_gallery_item(done_gid)
         gid = self._gallery.get_selected_group_id()
         if gid:
-            self._refresh_gallery_item(gid)
             self._refresh_detail(gid)
         self._refresh_counts()
 
@@ -1289,6 +1345,22 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self._log.append(f"[ERROR] 백업 내보내기 오류: {exc}")
 
+    def _on_show_wizard(self) -> None:
+        """워크플로우 마법사 다이얼로그를 연다."""
+        try:
+            from app.views.workflow_wizard_view import WorkflowWizardView
+            dlg = WorkflowWizardView(
+                self._get_conn,
+                self.config,
+                self._config_path,
+                parent=self,
+            )
+            dlg.refresh_main.connect(self._refresh_gallery)
+            dlg.refresh_main.connect(self._refresh_counts)
+            dlg.exec()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 작업 마법사 오류: {exc}")
+
     def _on_show_save_jobs(self) -> None:
         """저장 작업 상태 다이얼로그를 연다."""
         try:
@@ -1355,7 +1427,7 @@ class MainWindow(QMainWindow):
 
             thread = EnrichThread(
                 file_id, self._db_path(),
-                exiftool_path=self.config.get("exiftool_path"),
+                exiftool_path=self._exiftool_path(),
                 parent=self,
             )
             thread.log_msg.connect(self._log.append)

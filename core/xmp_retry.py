@@ -18,7 +18,7 @@ import json
 import logging
 import sqlite3
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Callable, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +158,7 @@ def retry_xmp_for_all(
     conn: sqlite3.Connection,
     exiftool_path: Optional[str],
     statuses: tuple[str, ...] = ("json_only", "xmp_write_failed"),
+    progress_fn: Optional[Callable[[int, int, str, str], None]] = None,
 ) -> dict:
     """
     json_only / xmp_write_failed 그룹 전체에 XMP 기록을 재시도한다.
@@ -178,14 +179,39 @@ def retry_xmp_for_all(
         statuses,
     ).fetchall()
 
-    total   = len(rows)
+    group_ids = [row[0] for row in rows]
+    return retry_xmp_for_groups(conn, group_ids, exiftool_path, progress_fn=progress_fn)
+
+
+def retry_xmp_for_groups(
+    conn: sqlite3.Connection,
+    group_ids: Sequence[str],
+    exiftool_path: Optional[str],
+    progress_fn: Optional[Callable[[int, int, str, str], None]] = None,
+) -> dict:
+    """
+    선택된 group_id 목록에 대해 XMP 기록을 일괄 재시도한다.
+
+    Returns:
+        {
+          "total":     int,
+          "success":   int,
+          "failed":    int,
+          "skipped":   int,
+          "errors":    list[str],
+          "group_ids": list[str],
+        }
+    """
+    ids     = list(dict.fromkeys(group_ids))
+    total   = len(ids)
     success = 0
     failed  = 0
     skipped = 0
     errors: list[str] = []
 
-    for row in rows:
-        gid    = row[0]
+    for index, gid in enumerate(ids, start=1):
+        if progress_fn:
+            progress_fn(index - 1, total, gid, "running")
         result = retry_xmp_for_group(conn, gid, exiftool_path)
         s      = result["status"]
         if s == "success":
@@ -195,13 +221,16 @@ def retry_xmp_for_all(
         else:
             failed += 1
             errors.append(f"{gid[:8]}: {result.get('message', '')}")
+        if progress_fn:
+            progress_fn(index, total, gid, s)
 
     return {
-        "total":   total,
-        "success": success,
-        "failed":  failed,
-        "skipped": skipped,
-        "errors":  errors,
+        "total":     total,
+        "success":   success,
+        "failed":    failed,
+        "skipped":   skipped,
+        "errors":    errors,
+        "group_ids": ids,
     }
 
 

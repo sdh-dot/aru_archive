@@ -168,15 +168,32 @@ xmp_write_failed + 성공    → full (XMP 재시도로 복구)
 `xmp_write_failed`는 **Warning 카테고리**에 표시됩니다 (사이드바 `⚠ 경고`).  
 `no_metadata_queue`에는 삽입하지 않습니다.
 
-### ExifTool 설정
+### ExifTool 탐색 우선순위 (`core/exiftool_resolver.py`)
 
-`설정 → 고급 → ExifTool 경로`에서 실행 파일 경로를 지정합니다.
+Aru Archive는 다음 순서로 ExifTool 실행 파일을 탐색합니다:
+
+| 순서 | 경로 |
+|------|------|
+| 1 | `config.json`의 `exiftool_path` (명시 경로 우선) |
+| 2 | `tools/exiftool/exiftool.exe` (내장 portable) |
+| 3 | `tools/exiftool/exiftool(-k).exe` (내장 portable 대체 이름) |
+| 4 | PyInstaller onefile: `sys._MEIPASS/tools/exiftool/exiftool.exe` |
+| 5 | 시스템 PATH의 `exiftool` |
+| 6 | (없으면) XMP 기록 건너뜀, `json_only` 유지 |
+
+`config.json`에서 `exiftool_path`를 `null` 또는 생략하면 자동 탐색됩니다:
+
+```json
+{ "exiftool_path": null }
+```
+
+사용자 지정 경로를 고정하려면:
 
 ```json
 { "exiftool_path": "C:/exiftool/exiftool.exe" }
 ```
 
-ExifTool이 설정되지 않으면 XMP 기록을 건너뛰고 `json_only`를 유지합니다.
+ExifTool이 탐색되지 않으면 XMP 기록을 건너뛰고 `json_only`를 유지합니다.
 
 ### XMP 재처리
 

@@ -1,0 +1,30 @@
+ExifTool License Notice
+=======================
+
+Aru Archive bundles a portable copy of ExifTool for XMP metadata writing.
+
+ExifTool is written by Phil Harvey.
+Copyright (c) 2003-2024, Phil Harvey
+
+ExifTool is distributed under the same terms as Perl:
+  - Artistic License (see https://dev.perl.org/licenses/artistic.html)
+  - GNU General Public License, version 2 or later
+    (see https://www.gnu.org/licenses/gpl-2.0.html)
+
+You may choose to use ExifTool under either license.
+
+Official ExifTool homepage: https://exiftool.org/
+Source code:               https://github.com/exiftool/exiftool
+
+---
+
+Bundled location in Aru Archive:
+  tools/exiftool/exiftool.exe        (or exiftool(-k).exe)
+  tools/exiftool/exiftool_files/
+
+This bundled copy is used solely for writing XMP metadata to image files.
+It is NOT modified from the original distribution.
+
+For the full ExifTool license text, see:
+  tools/exiftool/exiftool_files/  (contains Perl runtime and associated licenses)
+  tools/exiftool/README.txt       (ExifTool readme from the official distribution)
