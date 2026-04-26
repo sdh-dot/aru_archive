@@ -38,7 +38,64 @@ def initialize_database(db_path: str, schema_path: str | None = None) -> sqlite3
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = get_connection(db_path)
     execute_script_file(conn, schema_path)
+    _migrate_schema(conn)
     return conn
+
+
+def _migrate_schema(conn: sqlite3.Connection) -> None:
+    """기존 DB 스키마를 최신 버전으로 마이그레이션한다."""
+    _migrate_tag_aliases(conn)
+    _migrate_undo_entries(conn)
+
+
+def _migrate_undo_entries(conn: sqlite3.Connection) -> None:
+    """undo_entries에 undo_result_json 컬럼이 없으면 추가한다."""
+    try:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(undo_entries)")}
+    except Exception:
+        return
+    if "undo_result_json" not in cols:
+        conn.execute("ALTER TABLE undo_entries ADD COLUMN undo_result_json TEXT")
+        conn.commit()
+
+
+def _migrate_tag_aliases(conn: sqlite3.Connection) -> None:
+    """기존 DB의 tag_aliases 스키마를 복합 PK 버전으로 마이그레이션한다."""
+    try:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(tag_aliases)")}
+    except Exception:
+        cols = set()
+    if "tag_type" not in cols:
+        conn.execute("DROP TABLE IF EXISTS tag_aliases")
+        conn.execute(
+            """CREATE TABLE tag_aliases (
+                alias            TEXT NOT NULL,
+                canonical        TEXT NOT NULL,
+                tag_type         TEXT NOT NULL DEFAULT 'general',
+                parent_series    TEXT NOT NULL DEFAULT '',
+                media_type       TEXT,
+                source           TEXT,
+                confidence_score REAL,
+                enabled          INTEGER NOT NULL DEFAULT 1,
+                created_by       TEXT,
+                created_at       TEXT NOT NULL,
+                updated_at       TEXT,
+                PRIMARY KEY (alias, tag_type, parent_series)
+            )"""
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tag_aliases_canonical "
+            "ON tag_aliases(canonical)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tag_aliases_type "
+            "ON tag_aliases(tag_type, parent_series)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tag_aliases_enabled "
+            "ON tag_aliases(enabled)"
+        )
+        conn.commit()
 
 
 def execute_script_file(conn: sqlite3.Connection, schema_path: str) -> None:

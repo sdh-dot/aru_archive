@@ -202,21 +202,23 @@ CREATE INDEX IF NOT EXISTS idx_no_metadata_job      ON no_metadata_queue(job_id)
 -- 7. undo_entries: Undo 작업 로그 항목 (MVP-B)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS undo_entries (
-    entry_id        TEXT PRIMARY KEY,               -- UUID v4
-    operation_type  TEXT NOT NULL,                  -- 'classify'
-    performed_at    TEXT NOT NULL,
-    undo_expires_at TEXT NOT NULL,                  -- performed_at + undo_retention_days
-    undo_status     TEXT NOT NULL DEFAULT 'pending',
-                    -- pending   : Undo 미실행, Undo 가능  (UI: "Undo 가능",  버튼 활성)
-                    -- completed : Undo 완료됨             (UI: "Undo 완료",  버튼 비활성)
-                    -- failed    : Undo 시도 실패          (UI: "Undo 실패",  버튼 비활성)
-                    -- expired   : 보존 기간 만료          (UI: "Undo 만료",  버튼 비활성)
-                    --
-                    -- pending은 "Undo 작업이 아직 실행되지 않음"을 의미하며,
-                    -- UI에서는 "Undo 가능"으로 표시한다. (DB값 ≠ UI 레이블)
-    undone_at       TEXT,
-    undo_error      TEXT,                           -- 실패 시 오류 메시지
-    description     TEXT
+    entry_id         TEXT PRIMARY KEY,               -- UUID v4
+    operation_type   TEXT NOT NULL,                  -- 'classify'
+    performed_at     TEXT NOT NULL,
+    undo_expires_at  TEXT NOT NULL,                  -- performed_at + undo_retention_days
+    undo_status      TEXT NOT NULL DEFAULT 'pending',
+                     -- pending   : Undo 미실행, Undo 가능  (UI: "Undo 가능",  버튼 활성)
+                     -- completed : 모든 복사본 삭제 완료   (UI: "Undo 완료",  버튼 비활성)
+                     -- partial   : 일부만 삭제 완료        (UI: "일부 완료",  버튼 비활성)
+                     -- failed    : Undo 시도 실패          (UI: "Undo 실패",  버튼 비활성)
+                     -- expired   : 보존 기간 만료          (UI: "Undo 만료",  버튼 비활성)
+                     --
+                     -- pending은 "Undo 작업이 아직 실행되지 않음"을 의미하며,
+                     -- UI에서는 "Undo 가능"으로 표시한다. (DB값 ≠ UI 레이블)
+    undone_at        TEXT,
+    undo_error       TEXT,                           -- 실패 시 오류 메시지
+    undo_result_json TEXT,                           -- 실행 결과 요약 JSON
+    description      TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_undo_entries_status  ON undo_entries(undo_status);
@@ -281,17 +283,85 @@ CREATE INDEX IF NOT EXISTS idx_thumbnail_source_hash ON thumbnail_cache(source_h
 
 
 -- ============================================================
--- 11. tag_aliases: 태그 별칭 → 정규 태그 매핑 (MVP-C)
---     스키마는 MVP-A Sprint 1에 생성. 데이터는 Sprint 9(MVP-C).
+-- 11. tag_aliases: 태그 별칭 → 정규 태그 매핑
+--     alias+tag_type+parent_series 복합 PK.
+--     parent_series는 character 타입 시 소속 시리즈명, 없으면 '' (빈 문자열).
 -- ============================================================
 CREATE TABLE IF NOT EXISTS tag_aliases (
-    alias         TEXT PRIMARY KEY,
-    canonical     TEXT NOT NULL,
-    source_site   TEXT DEFAULT NULL,
-    created_at    TEXT NOT NULL
+    alias            TEXT NOT NULL,
+    canonical        TEXT NOT NULL,
+    tag_type         TEXT NOT NULL DEFAULT 'general',
+                     -- general | series | character
+    parent_series    TEXT NOT NULL DEFAULT '',
+                     -- character 타입 시 소속 시리즈 canonical명, 없으면 ''
+    media_type       TEXT,
+                     -- game | anime | manga | novel | original | unknown
+    source           TEXT,
+                     -- built_in | pixiv_translation | user_confirmed
+                     -- candidate_accepted | import
+    confidence_score REAL,
+    enabled          INTEGER NOT NULL DEFAULT 1,
+    created_by       TEXT,
+    created_at       TEXT NOT NULL,
+    updated_at       TEXT,
+    PRIMARY KEY (alias, tag_type, parent_series)
 );
 
-CREATE INDEX IF NOT EXISTS idx_tag_aliases_canonical ON tag_aliases(canonical);
+CREATE INDEX IF NOT EXISTS idx_tag_aliases_canonical  ON tag_aliases(canonical);
+CREATE INDEX IF NOT EXISTS idx_tag_aliases_type       ON tag_aliases(tag_type, parent_series);
+CREATE INDEX IF NOT EXISTS idx_tag_aliases_enabled    ON tag_aliases(enabled);
+
+
+-- ============================================================
+-- 12+1. tag_observations: Pixiv 태그 관측 기록
+--        artwork당 raw_tag별 1행 (UNIQUE 제약).
+--        co_tags_json: 같은 artwork의 전체 태그 목록 (JSON array).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tag_observations (
+    observation_id TEXT PRIMARY KEY,
+    source_site    TEXT NOT NULL DEFAULT 'pixiv',
+    artwork_id     TEXT NOT NULL,
+    group_id       TEXT,
+    raw_tag        TEXT NOT NULL,
+    translated_tag TEXT,
+    co_tags_json   TEXT,
+    artist_id      TEXT,
+    observed_at    TEXT NOT NULL,
+    UNIQUE (source_site, artwork_id, raw_tag)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tag_obs_raw_tag   ON tag_observations(raw_tag);
+CREATE INDEX IF NOT EXISTS idx_tag_obs_artwork   ON tag_observations(artwork_id);
+
+
+-- ============================================================
+-- 12+2. tag_candidates: 자동 분석 후보 — 사용자 승인 대기
+--        UNIQUE(raw_tag, suggested_type, suggested_parent_series)
+--        parent_series 없으면 '' (빈 문자열).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tag_candidates (
+    candidate_id           TEXT PRIMARY KEY,
+    raw_tag                TEXT NOT NULL,
+    translated_tag         TEXT,
+    suggested_canonical    TEXT,
+    suggested_type         TEXT NOT NULL,
+                           -- series | character | general
+    suggested_parent_series TEXT NOT NULL DEFAULT '',
+    media_type             TEXT,
+    confidence_score       REAL NOT NULL DEFAULT 0,
+    evidence_count         INTEGER NOT NULL DEFAULT 1,
+    source                 TEXT NOT NULL,
+                           -- observation_analysis | group_analysis | pixiv_translation
+    evidence_json          TEXT,
+    status                 TEXT NOT NULL DEFAULT 'pending',
+                           -- pending | accepted | rejected | ignored
+    created_at             TEXT NOT NULL,
+    updated_at             TEXT,
+    UNIQUE (raw_tag, suggested_type, suggested_parent_series)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tag_cand_status  ON tag_candidates(status);
+CREATE INDEX IF NOT EXISTS idx_tag_cand_raw_tag ON tag_candidates(raw_tag);
 
 
 -- ============================================================
