@@ -1,7 +1,7 @@
 {
   "pack_id": "blue_archive",
   "name": "Blue Archive",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "source": "built_in",
   "series": [
     {
@@ -122,6 +122,28 @@
         "ko": "타카나시 호시노",
         "ja": "小鳥遊ホシノ",
         "en": "Takanashi Hoshino"
+      }
+    },
+    {
+      "canonical": "狐坂ワカモ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "狐坂ワカモ",
+        "ワカモ",
+        "ワカモ(正月)",
+        "ワカモ（正月）",
+        "浅黄ワカモ",
+        "浅黄ワカモ(正月)",
+        "浅黄ワカモ（正月）",
+        "Wakamo",
+        "Kosaka Wakamo",
+        "코사카 와카모",
+        "와카모"
+      ],
+      "localizations": {
+        "ko": "코사카 와카모",
+        "ja": "狐坂ワカモ",
+        "en": "Kosaka Wakamo"
       }
     }
   ]

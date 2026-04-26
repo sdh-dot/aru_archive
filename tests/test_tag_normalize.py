@@ -62,3 +62,19 @@ class TestNormalizeTagKey:
     def test_korean_unchanged(self) -> None:
         key = normalize_tag_key("블루 아카이브")
         assert key == "블루아카이브"
+
+    def test_halfwidth_parens_preserved(self) -> None:
+        # 괄호 자체는 제거하지 않음 — alias에 (正月) 포함 variant 가능
+        key = normalize_tag_key("ワカモ(正月)")
+        assert key == "ワカモ(正月)"
+
+    def test_fullwidth_parens_nfkc_to_halfwidth(self) -> None:
+        # 전각 괄호 （）→ NFKC → ()
+        key_fw = normalize_tag_key("ワカモ（正月）")
+        key_hw = normalize_tag_key("ワカモ(正月)")
+        assert key_fw == key_hw
+
+    def test_fullwidth_parens_wakamo_variants_same_key(self) -> None:
+        """ワカモ(正月) / ワカモ（正月）/ 浅黄ワカモ(正月) 정규화 확인."""
+        assert normalize_tag_key("ワカモ（正月）") == normalize_tag_key("ワカモ(正月)")
+        assert normalize_tag_key("浅黄ワカモ（正月）") == normalize_tag_key("浅黄ワカモ(正月)")

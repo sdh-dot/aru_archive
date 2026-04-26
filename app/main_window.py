@@ -957,7 +957,12 @@ class MainWindow(QMainWindow):
             )
             return None
         try:
-            conn    = self._get_conn()
+            conn = self._get_conn()
+            try:
+                from core.tag_reclassifier import retag_groups_from_existing_tags
+                retag_groups_from_existing_tags(conn, [group_id])
+            except Exception as retag_exc:
+                logger.debug("단일 미리보기 retag 실패 (무시): %s", retag_exc)
             preview = build_classify_preview(conn, group_id, self.config)
             conn.close()
         except Exception as exc:
