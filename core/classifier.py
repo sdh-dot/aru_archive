@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Optional
 
 from core.path_utils import sanitize_path_component
+from core.tag_localizer import resolve_display_name_with_info
 
 # ---------------------------------------------------------------------------
 # 상수
@@ -86,6 +87,12 @@ def _cls_cfg(config: dict) -> dict:
         "enable_by_author":                c.get("enable_by_author", False),
         "enable_by_tag":                   c.get("enable_by_tag", False),
         "on_conflict":                     c.get("on_conflict", "rename"),
+        # 다국어 폴더명
+        "folder_locale":                   c.get("folder_locale", "canonical"),
+        "fallback_locale":                 c.get("fallback_locale", "canonical"),
+        "enable_localized_folder_names":   c.get("enable_localized_folder_names", True),
+        # 일괄 분류
+        "batch_existing_copy_policy":      c.get("batch_existing_copy_policy", "keep_existing"),
     }
 
 
@@ -98,27 +105,47 @@ def _build_destinations(
     source_file: dict,
     classified_dir: str,
     cfg: dict,
+    conn: Optional[sqlite3.Connection] = None,
 ) -> list[dict]:
     """
     그룹·파일 정보를 바탕으로 복사 목적지 목록을 만든다.
 
     각 항목: {rule_type, dest_path, conflict, will_copy}
-    conflict / will_copy는 preview 단계에서 실제 경로 존재 여부로 채워진다.
-
-    경로 정책은 상호 배타적인 1차 목적지를 먼저 고르고, 설정에 따라
-    작성자/일반 태그 기반 보조 목적지를 추가하는 구조다.
+    localization 활성 시 series_canonical, series_display, character_canonical,
+    character_display, locale, used_fallback 추가.
     """
     filename  = Path(source_file["file_path"]).name
     base      = Path(classified_dir)
     dests: list[dict] = []
 
-    def _add(rule_type: str, folder: Path) -> None:
-        dests.append({
+    locale         = cfg.get("folder_locale", "canonical")
+    fallback_locale = cfg.get("fallback_locale", "canonical")
+    use_locale     = (
+        cfg.get("enable_localized_folder_names", True)
+        and locale != "canonical"
+        and conn is not None
+    )
+
+    def _display(canonical: str, tag_type: str, parent_series: str = "") -> tuple[str, bool]:
+        if not use_locale:
+            return canonical, False
+        return resolve_display_name_with_info(
+            conn, canonical, tag_type,
+            parent_series=parent_series or None,
+            locale=locale,
+            fallback_locale=fallback_locale,
+        )
+
+    def _add(rule_type: str, folder: Path, extra: dict | None = None) -> None:
+        entry: dict = {
             "rule_type": rule_type,
             "dest_path": str(folder / filename),
             "conflict":  "none",
             "will_copy": True,
-        })
+        }
+        if extra:
+            entry.update(extra)
+        dests.append(entry)
 
     def _parse_json_list(raw: str | None) -> list[str]:
         if not raw:
@@ -136,22 +163,42 @@ def _build_destinations(
     # Tier 1: BySeries/{series}/{char} — 시리즈 + 캐릭터 모두 있을 때
     if has_series and has_char and cfg["enable_series_character"]:
         for series in series_tags:
-            s = sanitize_path_component(series)
+            s_display, s_fb = _display(series, "series")
+            s = sanitize_path_component(s_display)
             for char in char_tags:
-                c = sanitize_path_component(char)
-                _add("series_character", base / "BySeries" / s / c)
+                c_display, c_fb = _display(char, "character", series)
+                c = sanitize_path_component(c_display)
+                extra = {
+                    "series_canonical": series, "series_display": s_display,
+                    "character_canonical": char, "character_display": c_display,
+                    "locale": locale if use_locale else "canonical",
+                    "used_fallback": s_fb or c_fb,
+                } if use_locale else {}
+                _add("series_character", base / "BySeries" / s / c, extra)
 
     # Tier 2: BySeries/{series}/_uncategorized — 시리즈만 있을 때
     elif has_series and cfg["enable_series_uncategorized"]:
         for series in series_tags:
-            s = sanitize_path_component(series)
-            _add("series_uncategorized", base / "BySeries" / s / "_uncategorized")
+            s_display, s_fb = _display(series, "series")
+            s = sanitize_path_component(s_display)
+            extra = {
+                "series_canonical": series, "series_display": s_display,
+                "locale": locale if use_locale else "canonical",
+                "used_fallback": s_fb,
+            } if use_locale else {}
+            _add("series_uncategorized", base / "BySeries" / s / "_uncategorized", extra)
 
     # Tier 3: ByCharacter/{char} — 캐릭터만 있을 때
     elif has_char and cfg["enable_character_without_series"]:
         for char in char_tags:
-            c = sanitize_path_component(char)
-            _add("character", base / "ByCharacter" / c)
+            c_display, c_fb = _display(char, "character")
+            c = sanitize_path_component(c_display)
+            extra = {
+                "character_canonical": char, "character_display": c_display,
+                "locale": locale if use_locale else "canonical",
+                "used_fallback": c_fb,
+            } if use_locale else {}
+            _add("character", base / "ByCharacter" / c, extra)
 
     # Author fallback: 시리즈/캐릭터 모두 없을 때만
     if not has_series and not has_char and cfg["fallback_by_author"]:
@@ -244,7 +291,7 @@ def build_classify_preview(
         return None
 
     cfg   = _cls_cfg(config)
-    dests = _build_destinations(dict(group), source, classified_dir, cfg)
+    dests = _build_destinations(dict(group), source, classified_dir, cfg, conn=conn)
 
     on_conflict = cfg["on_conflict"]
     for d in dests:
@@ -264,14 +311,21 @@ def build_classify_preview(
             file_size = 0
 
     copies = sum(1 for d in dests if d["will_copy"])
+    fallback_tags = list({
+        d.get("series_canonical") or d.get("character_canonical")
+        for d in dests
+        if d.get("used_fallback") and (d.get("series_canonical") or d.get("character_canonical"))
+    })
 
     return {
-        "group_id":        group_id,
-        "source_file_id":  source["file_id"],
-        "source_path":     source["file_path"],
-        "destinations":    dests,
+        "group_id":         group_id,
+        "source_file_id":   source["file_id"],
+        "source_path":      source["file_path"],
+        "destinations":     dests,
         "estimated_copies": copies,
-        "estimated_bytes": file_size * copies,
+        "estimated_bytes":  file_size * copies,
+        "folder_locale":    cfg.get("folder_locale", "canonical"),
+        "fallback_tags":    fallback_tags,
     }
 
 
@@ -305,33 +359,37 @@ def execute_classify_preview(
     conn: sqlite3.Connection,
     preview: dict,
     config: dict,
+    *,
+    entry_id: Optional[str] = None,
+    _commit: bool = True,
 ) -> dict:
     """
     preview를 기준으로 실제 파일 복사를 실행한다.
 
     - 원본/managed 파일은 이동하지 않고 복사만 수행
-    - undo_entries 생성 (undo 실행은 MVP-B 다음 단계)
+    - undo_entries 생성 (entry_id 제공 시 기존 항목 재사용 — 일괄 분류용)
     - copy_records 기록
     - artwork_files에 classified_copy 행 추가
     - artwork_groups.status → 'classified'
     """
     now = datetime.now(timezone.utc).isoformat()
-    undo_days  = int(config.get("undo_retention_days", 7))
-    expires_at = (
-        datetime.now(timezone.utc) + timedelta(days=undo_days)
-    ).isoformat()
 
-    entry_id = str(uuid.uuid4())
-    conn.execute(
-        """INSERT INTO undo_entries
-           (entry_id, operation_type, performed_at, undo_expires_at,
-            undo_status, description)
-           VALUES (?, 'classify', ?, ?, 'pending', ?)""",
-        (
-            entry_id, now, expires_at,
-            f"classify:{preview['group_id'][:8]}…",
-        ),
-    )
+    if entry_id is None:
+        undo_days  = int(config.get("undo_retention_days", 7))
+        expires_at = (
+            datetime.now(timezone.utc) + timedelta(days=undo_days)
+        ).isoformat()
+        entry_id = str(uuid.uuid4())
+        conn.execute(
+            """INSERT INTO undo_entries
+               (entry_id, operation_type, performed_at, undo_expires_at,
+                undo_status, description)
+               VALUES (?, 'classify', ?, ?, 'pending', ?)""",
+            (
+                entry_id, now, expires_at,
+                f"classify:{preview['group_id'][:8]}…",
+            ),
+        )
 
     on_conflict = _cls_cfg(config)["on_conflict"]
     source_path = preview["source_path"]
@@ -409,7 +467,8 @@ def execute_classify_preview(
             (now, preview["group_id"]),
         )
 
-    conn.commit()
+    if _commit:
+        conn.commit()
 
     return {
         "success":  True,

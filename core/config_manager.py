@@ -40,6 +40,14 @@ _DEFAULTS: dict[str, Any] = {
         "enable_by_author":               False,
         "enable_by_tag":                  False,
         "on_conflict":                    "rename",
+        # 다국어 폴더명 설정
+        "folder_locale":                  "ko",
+        "fallback_locale":                "canonical",
+        "enable_localized_folder_names":  True,
+        "preserve_original_tag_names":    True,
+        # 일괄 분류 설정
+        "batch_default_scope":            "current_filter",
+        "batch_existing_copy_policy":     "keep_existing",
     },
 }
 

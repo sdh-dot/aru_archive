@@ -328,6 +328,12 @@ class MainWindow(QMainWindow):
         self._restore_archive_root()
 
         if Path(self._db_path()).exists():
+            try:
+                conn = self._get_conn()
+                self._seed_localizations(conn)
+                conn.close()
+            except Exception:
+                pass
             self._refresh_gallery()
             self._refresh_counts()
 
@@ -355,6 +361,7 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         self._btn_classify_preview = _tb_btn("📋 분류 미리보기", tb)
         self._btn_classify_run     = _tb_btn("▶ 분류 실행",     tb)
+        self._btn_batch_classify   = _tb_btn("📋 일괄 분류",    tb)
         self._btn_retag            = _tb_btn("🏷 태그 재분류",   tb)
         self._btn_candidates       = _tb_btn("🏷 후보 태그",     tb)
         tb.addSeparator()
@@ -412,6 +419,7 @@ class MainWindow(QMainWindow):
         self._btn_db_init.clicked.connect(self._on_db_init)
         self._btn_classify_preview.clicked.connect(self._on_classify_preview)
         self._btn_classify_run    .clicked.connect(self._on_classify_run)
+        self._btn_batch_classify  .clicked.connect(self._on_batch_classify)
         self._btn_retag           .clicked.connect(self._on_retag)
         self._btn_candidates      .clicked.connect(self._on_show_candidates)
         self._btn_work_log        .clicked.connect(self._on_show_work_log)
@@ -643,12 +651,23 @@ class MainWindow(QMainWindow):
         db_path = self._db_path()
         try:
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-            initialize_database(db_path)
+            conn = initialize_database(db_path)
+            self._seed_localizations(conn)
+            conn.close()
             self._log.append(f"[INFO] DB 초기화 완료: {db_path}")
             self._refresh_gallery()
             self._refresh_counts()
         except Exception as exc:
             self._log.append(f"[ERROR] DB 초기화 실패: {exc}")
+
+    def _seed_localizations(self, conn) -> None:
+        try:
+            from core.tag_localizer import seed_builtin_localizations
+            n = seed_builtin_localizations(conn)
+            if n:
+                self._log.append(f"[INFO] 내장 로컬라이제이션 {n}개 추가")
+        except Exception as exc:
+            logger.warning("로컬라이제이션 시드 실패: %s", exc)
 
     # ------------------------------------------------------------------
     # 사이드바 / 갤러리 핸들러
@@ -940,6 +959,42 @@ class MainWindow(QMainWindow):
             self._refresh_counts()
         else:
             self._log.append("[ERROR] 분류 실행 실패")
+
+    def _get_current_filter_group_ids(self) -> list[str]:
+        cat   = self._current_category
+        where = _GALLERY_WHERE.get(cat, "")
+        sql   = f"SELECT g.group_id FROM artwork_groups g {where} ORDER BY g.indexed_at DESC"
+        try:
+            conn = self._get_conn()
+            ids  = [r[0] for r in conn.execute(sql).fetchall()]
+            conn.close()
+            return ids
+        except Exception:
+            return []
+
+    def _on_batch_classify(self) -> None:
+        classified_dir = self.config.get("classified_dir", "")
+        if not classified_dir:
+            self._log.append(
+                "[WARN] classified_dir 미설정 — "
+                "[📁 Archive Root 선택]을 먼저 실행하세요."
+            )
+            return
+        from app.views.batch_classify_dialog import BatchClassifyDialog
+        dlg = BatchClassifyDialog(
+            self._get_conn,
+            self.config,
+            selected_group_ids=self._gallery.get_selected_group_ids(),
+            current_filter_group_ids=self._get_current_filter_group_ids(),
+            parent=self,
+        )
+        dlg.log_msg   .connect(self._log.append)
+        dlg.batch_done.connect(self._on_batch_classify_done)
+        dlg.exec()
+
+    def _on_batch_classify_done(self, result: dict) -> None:
+        self._refresh_gallery()
+        self._refresh_counts()
 
     def _on_retag(self) -> None:
         """

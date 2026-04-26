@@ -365,6 +365,28 @@ CREATE INDEX IF NOT EXISTS idx_tag_cand_raw_tag ON tag_candidates(raw_tag);
 
 
 -- ============================================================
+-- 13. tag_localizations: 태그 로컬라이즈 이름 (폴더명 다국어 지원)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tag_localizations (
+    localization_id TEXT PRIMARY KEY,          -- UUID v4
+    canonical       TEXT NOT NULL,             -- 내부 정규명 (예: Blue Archive)
+    tag_type        TEXT NOT NULL,             -- series | character | general
+    parent_series   TEXT NOT NULL DEFAULT '',  -- character 시 소속 series, 없으면 ''
+    locale          TEXT NOT NULL,             -- ko | ja | en | canonical | custom
+    display_name    TEXT NOT NULL,             -- 폴더명으로 사용할 표시명
+    sort_name       TEXT,                      -- 정렬용 이름 (선택)
+    source          TEXT,                      -- built_in | user | import | candidate
+    enabled         INTEGER NOT NULL DEFAULT 1,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT,
+    UNIQUE(canonical, tag_type, parent_series, locale)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tag_local_canonical ON tag_localizations(canonical, tag_type);
+CREATE INDEX IF NOT EXISTS idx_tag_local_locale    ON tag_localizations(locale, enabled);
+
+
+-- ============================================================
 -- 12. operation_locks: SQLite 동시 쓰기 잠금
 --     키 패턴:
 --       save:{source_site}:{artwork_id}  → 120초 (중복 저장 방지)

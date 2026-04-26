@@ -59,6 +59,63 @@ class TestDatabaseInit:
         row = conn.execute("PRAGMA journal_mode").fetchone()
         assert row[0] == "wal"
 
+    def test_migrates_legacy_tags_without_tag_type(self, tmp_path):
+        db_path = str(tmp_path / "legacy_tags.db")
+        import sqlite3
+        legacy = sqlite3.connect(db_path)
+        legacy.executescript(
+            """
+            CREATE TABLE artwork_groups (
+                group_id TEXT PRIMARY KEY,
+                source_site TEXT NOT NULL DEFAULT 'pixiv',
+                artwork_id TEXT NOT NULL,
+                downloaded_at TEXT NOT NULL,
+                indexed_at TEXT NOT NULL
+            );
+            CREATE TABLE tags (
+                group_id TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                PRIMARY KEY (group_id, tag)
+            );
+            CREATE TABLE tag_aliases (
+                alias TEXT PRIMARY KEY,
+                canonical TEXT NOT NULL,
+                source_site TEXT,
+                created_at TEXT NOT NULL
+            );
+            INSERT INTO artwork_groups
+                (group_id, source_site, artwork_id, downloaded_at, indexed_at)
+                VALUES ('g1', 'pixiv', 'legacy_001', '2026-01-01', '2026-01-01');
+            INSERT INTO tags (group_id, tag) VALUES ('g1', 'legacy_tag');
+            INSERT INTO tag_aliases
+                (alias, canonical, source_site, created_at)
+                VALUES ('legacy_alias', 'Legacy Canonical', 'pixiv', '2026-01-01');
+            """
+        )
+        legacy.close()
+
+        migrated = initialize_database(db_path)
+        try:
+            tag_cols = _table_columns(migrated, "tags")
+            alias_cols = _table_columns(migrated, "tag_aliases")
+            assert {"group_id", "tag", "tag_type", "canonical"}.issubset(tag_cols)
+            assert {"alias", "canonical", "tag_type", "parent_series", "enabled"}.issubset(alias_cols)
+
+            tag = migrated.execute(
+                "SELECT tag, tag_type FROM tags WHERE group_id = 'g1'"
+            ).fetchone()
+            assert tag["tag"] == "legacy_tag"
+            assert tag["tag_type"] == "general"
+
+            alias = migrated.execute(
+                "SELECT canonical, tag_type, source FROM tag_aliases WHERE alias = 'legacy_alias'"
+            ).fetchone()
+            assert alias["canonical"] == "Legacy Canonical"
+            assert alias["tag_type"] == "general"
+            assert alias["source"] == "pixiv"
+        finally:
+            migrated.close()
+
 
 class TestArtworkGroups:
     def _insert_group(self, conn) -> str:

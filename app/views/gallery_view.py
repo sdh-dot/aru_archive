@@ -128,6 +128,7 @@ class GalleryView(QWidget):
             "  background: #452634; color: #F7E8EC;"
             "}"
         )
+        self._list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self._list.currentItemChanged.connect(self._on_changed)
         layout.addWidget(self._list)
 
@@ -158,6 +159,12 @@ class GalleryView(QWidget):
     def get_selected_group_id(self) -> Optional[str]:
         item = self._list.currentItem()
         return item.data(Qt.ItemDataRole.UserRole) if item else None
+
+    def get_selected_group_ids(self) -> list[str]:
+        return [
+            item.data(Qt.ItemDataRole.UserRole)
+            for item in self._list.selectedItems()
+        ]
 
     def refresh_item(self, group_id: str, row: dict) -> None:
         """특정 카드를 갱신한다."""

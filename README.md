@@ -64,7 +64,8 @@ python main.py --config path/to/config.json
 3. **[🔍 Inbox 스캔]** → Pixiv 파일 검색
 4. 갤러리에서 항목 선택 → **[🌐 Pixiv 메타데이터 가져오기]**
 5. **[📋 분류 미리보기]** → 경로 확인 → **[▶ 분류 실행]**
-6. **[🕘 작업 로그]** → Undo 가능
+6. Ctrl+Click으로 여러 항목 선택 → **[📋 일괄 분류]** → 범위·언어 설정 후 미리보기·실행
+7. **[🕘 작업 로그]** → Undo 가능
 
 Pixiv 작품 페이지에서 팝업 **저장** 버튼으로 직접 저장도 가능합니다.
 
@@ -103,6 +104,8 @@ QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 - PyQt6 데스크톱 앱 + Chrome/Whale 브라우저 확장
 - Native Messaging 프로토콜 v2 (5개 액션)
 - 4-tier 분류 엔진 + 태그 정규화 파이프라인
+- 다국어 폴더명 (ko/ja/en) — `tag_localizations` DB + 내장 Blue Archive 데이터
+- 일괄 분류 (Batch Classification) — Ctrl+Click 다중 선택, 범위 선택, 1개 undo_entry
 - Undo 시스템, 저장 작업 실시간 모니터링
 
 **예정**
