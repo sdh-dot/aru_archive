@@ -1,0 +1,15 @@
+.venv/
+.venv-*/
+__pycache__/
+.pytest_cache/
+.pytest_tmp/
+build/
+
+*.py[cod]
+*.pyo
+*.pyd
+
+config.json
+*.log
+
+.claude/

@@ -1,0 +1,286 @@
+"""
+GUI smoke 테스트.
+
+MainWindow 및 각 뷰 위젯이 예외 없이 초기화·표시되는지 확인한다.
+PyQt6 + 실제 디스플레이(또는 QT_QPA_PLATFORM=offscreen) 필요.
+
+실행:
+  pytest tests/test_gui_smoke.py -v
+  QT_QPA_PLATFORM=offscreen pytest tests/test_gui_smoke.py -v  # headless
+"""
+from __future__ import annotations
+
+import os
+import sys
+
+import pytest
+
+# offscreen 플랫폼은 QApplication 생성 전에 설정해야 한다.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+PyQt6 = pytest.importorskip("PyQt6", reason="PyQt6가 설치되어 있지 않음")
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def qt_app():
+    from PyQt6.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(sys.argv)
+    yield app
+    # 모듈 범위에서 한 번만 생성·유지
+
+
+@pytest.fixture
+def tmp_config(tmp_path):
+    return {
+        "data_dir":  str(tmp_path / "archive"),
+        "inbox_dir": str(tmp_path / "inbox"),
+        "db": {"path": str(tmp_path / "archive" / "aru.db")},
+        "http_server": {"port": 19999},
+    }
+
+
+# ---------------------------------------------------------------------------
+# MainWindow
+# ---------------------------------------------------------------------------
+
+def test_main_window_init(qt_app, tmp_config, tmp_path):
+    """MainWindow가 임시 설정으로 예외 없이 초기화된다."""
+    from app.main_window import MainWindow
+    cfg_path = str(tmp_path / "cfg.json")
+    win = MainWindow(tmp_config, config_path=cfg_path)
+    assert win.windowTitle() == "Aru Archive"
+    win.close()
+
+
+def test_main_window_toolbar_buttons(qt_app, tmp_config, tmp_path):
+    """툴바 버튼이 존재하고 초기에 활성 상태이다."""
+    from app.main_window import MainWindow
+    win = MainWindow(tmp_config, config_path=str(tmp_path / "cfg.json"))
+    assert win._btn_root.isEnabled()
+    assert win._btn_scan.isEnabled()
+    assert win._btn_db_init.isEnabled()
+    win.close()
+
+
+def test_main_window_db_init(qt_app, tmp_config, tmp_path):
+    """DB 초기화 버튼 클릭이 예외 없이 처리된다."""
+    from app.main_window import MainWindow
+    win = MainWindow(tmp_config, config_path=str(tmp_path / "cfg.json"))
+    win._on_db_init()
+    win.close()
+
+
+# ---------------------------------------------------------------------------
+# GalleryView
+# ---------------------------------------------------------------------------
+
+def test_gallery_empty(qt_app):
+    """GalleryView — 빈 rows 로드."""
+    from app.views.gallery_view import GalleryView
+    v = GalleryView()
+    v.load_groups([])
+
+
+def test_gallery_with_rows(qt_app):
+    """GalleryView — 일반 rows 로드."""
+    from app.views.gallery_view import GalleryView
+    v = GalleryView()
+    rows = [
+        {
+            "group_id": f"g{i}",
+            "artwork_title": f"Title {i}",
+            "artwork_id": f"a{i}",
+            "metadata_sync_status": "full",
+            "status": "inbox",
+            "source_site": "local",
+            "file_format": "jpg",
+            "thumb_path": None,
+            "role_summary": "original",
+        }
+        for i in range(5)
+    ]
+    v.load_groups(rows)
+    assert v.get_selected_group_id() is None
+
+
+# ---------------------------------------------------------------------------
+# DetailView
+# ---------------------------------------------------------------------------
+
+def test_detail_clear(qt_app):
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    v.clear()
+
+
+def test_detail_show_group(qt_app):
+    """DetailView — 그룹 데이터 표시."""
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    v.show_group(
+        {
+            "group_id": "test-uuid",
+            "artwork_title": "테스트 작품",
+            "artist_name": "테스트 작가",
+            "artwork_id": "abc123",
+            "source_site": "local",
+            "metadata_sync_status": "full",
+            "indexed_at": "2025-01-01T00:00:00",
+            "tags_json": '["tag1", "tag2"]',
+        },
+        [
+            {
+                "file_role": "original",
+                "file_path": "/fake/file.jpg",
+                "file_format": "jpg",
+            }
+        ],
+    )
+
+
+def test_detail_bmp_buttons(qt_app):
+    """DetailView — BMP 파일 시 BMP 변환 버튼 활성, GIF 버튼 비활성."""
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    v.show_group(
+        {"group_id": "g1", "metadata_sync_status": "pending"},
+        [{"file_role": "original", "file_path": "/f.bmp", "file_format": "bmp"}],
+    )
+    assert v._btn_bmp.isEnabled()
+    assert not v._btn_gif.isEnabled()
+
+
+def test_detail_gif_buttons(qt_app):
+    """DetailView — GIF 파일 시 GIF 버튼 활성, BMP 버튼 비활성."""
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    v.show_group(
+        {"group_id": "g1", "metadata_sync_status": "pending"},
+        [{"file_role": "original", "file_path": "/f.gif", "file_format": "gif"}],
+    )
+    assert not v._btn_bmp.isEnabled()
+    assert v._btn_gif.isEnabled()
+
+
+def test_detail_read_meta_button_label(qt_app):
+    """DetailView — '파일 내 메타데이터 읽기' 버튼 이름 확인."""
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    assert v._btn_read_meta.text() == "파일 내 메타데이터 읽기"
+
+
+def test_detail_pixiv_meta_signal_exists(qt_app):
+    """DetailView — pixiv_meta_requested 시그널 존재 확인."""
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    received = []
+    v.pixiv_meta_requested.connect(received.append)
+    # Pixiv 파일명 패턴 파일이 없으면 버튼 비활성 — 시그널은 emit되지 않아야 함
+    v.show_group(
+        {"group_id": "g1", "metadata_sync_status": "pending"},
+        [{"file_role": "original", "file_path": "/f.jpg", "file_format": "jpg"}],
+    )
+    assert not v._btn_pixiv_meta.isEnabled()
+    assert received == []
+
+
+def test_detail_pixiv_meta_button_enabled_for_pixiv_filename(qt_app):
+    """DetailView — Pixiv 파일명 패턴일 때 Pixiv 버튼 활성."""
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    v.show_group(
+        {"group_id": "g1", "metadata_sync_status": "pending"},
+        [
+            {
+                "file_role": "original",
+                "file_path": "/downloads/141100516_p0.jpg",
+                "file_format": "jpg",
+            }
+        ],
+    )
+    assert v._btn_pixiv_meta.isEnabled()
+
+
+def test_detail_show_pixiv_result(qt_app):
+    """DetailView.show_pixiv_result() 호출 시 Pixiv 보강 섹션이 표시된다."""
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    v.show_pixiv_result("141100516", "https://www.pixiv.net/artworks/141100516")
+    assert not v._pixiv_box.isHidden()
+    assert v._lbl_pixiv_id.text() == "141100516"
+    assert "141100516" in v._lbl_pixiv_url.text()
+
+
+def test_detail_clear_hides_pixiv_section(qt_app):
+    """DetailView.clear() 시 Pixiv 보강 섹션이 숨겨진다."""
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    v.show_pixiv_result("999", "https://www.pixiv.net/artworks/999")
+    v.clear()
+    assert v._pixiv_box.isHidden()
+
+
+# ---------------------------------------------------------------------------
+# NoMetadataView
+# ---------------------------------------------------------------------------
+
+def test_no_metadata_empty(qt_app):
+    from app.views.no_metadata_view import NoMetadataView
+    v = NoMetadataView()
+    v.load_queue([])
+    assert "0건" in v._count_lbl.text()
+
+
+def test_no_metadata_with_rows(qt_app):
+    """NoMetadataView — 항목 표시 및 카운터 갱신."""
+    from app.views.no_metadata_view import NoMetadataView
+    v = NoMetadataView()
+    rows = [
+        {
+            "queue_id": "q1",
+            "file_path": "/fake/img.jpg",
+            "fail_reason": "manual_add",
+            "detected_at": "2025-01-01T00:00:00",
+            "resolved": 0,
+            "notes": "",
+        },
+        {
+            "queue_id": "q2",
+            "file_path": "/fake/img2.bmp",
+            "fail_reason": "bmp_convert_failed",
+            "detected_at": "2025-01-02T00:00:00",
+            "resolved": 1,
+            "notes": "무시됨",
+        },
+    ]
+    v.load_queue(rows)
+    assert v._table.rowCount() == 2
+    assert "1건 미해결" in v._count_lbl.text()
+
+
+# ---------------------------------------------------------------------------
+# SidebarWidget
+# ---------------------------------------------------------------------------
+
+def test_sidebar_update_counts(qt_app):
+    from app.widgets.sidebar import SidebarWidget
+    s = SidebarWidget()
+    s.update_counts({"all": 10, "inbox": 5, "managed": 3,
+                     "no_metadata": 2, "warning": 0, "failed": 1})
+    assert s.current_category() == "all"
+
+
+# ---------------------------------------------------------------------------
+# LogPanel
+# ---------------------------------------------------------------------------
+
+def test_log_panel_append(qt_app):
+    from app.widgets.log_panel import LogPanel
+    lp = LogPanel()
+    lp.append("[INFO] 테스트 메시지")
+    lp.append("[ERROR] 오류 메시지")
+    lp.clear()

@@ -1,0 +1,50 @@
+{
+  "_comment": "Aru Archive 설정 예시. 실제 사용 시 config.json으로 복사하여 편집하세요.",
+
+  "data_dir": "C:/Users/YourName/AruArchive",
+  "inbox_dir": "{data_dir}/Inbox",
+
+  "db": {
+    "path": "{data_dir}/aru_archive.db"
+  },
+
+  "classify_mode": "save_only",
+  "_classify_mode_comment": "save_only (MVP-A) | immediate | review (MVP-B)",
+
+  "classify_rules_enabled": false,
+  "_classify_rules_comment": "MVP-B에서 활성화",
+
+  "undo_retention_days": 7,
+
+  "thumbnail": {
+    "size": [256, 256],
+    "quality": 85
+  },
+
+  "http_server": {
+    "port": 18456,
+    "bind": "127.0.0.1"
+  },
+
+  "exiftool_path": null,
+  "_exiftool_comment": "null이면 XMP 임베딩 스킵 (json_only). MVP-B에서 설정.",
+
+  "pixiv": {
+    "session_cookie": "",
+    "_session_cookie_comment": "PHPSESSID 값. 브라우저 확장에서 자동 주입되므로 보통 비워둠."
+  },
+
+  "log": {
+    "level": "INFO",
+    "dir": "{data_dir}/logs",
+    "max_bytes": 5242880,
+    "backup_count": 3
+  },
+
+  "native_host": {
+    "allowed_extensions": [
+      "chrome-extension://YOUR_EXTENSION_ID_HERE/",
+      "chrome-extension://YOUR_WHALE_EXTENSION_ID_HERE/"
+    ]
+  }
+}

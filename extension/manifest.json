@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Aru Archive",
+  "version": "0.1.0",
+  "description": "Pixiv 작품을 Aru Archive로 저장합니다.",
+
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "activeTab"
+  ],
+
+  "host_permissions": [
+    "https://www.pixiv.net/*"
+  ],
+
+  "background": {
+    "service_worker": "background/service_worker.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://www.pixiv.net/*"],
+      "js": ["content_scripts/pixiv.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Aru Archive",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

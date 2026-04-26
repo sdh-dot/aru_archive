@@ -1,0 +1,9 @@
+{
+  "name": "net.aru_archive.host",
+  "description": "Aru Archive Native Messaging Host",
+  "path": "host.bat",
+  "type": "stdio",
+  "allowed_origins": [
+    "naver-extension://EXTENSION_ID_PLACEHOLDER/"
+  ]
+}
