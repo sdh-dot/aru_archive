@@ -75,6 +75,7 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     _migrate_tag_aliases(conn)
     _migrate_undo_entries(conn)
     _migrate_tag_localizations(conn)
+    _migrate_external_dictionary_entries(conn)
 
 
 def _add_column_if_missing(
@@ -265,6 +266,50 @@ def _migrate_tag_localizations(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_tag_local_locale "
         "ON tag_localizations(locale, enabled)"
+    )
+    conn.commit()
+
+
+def _migrate_external_dictionary_entries(conn: sqlite3.Connection) -> None:
+    """external_dictionary_entries 테이블이 없으면 생성한다 (기존 DB 호환)."""
+    if _table_exists(conn, "external_dictionary_entries"):
+        return
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS external_dictionary_entries (
+            entry_id         TEXT PRIMARY KEY,
+            source           TEXT NOT NULL,
+            source_version   TEXT,
+            source_url       TEXT,
+            danbooru_tag     TEXT,
+            danbooru_category TEXT,
+            canonical        TEXT NOT NULL,
+            tag_type         TEXT NOT NULL,
+            parent_series    TEXT NOT NULL DEFAULT '',
+            alias            TEXT,
+            locale           TEXT,
+            display_name     TEXT,
+            confidence_score REAL NOT NULL DEFAULT 0,
+            evidence_json    TEXT,
+            status           TEXT NOT NULL DEFAULT 'staged',
+            imported_at      TEXT NOT NULL,
+            updated_at       TEXT
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ext_dict_status ON "
+        "external_dictionary_entries(status)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ext_dict_source ON "
+        "external_dictionary_entries(source)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ext_dict_canonical ON "
+        "external_dictionary_entries(canonical, tag_type)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ext_dict_alias ON "
+        "external_dictionary_entries(alias)"
     )
     conn.commit()
 

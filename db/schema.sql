@@ -387,6 +387,41 @@ CREATE INDEX IF NOT EXISTS idx_tag_local_locale    ON tag_localizations(locale, 
 
 
 -- ============================================================
+-- 14. external_dictionary_entries: 외부 사전 staging 후보
+--     status: staged | accepted | rejected | ignored
+-- ============================================================
+CREATE TABLE IF NOT EXISTS external_dictionary_entries (
+    entry_id         TEXT PRIMARY KEY,
+    source           TEXT NOT NULL,          -- danbooru | wikidata | ...
+    source_version   TEXT,
+    source_url       TEXT,
+
+    danbooru_tag     TEXT,                   -- Danbooru 원본 tag 이름
+    danbooru_category TEXT,                  -- copyright | character | general | artist
+
+    canonical        TEXT NOT NULL,          -- 제안 canonical명
+    tag_type         TEXT NOT NULL,          -- series | character | general | artist
+    parent_series    TEXT NOT NULL DEFAULT '',
+
+    alias            TEXT,                   -- tag_aliases에 추가할 alias
+    locale           TEXT,                   -- tag_localizations locale
+    display_name     TEXT,                   -- tag_localizations display_name
+
+    confidence_score REAL NOT NULL DEFAULT 0,
+    evidence_json    TEXT,                   -- JSON: 근거 상세
+
+    status           TEXT NOT NULL DEFAULT 'staged',
+    imported_at      TEXT NOT NULL,
+    updated_at       TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_ext_dict_status   ON external_dictionary_entries(status);
+CREATE INDEX IF NOT EXISTS idx_ext_dict_source   ON external_dictionary_entries(source);
+CREATE INDEX IF NOT EXISTS idx_ext_dict_canonical ON external_dictionary_entries(canonical, tag_type);
+CREATE INDEX IF NOT EXISTS idx_ext_dict_alias    ON external_dictionary_entries(alias);
+
+
+-- ============================================================
 -- 12. operation_locks: SQLite 동시 쓰기 잠금
 --     키 패턴:
 --       save:{source_site}:{artwork_id}  → 120초 (중복 저장 방지)

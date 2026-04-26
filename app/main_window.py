@@ -401,6 +401,7 @@ class MainWindow(QMainWindow):
         self._btn_xmp_all          = _tb_btn("🔄 전체 XMP 재처리", tb)
         self._btn_retag            = _tb_btn("🏷 태그 재분류",   tb)
         self._btn_candidates       = _tb_btn("🏷 후보 태그",     tb)
+        self._btn_dict_import      = _tb_btn("🌐 웹 사전",       tb)
         tb.addSeparator()
         self._btn_work_log         = _tb_btn("🕘 작업 로그",     tb)
         self._btn_save_jobs        = _tb_btn("💾 저장 작업",     tb)
@@ -460,6 +461,7 @@ class MainWindow(QMainWindow):
         self._btn_xmp_all         .clicked.connect(self._on_xmp_retry_all)
         self._btn_retag           .clicked.connect(self._on_retag)
         self._btn_candidates      .clicked.connect(self._on_show_candidates)
+        self._btn_dict_import     .clicked.connect(self._on_show_dict_import)
         self._btn_work_log        .clicked.connect(self._on_show_work_log)
         self._btn_save_jobs       .clicked.connect(self._on_show_save_jobs)
 
@@ -1217,6 +1219,21 @@ class MainWindow(QMainWindow):
             conn.close()
         except Exception as exc:
             self._log.append(f"[ERROR] 후보 태그 다이얼로그 오류: {exc}")
+
+    def _on_show_dict_import(self) -> None:
+        """외부 사전 후보 가져오기 다이얼로그를 연다."""
+        try:
+            from app.views.dictionary_import_view import DictionaryImportView
+            current_gids = self._gallery.get_visible_group_ids() if hasattr(self._gallery, "get_visible_group_ids") else []
+            dlg = DictionaryImportView(
+                self._get_conn,
+                current_group_ids=current_gids,
+                parent=self,
+            )
+            dlg.log_msg.connect(self._log.append)
+            dlg.exec()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 웹 사전 다이얼로그 오류: {exc}")
 
     def _on_show_save_jobs(self) -> None:
         """저장 작업 상태 다이얼로그를 연다."""

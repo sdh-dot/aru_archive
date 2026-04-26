@@ -209,7 +209,34 @@ DB (tag_localizations) → BUILTIN → fallback_locale DB → fallback_locale BU
 
 ---
 
-## 12. 일괄 분류 (Batch Classification)
+## 12. 외부 사전으로 분류 개선 (External Dictionary Import)
+
+외부 사전(Danbooru 등)에서 캐릭터·시리즈 후보를 가져와 alias를 등록하면, 이후 분류에 즉시 반영됩니다.
+
+### 사용 방법
+
+1. 툴바 **`[🌐 웹 사전]`** 버튼 클릭 → DictionaryImportView 열림
+2. 소스(Danbooru) 선택 후 시리즈 이름 입력
+3. **`[🔍 가져오기]`** — Danbooru에서 캐릭터 후보를 수집하고 `staged` 상태로 저장
+4. 테이블에서 항목을 선택 후 **`[✅ 승인]`** — `tag_aliases` / `tag_localizations`에 반영
+5. 불필요한 항목은 **`[❌ 거부]`** 또는 **`[⏭ 무시]`**
+
+### 승인 후 태그 재분류
+
+DictionaryImportView의 **"승인 후 현재 목록 태그 재분류 실행"** 체크박스를 활성화하면  
+승인 직후 갤러리에 표시된 그룹에 대해 `retag_groups_from_existing_tags()`가 실행됩니다.
+
+> 원본 `tags_json`은 변경하지 않습니다. `series_tags_json`, `character_tags_json`, `tags` 테이블만 갱신합니다.
+
+### 단일 미리보기와의 연계
+
+**`[📋 분류 미리보기]`** 버튼(단일 선택)을 클릭하면 미리보기 생성 직전에  
+`retag_groups_from_existing_tags()`가 자동 실행됩니다.  
+tag_aliases 업데이트 직후 개별 작품 미리보기를 확인할 때 유용합니다.
+
+---
+
+## 13. 일괄 분류 (Batch Classification)
 
 `[📋 일괄 분류]` 버튼으로 여러 작품을 한 번에 분류할 수 있습니다.
 

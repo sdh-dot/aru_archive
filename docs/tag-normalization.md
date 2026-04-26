@@ -211,8 +211,70 @@ author_fallback      → suggested_type='general',   score=0.20
 
 ---
 
-## 11. 주의사항
+## 11. 외부 사전 (External Dictionary Sources)
+
+Danbooru 등 외부 사전에서 캐릭터/시리즈 후보를 가져와 스테이징할 수 있습니다.
+
+### 흐름
+
+```
+[🌐 웹 사전] 버튼 → DictionaryImportView
+  │
+  ├─ 시리즈 이름 입력 → [🔍 가져오기]
+  │    ↓
+  │  DanbooruSourceAdapter.fetch_character_candidates()
+  │    ↓
+  │  import_external_entries() → external_dictionary_entries (status='staged')
+  │
+  ├─ 사용자가 항목 선택 → [✅ 승인]
+  │    ↓
+  │  accept_external_entry()
+  │    ↓
+  │  tag_aliases INSERT (alias 있을 때)
+  │  tag_localizations INSERT (locale + display_name 있을 때)
+  │  status → 'accepted'
+  │
+  └─ [❌ 거부] / [⏭ 무시] → status='rejected' / 'ignored'
+```
+
+### external_dictionary_entries 상태값
+
+| status | 의미 |
+|--------|------|
+| `staged` | 검토 대기 |
+| `accepted` | 승인됨 → `tag_aliases` / `tag_localizations`에 반영 |
+| `rejected` | 거부됨 |
+| `ignored` | 무시됨 (재검토 가능) |
+
+### confidence_score 구성 (외부 사전)
+
+| 조건 | 가중치 |
+|------|--------|
+| base | +0.20 |
+| Danbooru category가 character/copyright | +0.35 |
+| parent series 확인됨 | +0.25 |
+| Pixiv observation 일치 | +0.20 |
+| Danbooru alias 관계 존재 | +0.15 |
+| Danbooru implication 정보 | +0.15 |
+| localization 후보 존재 | +0.10 |
+| alias 너무 짧음 (≤3자) | −0.30 |
+| 여러 series에서 동시 등장 | −0.40 |
+| general blacklist 태그 | −0.50 |
+
+### 관련 모듈
+
+| 모듈 | 역할 |
+|------|------|
+| `core/dictionary_sources/danbooru_source.py` | Danbooru API 어댑터 |
+| `core/dictionary_sources/matcher.py` | Pixiv 태그 ↔ Danbooru 후보 매칭 |
+| `core/external_dictionary.py` | CRUD + 승격 서비스 |
+| `app/views/dictionary_import_view.py` | 외부 사전 가져오기 UI |
+
+---
+
+## 12. 주의사항
 
 - 자동 승인은 구현되어 있지 않습니다. 모든 alias 생성에는 사용자 확인이 필요합니다.
 - `reject_candidate()`로 거부한 항목은 동일 `(raw_tag, suggested_alias)` 쌍에 대해 재생성되지 않습니다.
 - 이미 `tag_aliases`에 등록된 raw_tag에 대한 중복 후보는 생성되지 않습니다.
+- 외부 사전 후보는 사용자 승인 없이 `tag_aliases`/`tag_localizations`에 자동 반영되지 않습니다.
