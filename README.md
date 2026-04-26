@@ -125,8 +125,11 @@ Detail 패널 `[🔄 XMP 재시도]` 또는 툴바 `[🔄 전체 XMP 재처리]`
 - PyQt6 데스크톱 앱 + Chrome/Whale 브라우저 확장
 - Native Messaging 프로토콜 v2 (5개 액션)
 - 4-tier 분류 엔진 + 태그 정규화 파이프라인
+- **Tag Pack 시스템** — `resources/tag_packs/*.json`에서 시리즈/캐릭터 alias + 로컬라이제이션 자동 시드
+- **4단계 alias 매칭** — DB → built-in → 정규화(normalize_tag_key) 순서, 전각/공백 변형 처리
+- **미분류 태그 후보 생성** — `series_uncategorized` / `author_fallback` 감지 → `tag_candidates` 생성 (사용자 승인 필요)
 - 다국어 폴더명 (ko/ja/en) — `tag_localizations` DB + 내장 Blue Archive 데이터
-- 일괄 분류 (Batch Classification) — Ctrl+Click 다중 선택, 범위 선택, 1개 undo_entry
+- 일괄 분류 (Batch Classification) — 재분류 옵션, 실패 원인 요약, Ctrl+Click 다중 선택
 - Undo 시스템, 저장 작업 실시간 모니터링
 - **ExifTool XMP 연동** — `XMP-dc:*` + `XMP:Rating/Label/MetadataDate` 기록, XMP 재시도 UI
 

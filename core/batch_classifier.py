@@ -98,6 +98,9 @@ def build_classify_batch_preview(
     """
     여러 group에 대한 분류 미리보기를 생성한다. 실제 복사는 수행하지 않는다.
 
+    config["classification"]["retag_before_batch_preview"] = True이면
+    미리보기 전에 retag_groups_from_existing_tags를 실행한다.
+
     반환:
       {
         "folder_locale": "ko",
@@ -106,17 +109,29 @@ def build_classify_batch_preview(
         "excluded_groups": K,
         "estimated_copies": C,
         "estimated_bytes": B,
-        "previews": [...],   # build_classify_preview 반환값 목록
+        "previews": [...],
         "warnings": [...],
+        "series_uncategorized_count": N,
+        "author_fallback_count": N,
+        "candidate_count": N,
       }
     """
+    from core.tag_candidate_generator import generate_classification_failure_candidates
+
     cfg = _cls_cfg(config)
     locale = cfg.get("folder_locale", "canonical")
+
+    if config.get("classification", {}).get("retag_before_batch_preview", False):
+        from core.tag_reclassifier import retag_groups_from_existing_tags
+        retag_groups_from_existing_tags(conn, group_ids)
 
     previews: list[dict] = []
     excluded_count: int = 0
     warnings: list[str] = []
     fallback_canonicals: set[str] = set()
+    series_uncategorized_count: int = 0
+    author_fallback_count: int = 0
+    candidate_count: int = 0
 
     for gid in group_ids:
         p = build_classify_preview(conn, gid, config)
@@ -127,6 +142,15 @@ def build_classify_batch_preview(
             for ft in p.get("fallback_tags", []):
                 if ft:
                     fallback_canonicals.add(ft)
+            ci = p.get("classification_info")
+            if ci:
+                reason = ci.get("classification_reason", "")
+                if reason == "series_detected_but_character_missing":
+                    series_uncategorized_count += 1
+                elif reason == "series_and_character_missing":
+                    author_fallback_count += 1
+                candidates = generate_classification_failure_candidates(conn, gid, ci)
+                candidate_count += len(candidates)
 
     estimated_copies = sum(p["estimated_copies"] for p in previews)
     estimated_bytes  = sum(p["estimated_bytes"]  for p in previews)
@@ -141,16 +165,27 @@ def build_classify_batch_preview(
             f"{len(fallback_canonicals)}개 태그에서 '{locale}' 표시명이 없어 "
             f"canonical을 사용했습니다: {names}"
         )
+    if series_uncategorized_count:
+        warnings.append(
+            f"{series_uncategorized_count}개 작품: 시리즈 감지됨, 캐릭터 미분류 (series_uncategorized)"
+        )
+    if author_fallback_count:
+        warnings.append(
+            f"{author_fallback_count}개 작품: 시리즈/캐릭터 모두 미분류 (author_fallback)"
+        )
 
     return {
-        "folder_locale":       locale,
-        "total_groups":        len(group_ids),
-        "classifiable_groups": len(previews),
-        "excluded_groups":     excluded_count,
-        "estimated_copies":    estimated_copies,
-        "estimated_bytes":     estimated_bytes,
-        "previews":            previews,
-        "warnings":            warnings,
+        "folder_locale":              locale,
+        "total_groups":               len(group_ids),
+        "classifiable_groups":        len(previews),
+        "excluded_groups":            excluded_count,
+        "estimated_copies":           estimated_copies,
+        "estimated_bytes":            estimated_bytes,
+        "previews":                   previews,
+        "warnings":                   warnings,
+        "series_uncategorized_count": series_uncategorized_count,
+        "author_fallback_count":      author_fallback_count,
+        "candidate_count":            candidate_count,
     }
 
 

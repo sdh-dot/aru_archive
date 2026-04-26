@@ -25,6 +25,19 @@ from core.path_utils import sanitize_path_component
 from core.tag_localizer import resolve_display_name_with_info
 
 # ---------------------------------------------------------------------------
+# 공용 헬퍼
+# ---------------------------------------------------------------------------
+
+def _parse_json_list(raw: str | None) -> list[str]:
+    """JSON 배열 문자열을 파싱해 문자열 리스트로 반환한다."""
+    if not raw:
+        return []
+    try:
+        return [t.strip() for t in json.loads(raw) if (t or "").strip()]
+    except Exception:
+        return []
+
+# ---------------------------------------------------------------------------
 # 상수
 # ---------------------------------------------------------------------------
 
@@ -146,14 +159,6 @@ def _build_destinations(
         if extra:
             entry.update(extra)
         dests.append(entry)
-
-    def _parse_json_list(raw: str | None) -> list[str]:
-        if not raw:
-            return []
-        try:
-            return [t.strip() for t in json.loads(raw) if (t or "").strip()]
-        except Exception:
-            return []
 
     series_tags = _parse_json_list(group_row.get("series_tags_json"))
     char_tags   = _parse_json_list(group_row.get("character_tags_json"))
@@ -317,15 +322,59 @@ def build_classify_preview(
         if d.get("used_fallback") and (d.get("series_canonical") or d.get("character_canonical"))
     })
 
+    # 분류 실패 원인 분석
+    group_dict = dict(group)
+    series_tags_list = _parse_json_list(group_dict.get("series_tags_json"))
+    char_tags_list   = _parse_json_list(group_dict.get("character_tags_json"))
+    raw_tags_list    = _parse_json_list(group_dict.get("tags_json"))
+    classification_info: dict | None = None
+
+    if series_tags_list and not char_tags_list:
+        # series_uncategorized: series는 감지됐지만 character가 없음
+        try:
+            from core.tag_candidate_generator import GENERAL_TAG_BLACKLIST
+        except Exception:
+            GENERAL_TAG_BLACKLIST = frozenset()
+        series_set = set(series_tags_list)
+        candidate_source = [
+            t for t in raw_tags_list
+            if t not in series_set and t not in GENERAL_TAG_BLACKLIST
+        ][:10]
+        classification_info = {
+            "classification_reason": "series_detected_but_character_missing",
+            "missing_parts": ["character"],
+            "series_context": series_tags_list[0] if series_tags_list else "",
+            "candidate_source_tags": candidate_source,
+            "suggested_action": "태그 후보에서 캐릭터 alias를 승인하거나 태그 재분류를 실행하세요.",
+        }
+    elif not series_tags_list and not char_tags_list:
+        # author_fallback: series도 character도 없음
+        try:
+            from core.tag_candidate_generator import GENERAL_TAG_BLACKLIST
+        except Exception:
+            GENERAL_TAG_BLACKLIST = frozenset()
+        candidate_source = [
+            t for t in raw_tags_list
+            if t not in GENERAL_TAG_BLACKLIST
+        ][:10]
+        classification_info = {
+            "classification_reason": "series_and_character_missing",
+            "missing_parts": ["series", "character"],
+            "series_context": "",
+            "candidate_source_tags": candidate_source,
+            "suggested_action": "series/character alias 후보를 확인하세요.",
+        }
+
     return {
-        "group_id":         group_id,
-        "source_file_id":   source["file_id"],
-        "source_path":      source["file_path"],
-        "destinations":     dests,
-        "estimated_copies": copies,
-        "estimated_bytes":  file_size * copies,
-        "folder_locale":    cfg.get("folder_locale", "canonical"),
-        "fallback_tags":    fallback_tags,
+        "group_id":            group_id,
+        "source_file_id":      source["file_id"],
+        "source_path":         source["file_path"],
+        "destinations":        dests,
+        "estimated_copies":    copies,
+        "estimated_bytes":     file_size * copies,
+        "folder_locale":       cfg.get("folder_locale", "canonical"),
+        "fallback_tags":       fallback_tags,
+        "classification_info": classification_info,
     }
 
 

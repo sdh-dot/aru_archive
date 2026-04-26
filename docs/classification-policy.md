@@ -179,7 +179,37 @@ DB (tag_localizations) → BUILTIN → fallback_locale DB → fallback_locale BU
 
 ---
 
-## 11. 일괄 분류 (Batch Classification)
+## 11. 분류 실패 원인 표시 (Classification Failure Display)
+
+일괄 분류 미리보기에서 series/character 태그가 불완전한 그룹을 자동으로 감지합니다.
+
+### 실패 유형
+
+| 유형 | 조건 | 경고 표시 |
+|------|------|-----------|
+| `series_uncategorized` | series 태그 있음, character 태그 없음 | `series_uncategorized (시리즈명)` |
+| `author_fallback` | series / character 모두 없음 | `author_fallback` |
+
+### 미리보기 요약
+
+```
+대상: N개 작품  분류 가능: M개  ...  ⚠ 미분류: series_uncategorized=X / author_fallback=Y  후보 생성: Z건
+```
+
+### 일괄 분류 전 태그 재분류
+
+`BatchClassifyDialog`의 **"미리보기 생성 전 태그 재분류 실행"** 체크박스를 활성화하면  
+미리보기 생성 전 `retag_groups_from_existing_tags()`가 실행됩니다.
+
+- 기존 `tags_json`을 기반으로 `classify_pixiv_tags(conn=conn)` 재실행
+- `series_tags_json`, `character_tags_json`, tags 테이블만 갱신
+- 원본 `tags_json` 변경 없음
+
+이 옵션은 태그 팩 업데이트 후 기존 작품을 재분류할 때 유용합니다.
+
+---
+
+## 12. 일괄 분류 (Batch Classification)
 
 `[📋 일괄 분류]` 버튼으로 여러 작품을 한 번에 분류할 수 있습니다.
 

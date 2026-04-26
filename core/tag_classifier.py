@@ -9,6 +9,10 @@ Pixiv 태그 분류 모듈.
 
 분류 결과는 core.metadata_enricher와 app.main_window의 수동 재분류 액션에서
 artwork_groups.*_tags_json 및 tags 테이블로 저장된다.
+
+alias 매칭 순서:
+  1. 정확(exact) 매칭 — DB alias (enabled=1) 우선, 그 다음 built-in
+  2. 정규화(normalize_tag_key) 매칭 — 표기 변형 허용 (정확 매칭 실패 시만)
 """
 from __future__ import annotations
 
@@ -56,12 +60,32 @@ def load_db_aliases(conn) -> tuple[dict[str, str], dict[str, dict]]:
     return series, chars
 
 
+def _build_normalized_lookup(exact: dict) -> dict[str, str]:
+    """
+    exact alias dict를 기반으로 정규화 키 → 원래 alias 매핑을 만든다.
+    충돌 시 먼저 등록된 값이 우선한다.
+    """
+    from core.tag_normalize import normalize_tag_key
+    result: dict[str, str] = {}
+    for alias in exact:
+        nk = normalize_tag_key(alias)
+        if nk and nk not in result:
+            result[nk] = alias
+    return result
+
+
 def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
     """
     Pixiv 태그 목록을 general / series / character로 분류한다.
 
-    - SERIES_ALIASES(+ DB aliases)에 있는 태그 → series_tags (canonical명)
-    - CHARACTER_ALIASES(+ DB aliases)에 있는 태그 → character_tags (canonical명) + 연관 series 자동 추가
+    매칭 순서:
+      1. DB alias 정확 매칭 (enabled=1) — DB 우선
+      2. built-in alias 정확 매칭
+      3. DB alias 정규화 매칭 (normalize_tag_key 기반)
+      4. built-in alias 정규화 매칭
+
+    - series → series_tags (canonical명)
+    - character → character_tags (canonical명) + 연관 series 자동 추가
     - 그 외 → tags (일반 태그, 원본 순서 유지·중복 제거)
 
     conn: sqlite3.Connection (None이면 built-in aliases만 사용)
@@ -69,27 +93,58 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
     Returns:
         {"tags": [...], "series_tags": [...], "character_tags": [...]}
     """
-    series_aliases = dict(SERIES_ALIASES)
-    char_aliases   = dict(CHARACTER_ALIASES)
+    from core.tag_normalize import normalize_tag_key
+
     if conn is not None:
         db_series, db_chars = load_db_aliases(conn)
+        series_aliases = dict(SERIES_ALIASES)
         series_aliases.update(db_series)
+        char_aliases = dict(CHARACTER_ALIASES)
         char_aliases.update(db_chars)
+    else:
+        series_aliases = dict(SERIES_ALIASES)
+        char_aliases = dict(CHARACTER_ALIASES)
 
-    series_set: set[str] = set()
+    norm_series_key_to_alias = _build_normalized_lookup(series_aliases)
+    norm_char_key_to_alias   = _build_normalized_lookup(char_aliases)
+
+    series_set:    set[str] = set()
     character_set: set[str] = set()
     classified_raw: set[str] = set()
 
     for tag in raw_tags:
+        # 1. 정확 매칭: series
         if tag in series_aliases:
             series_set.add(series_aliases[tag])
             classified_raw.add(tag)
-        elif tag in char_aliases:
+            continue
+
+        # 2. 정확 매칭: character
+        if tag in char_aliases:
             info = char_aliases[tag]
             character_set.add(info["canonical"])
             if info.get("series"):
                 series_set.add(info["series"])
             classified_raw.add(tag)
+            continue
+
+        # 3. 정규화 매칭: series
+        nk = normalize_tag_key(tag)
+        if nk and nk in norm_series_key_to_alias:
+            matched_alias = norm_series_key_to_alias[nk]
+            series_set.add(series_aliases[matched_alias])
+            classified_raw.add(tag)
+            continue
+
+        # 4. 정규화 매칭: character
+        if nk and nk in norm_char_key_to_alias:
+            matched_alias = norm_char_key_to_alias[nk]
+            info = char_aliases[matched_alias]
+            character_set.add(info["canonical"])
+            if info.get("series"):
+                series_set.add(info["series"])
+            classified_raw.add(tag)
+            continue
 
     seen: set[str] = set()
     general: list[str] = []

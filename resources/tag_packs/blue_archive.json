@@ -1,0 +1,128 @@
+{
+  "pack_id": "blue_archive",
+  "name": "Blue Archive",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Blue Archive",
+      "media_type": "game",
+      "aliases": [
+        "ブルーアーカイブ",
+        "ブルアカ",
+        "BlueArchive",
+        "Blue Archive",
+        "블루 아카이브",
+        "블아",
+        "ＢｌｕｅＡｒｃｈｉｖｅ"
+      ],
+      "localizations": {
+        "ko": "블루 아카이브",
+        "ja": "ブルーアーカイブ",
+        "en": "Blue Archive"
+      }
+    }
+  ],
+  "characters": [
+    {
+      "canonical": "伊落マリー",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "伊落マリー",
+        "マリー",
+        "イオチマリ",
+        "Iochi Mari",
+        "Mari",
+        "이오치 마리"
+      ],
+      "localizations": {
+        "ko": "이오치 마리",
+        "ja": "伊落マリー",
+        "en": "Iochi Mari"
+      }
+    },
+    {
+      "canonical": "水羽ミモリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "水羽ミモリ",
+        "ミモリ",
+        "Mizuha Mimori",
+        "Mimori",
+        "미즈하 미모리"
+      ],
+      "localizations": {
+        "ko": "미즈하 미모리",
+        "ja": "水羽ミモリ",
+        "en": "Mizuha Mimori"
+      }
+    },
+    {
+      "canonical": "陸八魔アル",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "陸八魔アル",
+        "リクハチマ・アル",
+        "リクハチマ アル",
+        "アル",
+        "Rikuhachima Aru",
+        "Aru",
+        "리쿠하치마 아루",
+        "아루"
+      ],
+      "localizations": {
+        "ko": "리쿠하치마 아루",
+        "ja": "陸八魔アル",
+        "en": "Rikuhachima Aru"
+      }
+    },
+    {
+      "canonical": "天童アリス",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "天童アリス",
+        "アリス",
+        "Tendou Alice",
+        "Alice",
+        "텐도 아리스"
+      ],
+      "localizations": {
+        "ko": "텐도 아리스",
+        "ja": "天童アリス",
+        "en": "Tendou Alice"
+      }
+    },
+    {
+      "canonical": "白洲アズサ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "白洲アズサ",
+        "アズサ",
+        "Shirosuzu Azusa",
+        "Azusa",
+        "시라스 아즈사"
+      ],
+      "localizations": {
+        "ko": "시라스 아즈사",
+        "ja": "白洲アズサ",
+        "en": "Shirosuzu Azusa"
+      }
+    },
+    {
+      "canonical": "小鳥遊ホシノ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "小鳥遊ホシノ",
+        "ホシノ",
+        "Takanashi Hoshino",
+        "Hoshino",
+        "타카나시 호시노"
+      ],
+      "localizations": {
+        "ko": "타카나시 호시노",
+        "ja": "小鳥遊ホシノ",
+        "en": "Takanashi Hoshino"
+      }
+    }
+  ]
+}

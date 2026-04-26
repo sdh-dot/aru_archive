@@ -707,6 +707,19 @@ class MainWindow(QMainWindow):
                 self._log.append(f"[INFO] 내장 로컬라이제이션 {n}개 추가")
         except Exception as exc:
             logger.warning("로컬라이제이션 시드 실패: %s", exc)
+        try:
+            from core.tag_pack_loader import seed_builtin_tag_packs
+            result = seed_builtin_tag_packs(conn)
+            total = sum(result.values())
+            if total:
+                self._log.append(
+                    f"[INFO] 태그 팩 시드 완료: "
+                    f"series={result['series_aliases']} "
+                    f"character={result['character_aliases']} "
+                    f"localization={result['localizations']}"
+                )
+        except Exception as exc:
+            logger.warning("태그 팩 시드 실패: %s", exc)
 
     # ------------------------------------------------------------------
     # 사이드바 / 갤러리 핸들러

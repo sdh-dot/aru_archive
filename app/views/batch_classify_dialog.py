@@ -25,7 +25,7 @@ from typing import Optional
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal as Signal
 from PyQt6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QHBoxLayout,
+    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QHBoxLayout,
     QLabel, QProgressBar, QPushButton, QTableWidget,
     QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
 )
@@ -191,10 +191,21 @@ class BatchClassifyDialog(QDialog):
         settings_row.addWidget(self._policy_combo)
 
         settings_row.addStretch()
+        layout.addLayout(settings_row)
+
+        # ── 재분류 옵션 행 ─────────────────────────────────────────────
+        retag_row = QHBoxLayout()
+        retag_default = self._config.get("classification", {}).get(
+            "retag_before_batch_preview", False
+        )
+        self._retag_checkbox = QCheckBox("미리보기 생성 전 태그 재분류 실행")
+        self._retag_checkbox.setChecked(bool(retag_default))
+        retag_row.addWidget(self._retag_checkbox)
+        retag_row.addStretch()
         self._btn_preview = QPushButton("미리보기 생성")
         self._btn_preview.clicked.connect(self._on_preview)
-        settings_row.addWidget(self._btn_preview)
-        layout.addLayout(settings_row)
+        retag_row.addWidget(self._btn_preview)
+        layout.addLayout(retag_row)
 
         # ── 요약 ─────────────────────────────────────────────────────
         self._summary_lbl = QLabel("미리보기를 생성하세요.")
@@ -250,10 +261,11 @@ class BatchClassifyDialog(QDialog):
         """현재 UI 설정을 config에 반영한 사본 반환."""
         cfg = dict(self._config)
         cls = dict(cfg.get("classification", {}))
-        cls["folder_locale"] = self._locale_combo.currentData()
-        cls["on_conflict"]   = (
+        cls["folder_locale"]              = self._locale_combo.currentData()
+        cls["on_conflict"]                = (
             "skip" if self._policy_combo.currentData() == "skip_existing" else "rename"
         )
+        cls["retag_before_batch_preview"] = self._retag_checkbox.isChecked()
         cfg["classification"] = cls
         return cfg
 
@@ -299,17 +311,28 @@ class BatchClassifyDialog(QDialog):
 
         self._batch_preview = result
 
-        total  = result.get("total_groups", 0)
-        cls_ok = result.get("classifiable_groups", 0)
-        excl   = result.get("excluded_groups", 0)
-        copies = result.get("estimated_copies", 0)
-        size   = _fmt_size(result.get("estimated_bytes", 0))
-        locale = result.get("folder_locale", "canonical")
+        total        = result.get("total_groups", 0)
+        cls_ok       = result.get("classifiable_groups", 0)
+        excl         = result.get("excluded_groups", 0)
+        copies       = result.get("estimated_copies", 0)
+        size         = _fmt_size(result.get("estimated_bytes", 0))
+        locale       = result.get("folder_locale", "canonical")
+        s_uncat      = result.get("series_uncategorized_count", 0)
+        a_fallback   = result.get("author_fallback_count", 0)
+        cand_count   = result.get("candidate_count", 0)
 
-        self._summary_lbl.setText(
+        summary = (
             f"대상: {total}개 작품   분류 가능: {cls_ok}개   제외: {excl}개   "
             f"예상 복사본: {copies}개   예상 용량: {size}   언어: {locale}"
         )
+        if s_uncat or a_fallback:
+            summary += (
+                f"   ⚠ 미분류: series_uncategorized={s_uncat} / "
+                f"author_fallback={a_fallback}"
+            )
+        if cand_count:
+            summary += f"   후보 생성: {cand_count}건"
+        self._summary_lbl.setText(summary)
 
         warnings = result.get("warnings", [])
         if warnings:
@@ -326,6 +349,14 @@ class BatchClassifyDialog(QDialog):
         self._table.setRowCount(0)
         for p in previews:
             title = p.get("source_path", "").split("/")[-1].split("\\")[-1]
+            ci = p.get("classification_info")
+            ci_warn = ""
+            if ci:
+                reason = ci.get("classification_reason", "")
+                if reason == "series_detected_but_character_missing":
+                    ci_warn = f"series_uncategorized ({ci.get('series_context', '')})"
+                elif reason == "series_and_character_missing":
+                    ci_warn = "author_fallback"
             for dest in p.get("destinations", []):
                 row = self._table.rowCount()
                 self._table.insertRow(row)
@@ -335,10 +366,14 @@ class BatchClassifyDialog(QDialog):
                 ))
                 self._table.setItem(row, 2, QTableWidgetItem(dest.get("rule_type", "")))
                 self._table.setItem(row, 3, QTableWidgetItem(dest.get("dest_path", "")))
-                warn = "fallback" if dest.get("used_fallback") else (
-                    dest.get("conflict", "") if dest.get("conflict") not in ("none", "") else ""
-                )
-                self._table.setItem(row, 4, QTableWidgetItem(warn))
+                warn_parts = []
+                if dest.get("used_fallback"):
+                    warn_parts.append("fallback")
+                if dest.get("conflict") not in (None, "none", ""):
+                    warn_parts.append(dest["conflict"])
+                if ci_warn:
+                    warn_parts.append(ci_warn)
+                self._table.setItem(row, 4, QTableWidgetItem(", ".join(warn_parts)))
 
     # ------------------------------------------------------------------
     # 실행

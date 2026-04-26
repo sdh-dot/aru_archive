@@ -204,6 +204,60 @@ def generate_tag_candidates_from_observations(conn: sqlite3.Connection) -> list[
     return results
 
 
+def generate_classification_failure_candidates(
+    conn: sqlite3.Connection,
+    group_id: str,
+    classification_info: dict,
+) -> list[dict]:
+    """
+    분류 실패 그룹(series_uncategorized / author_fallback)에 대한 후보를 생성한다.
+
+    - series_detected_but_character_missing → suggested_type='character', score=0.35, series=series_context
+    - series_and_character_missing          → suggested_type='general',   score=0.20
+
+    source = "classification_failure". 자동 확정 금지.
+    """
+    reason = classification_info.get("classification_reason", "")
+    candidate_source_tags = classification_info.get("candidate_source_tags", [])
+    series_context = classification_info.get("series_context", "")
+
+    if not candidate_source_tags:
+        return []
+
+    confirmed_aliases = _load_confirmed_aliases(conn)
+    now = datetime.now(timezone.utc).isoformat()
+    results: list[dict] = []
+
+    for raw_tag in candidate_source_tags:
+        if raw_tag in confirmed_aliases:
+            continue
+        if reason == "series_detected_but_character_missing":
+            score = 0.35
+            suggested_type = "character"
+            suggested_series = series_context
+        else:
+            score = 0.20
+            suggested_type = "general"
+            suggested_series = ""
+
+        candidate = _upsert_candidate(
+            conn,
+            raw_tag=raw_tag,
+            translated_tag=None,
+            suggested_type=suggested_type,
+            suggested_series=suggested_series,
+            confidence_score=score,
+            evidence_count=1,
+            source="classification_failure",
+            now=now,
+        )
+        if candidate:
+            results.append(candidate)
+
+    conn.commit()
+    return results
+
+
 # ---------------------------------------------------------------------------
 # 내부 헬퍼
 # ---------------------------------------------------------------------------

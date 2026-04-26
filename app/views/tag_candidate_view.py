@@ -55,6 +55,15 @@ class TagCandidateView(QDialog):
         self._filter_box.addItems(["pending", "accepted", "rejected", "ignored", "all"])
         self._filter_box.currentTextChanged.connect(self._load_candidates)
         filter_row.addWidget(self._filter_box)
+
+        filter_row.addSpacing(16)
+        filter_row.addWidget(QLabel("소스 필터:"))
+        self._source_filter_box = QComboBox()
+        self._source_filter_box.addItems([
+            "all", "group_analysis", "full_analysis", "classification_failure"
+        ])
+        self._source_filter_box.currentTextChanged.connect(self._load_candidates)
+        filter_row.addWidget(self._source_filter_box)
         filter_row.addStretch()
         layout.addLayout(filter_row)
 
@@ -94,16 +103,22 @@ class TagCandidateView(QDialog):
 
     def _load_candidates(self) -> None:
         status_filter = self._filter_box.currentText()
-        if status_filter == "all":
-            rows = self._conn.execute(
-                "SELECT * FROM tag_candidates ORDER BY confidence_score DESC"
-            ).fetchall()
-        else:
-            rows = self._conn.execute(
-                "SELECT * FROM tag_candidates WHERE status = ? "
-                "ORDER BY confidence_score DESC",
-                (status_filter,),
-            ).fetchall()
+        source_filter = self._source_filter_box.currentText()
+
+        conditions: list[str] = []
+        params: list = []
+        if status_filter != "all":
+            conditions.append("status = ?")
+            params.append(status_filter)
+        if source_filter != "all":
+            conditions.append("source = ?")
+            params.append(source_filter)
+
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        rows = self._conn.execute(
+            f"SELECT * FROM tag_candidates {where} ORDER BY confidence_score DESC",
+            params,
+        ).fetchall()
 
         self._table.setSortingEnabled(False)
         self._table.setRowCount(len(rows))
