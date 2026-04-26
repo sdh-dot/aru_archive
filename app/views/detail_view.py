@@ -95,6 +95,7 @@ class DetailView(QWidget):
     gif_convert_requested = Signal(str)
     sidecar_requested     = Signal(str)
     reindex_requested     = Signal()
+    xmp_retry_requested   = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -227,11 +228,17 @@ class DetailView(QWidget):
             "DB 재색인",
             "현재 선택 그룹 재처리 및 상태 갱신"
         )
+        self._btn_xmp_retry   = _btn(
+            "🔄 XMP 재시도",
+            "ExifTool로 XMP 표준 필드를 재기록합니다.\n"
+            "json_only / xmp_write_failed 상태에서 사용합니다."
+        )
 
         for b in [
             self._btn_read_meta, self._btn_pixiv_meta,
             self._btn_regen_thumb, self._btn_bmp,
-            self._btn_gif, self._btn_sidecar, self._btn_reindex,
+            self._btn_gif, self._btn_sidecar,
+            self._btn_xmp_retry, self._btn_reindex,
         ]:
             action_vl.addWidget(b)
 
@@ -252,6 +259,9 @@ class DetailView(QWidget):
         )
         self._btn_sidecar    .clicked.connect(
             lambda: self._emit_if_selected(self.sidecar_requested)
+        )
+        self._btn_xmp_retry  .clicked.connect(
+            lambda: self._emit_if_selected(self.xmp_retry_requested)
         )
         self._btn_reindex    .clicked.connect(self.reindex_requested.emit)
 
@@ -311,7 +321,8 @@ class DetailView(QWidget):
         self._tags_edit.clear()
         for b in [
             self._btn_read_meta, self._btn_pixiv_meta, self._btn_regen_thumb,
-            self._btn_bmp, self._btn_gif, self._btn_sidecar, self._btn_reindex,
+            self._btn_bmp, self._btn_gif, self._btn_sidecar,
+            self._btn_xmp_retry, self._btn_reindex,
         ]:
             b.setEnabled(False)
         self._pixiv_box.hide()
@@ -444,6 +455,10 @@ class DetailView(QWidget):
             self._btn_pixiv_meta.setToolTip(
                 "파일명에서 Pixiv artwork_id 추출 후 URL 생성 및 메타데이터 조회"
             )
+
+        # XMP 재시도 — json_only / xmp_write_failed 상태에서 활성
+        # (실제 ExifTool 가용 여부는 MainWindow에서 체크)
+        self._btn_xmp_retry.setEnabled(True)
 
     # ------------------------------------------------------------------
 

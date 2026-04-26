@@ -9,16 +9,29 @@ AruArchive 메타데이터 쓰기.
 - BMP       : PNG managed에 쓰는 것이 원칙
               호출자가 PNG managed file_path를 전달해야 함
 
+XMP 기록: ExifTool subprocess 사용 (write_xmp_metadata_with_exiftool)
+  - exiftool_path=None → False (json_only 유지)
+  - ExifTool 실패 → XmpWriteError (xmp_write_failed 처리)
+  - ExifTool 성공 → True (full 승격)
+
 실패 시 예외를 삼키지 않고 호출자에게 전달한다.
 호출자는 실패를 metadata_write_failed로 처리한다.
 """
 from __future__ import annotations
 
 import json
+import logging
 import struct
+import subprocess
 import zlib
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+
+class XmpWriteError(Exception):
+    """XMP 기록 실패 예외 — no_metadata_queue에 넣지 않음."""
 
 ARU_KEYWORD = "AruArchive"
 
@@ -163,33 +176,45 @@ def write_xmp_metadata_with_exiftool(
     """
     ExifTool을 사용하여 XMP 표준 필드를 기록한다.
 
-    MVP-B에서 실제 구현. MVP-A에서는 stub.
-
     반환값:
-    - True  : XMP 기록 성공 → metadata_sync_status = 'full'
-    - False : ExifTool 없음 → metadata_sync_status = 'json_only'
-    예외 발생: XMP 기록 실패 → 호출자: metadata_sync_status = 'xmp_write_failed'
-               (no_metadata_queue에 INSERT하지 않음 — UI Warning 배지로 처리)
+      True   : XMP 기록 성공 → metadata_sync_status = 'full'
+      False  : ExifTool 없음 또는 실행 불가 → json_only 유지
 
-    exiftool_path가 None이면 항상 False 반환 (ExifTool 없음으로 처리).
+    예외:
+      XmpWriteError : ExifTool 실행 실패 → metadata_sync_status = 'xmp_write_failed'
+                      (no_metadata_queue에 INSERT하지 않음)
+
+    exiftool_path=None이면 항상 False 반환.
+    shell=True 사용 금지 — subprocess.run([...]) 인자 리스트 사용.
     """
     if not exiftool_path:
-        return False  # ExifTool 없음 → json_only
+        return False
 
-    # TODO (MVP-B): ExifTool subprocess 호출 구현
-    # import subprocess
-    # args = [
-    #     exiftool_path,
-    #     f"-dc:title={metadata.get('artwork_title', '')}",
-    #     f"-dc:creator={metadata.get('artist_name', '')}",
-    #     f"-dc:subject={','.join(metadata.get('tags', []))}",
-    #     f"-xmp:CreateDate={metadata.get('downloaded_at', '')}",
-    #     "-overwrite_original",
-    #     file_path,
-    # ]
-    # result = subprocess.run(args, capture_output=True, timeout=30)
-    # if result.returncode != 0:
-    #     raise RuntimeError(f"ExifTool 실패: {result.stderr.decode('utf-8', errors='replace')}")
-    # return True
+    from core.exiftool import build_exiftool_xmp_args, validate_exiftool_path
 
-    return False
+    if not validate_exiftool_path(exiftool_path):
+        logger.warning("ExifTool 실행 불가: %s", exiftool_path)
+        return False
+
+    args = [exiftool_path] + build_exiftool_xmp_args(file_path, metadata)
+    try:
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8", errors="replace")
+            stdout = result.stdout.decode("utf-8", errors="replace")
+            raise XmpWriteError(
+                f"ExifTool 실패 (returncode={result.returncode}): "
+                f"{stderr.strip() or stdout.strip()}"
+            )
+        logger.info("XMP 기록 완료: %s", file_path)
+        return True
+    except subprocess.TimeoutExpired:
+        raise XmpWriteError(f"ExifTool 타임아웃 (60s): {file_path}")
+    except XmpWriteError:
+        raise
+    except Exception as exc:
+        raise XmpWriteError(f"ExifTool 실행 오류: {exc}") from exc

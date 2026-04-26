@@ -27,7 +27,7 @@ from core.adapters.pixiv import (
     PixivRestrictedError,
 )
 from core.filename_parser import parse_pixiv_filename
-from core.metadata_writer import write_aru_metadata
+from core.metadata_writer import XmpWriteError, write_aru_metadata, write_xmp_metadata_with_exiftool
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ def enrich_file_from_pixiv(
     conn: sqlite3.Connection,
     file_id: str,
     adapter=None,
+    exiftool_path: Optional[str] = None,
 ) -> dict:
     """
     file_id 기준으로 Pixiv 메타데이터를 가져와 파일에 기록하고 DB를 갱신한다.
@@ -109,7 +110,7 @@ def enrich_file_from_pixiv(
             "message": f"메타데이터 변환 오류: {exc}",
         }
 
-    # 5. 파일에 메타데이터 쓰기
+    # 5. 파일에 메타데이터 쓰기 (AruArchive JSON)
     try:
         write_aru_metadata(file_path, meta.to_dict(), file_format)
         sync_status: Optional[str] = "json_only"
@@ -123,6 +124,16 @@ def enrich_file_from_pixiv(
             "sync_status": "metadata_write_failed",
             "message": f"파일 메타데이터 쓰기 실패: {exc}",
         }
+
+    # 5-b. XMP 기록 시도 (ExifTool이 설정된 경우)
+    if exiftool_path and sync_status == "json_only":
+        try:
+            ok = write_xmp_metadata_with_exiftool(file_path, meta.to_dict(), exiftool_path)
+            if ok:
+                sync_status = "full"
+        except XmpWriteError as exc:
+            logger.warning("XMP 기록 실패: %s → %s", Path(file_path).name, exc)
+            sync_status = "xmp_write_failed"
 
     # 6. DB 갱신
     now = datetime.now(timezone.utc).isoformat()

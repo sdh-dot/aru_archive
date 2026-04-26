@@ -10,11 +10,11 @@ Aru Archive는 두 가지 레이어로 메타데이터를 관리합니다.
 
 | 레이어 | 위치 | 목적 |
 |--------|------|------|
-| **AruArchive JSON** | JPEG/WebP `UserComment`, PNG `tEXt`, 사이드카 `.aru.json` | 내부 관리·복구·DB 재구성 |
-| **XMP** | JPEG/WebP/PNG XMP 블록 | 외부 툴(ExifTool, Lightroom 등) 호환 |
+| **AruArchive JSON** | JPEG/WebP `UserComment`, PNG `iTXt`, 사이드카 `.aru.json` | 내부 관리·복구·DB 재구성 |
+| **XMP** | JPEG/WebP/PNG XMP 블록 (ExifTool 경유) | 외부 툴(Lightroom, Bridge 등) 호환 |
 
-> 현재 릴리즈(v0.3.0)에서 XMP 일괄 처리는 미구현입니다.  
-> `metadata_sync_status`가 `json_only`인 파일은 AruArchive JSON만 기록된 상태입니다.
+`metadata_sync_status`가 `json_only`인 파일은 AruArchive JSON만 기록된 상태입니다.  
+ExifTool이 설정되어 있으면 저장·보강 직후 XMP 기록을 시도하고 `full`로 승격합니다.
 
 ---
 
@@ -51,19 +51,30 @@ full | json_only | xmp_write_failed
 ### JPEG (`.jpg`, `.jpeg`)
 
 - AruArchive JSON: `UserComment` EXIF 태그 (piexif)
-- XMP: `APP1` 블록 (ExifTool, 미구현)
+- XMP: ExifTool로 `XMP-dc:*`, `XMP:MetadataDate`, `XMP:Rating`, `XMP:Label` 기록
 - 분류 대상: 원본 파일
 
 ### PNG
 
-- AruArchive JSON: `tEXt` 청크 (`AruArchive` 키)
-- XMP: `iTXt` 청크 (미구현)
+- AruArchive JSON: `iTXt` 청크 (`AruArchive` 키워드)
+- XMP: ExifTool로 XMP 표준 필드 기록
 - 분류 대상: 원본 파일 (또는 BMP managed PNG)
 
 ### WebP
 
 - AruArchive JSON: `UserComment` (piexif 경유)
+- XMP: ExifTool로 XMP 표준 필드 기록
 - 분류 대상: 원본 파일 (또는 GIF managed WebP)
+
+### BMP, static GIF, ZIP (Ugoira)
+
+XMP 직접 기록 불가 — `json_only` 상태 유지 또는 managed 파일에 기록:
+
+| 포맷 | AruArchive JSON | XMP |
+|------|-----------------|-----|
+| BMP original | 미지원 (managed PNG에 기록) | managed PNG에 기록 |
+| static GIF | `.aru.json` 사이드카 | 불가 (json_only 유지) |
+| ZIP (Ugoira) | ZIP comment + `.aru.json` | 불가 (managed WebP에 기록)
 
 ---
 
@@ -129,7 +140,52 @@ BMP original  →  PNG managed  →  분류 대상
 
 ---
 
-## 8. Referer 정책 (다운로드)
+## 8. ExifTool XMP 기록
+
+### XMP 필드 매핑
+
+| XMP 필드 | AruArchive 소스 |
+|----------|----------------|
+| `XMP-dc:Title` | `artwork_title` |
+| `XMP-dc:Creator` | `artist_name` |
+| `XMP-dc:Subject` | `tags` + `series_tags` + `character_tags` (각각 별도 항목) |
+| `XMP-dc:Source` | `artwork_url` |
+| `XMP-dc:Description` | `description` |
+| `XMP-dc:Identifier` | `artwork_id` |
+| `XMP:MetadataDate` | 현재 UTC 시각 |
+| `XMP:Rating` | `rating` (0–5, 없으면 생략) |
+| `XMP:Label` | `source_site` (없으면 `"Aru Archive"`) |
+
+### 상태 전이
+
+```
+json_only + ExifTool 성공  → full
+json_only + ExifTool 실패  → xmp_write_failed  ← no_metadata_queue 삽입 없음
+json_only + ExifTool 없음  → json_only (변경 없음)
+xmp_write_failed + 성공    → full (XMP 재시도로 복구)
+```
+
+`xmp_write_failed`는 **Warning 카테고리**에 표시됩니다 (사이드바 `⚠ 경고`).  
+`no_metadata_queue`에는 삽입하지 않습니다.
+
+### ExifTool 설정
+
+`설정 → 고급 → ExifTool 경로`에서 실행 파일 경로를 지정합니다.
+
+```json
+{ "exiftool_path": "C:/exiftool/exiftool.exe" }
+```
+
+ExifTool이 설정되지 않으면 XMP 기록을 건너뛰고 `json_only`를 유지합니다.
+
+### XMP 재처리
+
+- **Detail 패널** `[🔄 XMP 재시도]` — 현재 그룹 1개를 재처리
+- **툴바** `[🔄 전체 XMP 재처리]` — `json_only` 및 `xmp_write_failed` 그룹 일괄 처리
+
+---
+
+## 9. Referer 정책 (다운로드)
 
 Pixiv 이미지 서버(`i.pximg.net`)는 Referer 검증을 수행합니다.
 

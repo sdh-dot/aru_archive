@@ -172,6 +172,23 @@ def _run_pipeline(
                     logger.warning("메타데이터 임베딩 실패: %s", we)
                     sync_status = "metadata_write_failed"
 
+                # XMP 기록 시도 (ExifTool이 설정된 경우, 포맷 적합 시만)
+                if sync_status == "json_only" and ext not in ("gif", "bmp", "zip"):
+                    exiftool_path = config.get("exiftool_path")
+                    if exiftool_path:
+                        from core.metadata_writer import (
+                            XmpWriteError, write_xmp_metadata_with_exiftool,
+                        )
+                        try:
+                            ok = write_xmp_metadata_with_exiftool(
+                                str(dest_path), page_meta.to_dict(), exiftool_path
+                            )
+                            if ok:
+                                sync_status = "full"
+                        except XmpWriteError as xmp_exc:
+                            logger.warning("XMP 기록 실패: %s → %s", dest_path.name, xmp_exc)
+                            sync_status = "xmp_write_failed"
+
                 file_id = _register_file(conn, group_id, pi, dest_path, ext, sync_status, now)
 
                 conn.execute(

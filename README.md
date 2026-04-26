@@ -7,7 +7,7 @@
 개인 아트워크 아카이브 관리 도구.  
 Pixiv 등 소스에서 수집한 파일을 메타데이터 기반으로 분류·관리합니다.
 
-**플랫폼:** Windows 11 · Python 3.12+ · PyQt6 · SQLite · v0.3.0
+**플랫폼:** Windows 11 · Python 3.12+ · PyQt6 · SQLite · v0.4.0
 
 ---
 
@@ -77,7 +77,28 @@ Pixiv 작품 페이지에서 팝업 **저장** 버튼으로 직접 저장도 가
 QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 ```
 
-현재 309개 테스트 통과.
+현재 446개 테스트 통과.
+
+---
+
+## ExifTool XMP 설정 (선택)
+
+ExifTool이 설치되어 있으면 저장·보강 시 XMP 표준 필드를 자동 기록합니다.
+
+1. [ExifTool](https://exiftool.org/) 다운로드 후 임의 폴더에 배치
+2. `설정 → 고급 → ExifTool 경로`에 실행 파일 경로 지정
+
+   ```json
+   { "exiftool_path": "C:/exiftool/exiftool.exe" }
+   ```
+
+3. ExifTool 없이 실행하면 AruArchive JSON만 기록 (`json_only` 상태 유지)
+
+기록되는 XMP 필드: `XMP-dc:Title/Creator/Subject/Source/Identifier`,  
+`XMP:MetadataDate`, `XMP:Rating`, `XMP:Label`
+
+XMP 기록에 실패하면 `xmp_write_failed` 상태로 표시됩니다 (⚠ 사이드바).  
+Detail 패널 `[🔄 XMP 재시도]` 또는 툴바 `[🔄 전체 XMP 재처리]`로 재시도할 수 있습니다.
 
 ---
 
@@ -100,15 +121,15 @@ QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 
 ## 현황 / 로드맵
 
-**v0.3.0 (현재)**
+**v0.4.0 (현재)**
 - PyQt6 데스크톱 앱 + Chrome/Whale 브라우저 확장
 - Native Messaging 프로토콜 v2 (5개 액션)
 - 4-tier 분류 엔진 + 태그 정규화 파이프라인
 - 다국어 폴더명 (ko/ja/en) — `tag_localizations` DB + 내장 Blue Archive 데이터
 - 일괄 분류 (Batch Classification) — Ctrl+Click 다중 선택, 범위 선택, 1개 undo_entry
 - Undo 시스템, 저장 작업 실시간 모니터링
+- **ExifTool XMP 연동** — `XMP-dc:*` + `XMP:Rating/Label/MetadataDate` 기록, XMP 재시도 UI
 
 **예정**
 - Pixiv 쿠키 자동 수집 (R-18 저장 지원)
-- XMP 메타데이터 기록 (ExifTool 연동)
 - EXE 독립 배포 빌드
