@@ -396,6 +396,8 @@ class MainWindow(QMainWindow):
         self._btn_root   .clicked.connect(self._on_select_root)
         self._btn_scan   .clicked.connect(self._on_inbox_scan)
         self._btn_db_init.clicked.connect(self._on_db_init)
+        self._btn_classify_preview.clicked.connect(self._on_classify_preview)
+        self._btn_classify_run    .clicked.connect(self._on_classify_run)
 
         self._sidebar.category_selected.connect(self._on_category_changed)
         self._gallery.item_selected.connect(self._on_item_selected)
@@ -842,6 +844,84 @@ class MainWindow(QMainWindow):
             self._refresh_counts()
         except Exception as exc:
             self._log.append(f"[ERROR] 재색인 실패: {exc}")
+
+    # ------------------------------------------------------------------
+    # 분류 핸들러
+    # ------------------------------------------------------------------
+
+    def _build_preview_for_selected(self) -> dict | None:
+        """현재 선택된 그룹의 분류 미리보기를 생성한다."""
+        from core.classifier import build_classify_preview
+        group_id = self._gallery.get_selected_group_id()
+        if not group_id:
+            self._log.append("[WARN] 선택된 파일 없음")
+            return None
+        classified_dir = self.config.get("classified_dir", "")
+        if not classified_dir:
+            self._log.append(
+                "[WARN] classified_dir 미설정 — "
+                "[📁 Archive Root 선택]을 먼저 실행하세요."
+            )
+            return None
+        try:
+            conn    = self._get_conn()
+            preview = build_classify_preview(conn, group_id, self.config)
+            conn.close()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 미리보기 생성 실패: {exc}")
+            return None
+        if preview is None:
+            self._log.append(
+                "[WARN] 분류 미리보기 없음 — "
+                "metadata_sync_status가 분류 가능 상태(full/json_only/xmp_write_failed)인지 확인하세요."
+            )
+        return preview
+
+    def _on_classify_preview(self) -> None:
+        """분류 미리보기 다이얼로그를 열고, [실행]이면 분류 실행."""
+        from app.views.classify_dialog import ClassifyPreviewDialog
+        preview = self._build_preview_for_selected()
+        if preview is None:
+            return
+        self._log.append(
+            f"[INFO] Classification preview created: "
+            f"{preview['estimated_copies']} destinations"
+        )
+        dlg = ClassifyPreviewDialog(preview, parent=self)
+        if dlg.exec() == ClassifyPreviewDialog.DialogCode.Accepted:
+            self._run_classify(preview)
+
+    def _on_classify_run(self) -> None:
+        """미리보기 확인 후 바로 분류 실행 (다이얼로그 포함)."""
+        self._on_classify_preview()
+
+    def _run_classify(self, preview: dict) -> None:
+        if getattr(self, "_classify_thread", None) and self._classify_thread.isRunning():
+            self._log.append("[WARN] 이미 분류 작업이 진행 중입니다")
+            return
+        self._btn_classify_preview.setEnabled(False)
+        self._btn_classify_run    .setEnabled(False)
+        thread = ClassifyThread(preview, self.config, self._db_path(), parent=self)
+        thread.log_msg      .connect(self._log.append)
+        thread.classify_done.connect(self._on_classify_done)
+        thread.finished     .connect(lambda: self._btn_classify_preview.setEnabled(True))
+        thread.finished     .connect(lambda: self._btn_classify_run    .setEnabled(True))
+        thread.start()
+        self._classify_thread = thread
+
+    def _on_classify_done(self, result: dict) -> None:
+        if result.get("success"):
+            self._log.append(
+                f"[INFO] Classification completed: "
+                f"{result['copied']} copied, {result['skipped']} skipped"
+            )
+            group_id = result.get("group_id", "")
+            if group_id:
+                self._refresh_gallery_item(group_id)
+                self._refresh_detail(group_id)
+            self._refresh_counts()
+        else:
+            self._log.append("[ERROR] 분류 실행 실패")
 
     # ------------------------------------------------------------------
     # No Metadata 패널 핸들러
