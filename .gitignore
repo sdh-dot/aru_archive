@@ -23,6 +23,11 @@ logs/
 .cache/
 .claude/
 
+# SQLite DB (런타임 생성)
+*.db
+*.sqlite
+*.sqlite3
+
 # 로컬 아카이브 데이터 디렉터리
 AruArchive/
 Inbox/

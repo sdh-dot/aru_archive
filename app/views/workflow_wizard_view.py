@@ -1,9 +1,9 @@
 """
 Aru Archive 작업 마법사.
 
-9단계 순서형 워크플로우로 Archive Root 설정부터 분류 실행·결과 확인까지 안내한다.
+9단계 순서형 워크플로우로 작업 폴더 설정부터 분류 실행·결과 확인까지 안내한다.
 
-  1. Archive Root
+  1. Paths
   2. Scan / Load
   3. Metadata Check
   4. Metadata Enrichment
@@ -33,6 +33,8 @@ from PyQt6.QtWidgets import (
     QTextEdit, QVBoxLayout, QWidget,
 )
 
+from app.views.path_setup_dialog import PathSetupDialog
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -40,7 +42,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _STEPS = [
-    (1, "Root",     "Archive Root"),
+    (1, "Paths",    "작업 폴더"),
     (2, "Scan",     "Scan / Load"),
     (3, "Metadata", "메타데이터 확인"),
     (4, "Enrich",   "메타데이터 보강"),
@@ -78,10 +80,11 @@ class _ScanThread(QThread):
     log_msg  = Signal(str)
     done     = Signal(dict)   # {"new": N, "skipped": N, "failed": N}
 
-    def __init__(self, data_dir: str, inbox: str, db_path: str, parent=None):
+    def __init__(self, data_dir: str, inbox: str, managed_dir: str, db_path: str, parent=None):
         super().__init__(parent)
         self._data_dir = data_dir
         self._inbox    = inbox
+        self._managed_dir = managed_dir
         self._db_path  = db_path
 
     def run(self) -> None:
@@ -89,7 +92,9 @@ class _ScanThread(QThread):
         from core.inbox_scanner import InboxScanner
         conn = initialize_database(self._db_path)
         try:
-            scanner = InboxScanner(conn, self._data_dir, log_fn=self.log_msg.emit)
+            scanner = InboxScanner(
+                conn, self._data_dir, managed_dir=self._managed_dir, log_fn=self.log_msg.emit
+            )
             result  = scanner.scan(self._inbox)
             conn.commit()
             self.done.emit({"new": result.new, "skipped": result.skipped, "failed": result.failed})
@@ -308,7 +313,7 @@ class _StepPanel(QWidget):
         """단계 데이터 새로고침. 서브클래스에서 오버라이드."""
 
 
-# ── Step 1: Archive Root ────────────────────────────────────────────────────
+# ── Step 1: Workspace Paths ─────────────────────────────────────────────────
 
 class _Step1Root(_StepPanel):
     def __init__(self, wizard, parent=None):
@@ -316,8 +321,16 @@ class _Step1Root(_StepPanel):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        layout.addWidget(_label("Archive Root 설정", bold=True))
+        layout.addWidget(_label("작업 폴더 설정", bold=True))
         layout.addWidget(_h_sep())
+
+        guide = QLabel(
+            "선택한 폴더는 분류 대상 폴더로 그대로 사용됩니다.\n"
+            "같은 위치에 Classified / Managed 폴더가 자동 생성됩니다.\n"
+            "앱 내부 데이터(DB, 로그, 썸네일)는 사용자 홈의 AruArchive 아래에 저장됩니다."
+        )
+        guide.setWordWrap(True)
+        layout.addWidget(guide)
 
         self._status_table = QTableWidget(0, 2)
         self._status_table.setHorizontalHeaderLabels(["항목", "상태"])
@@ -328,7 +341,7 @@ class _Step1Root(_StepPanel):
         layout.addWidget(self._status_table)
 
         btn_row = QHBoxLayout()
-        btn_select = QPushButton("📁 Archive Root 선택")
+        btn_select = QPushButton("📁 작업 폴더 설정")
         btn_open   = QPushButton("📂 폴더 열기")
         btn_select.clicked.connect(self._on_select_root)
         btn_open  .clicked.connect(self._on_open_folder)
@@ -341,7 +354,9 @@ class _Step1Root(_StepPanel):
     def refresh(self) -> None:
         cfg = self._config()
         data_dir = cfg.get("data_dir", "")
-        inbox    = cfg.get("inbox_dir") or (f"{data_dir}/Inbox" if data_dir else "")
+        inbox    = cfg.get("inbox_dir", "")
+        classified = cfg.get("classified_dir", "")
+        managed = cfg.get("managed_dir", "")
         db_path  = cfg.get("db", {}).get("path") or (
             f"{data_dir}/.runtime/aru_archive.db" if data_dir else ""
         )
@@ -363,10 +378,13 @@ class _Step1Root(_StepPanel):
                 pass
 
         rows = [
-            ("Archive Root",  data_dir or "미설정"),
-            ("Inbox 폴더",    _chk(inbox)),
-            ("Classified 폴더", _chk(f"{data_dir}/Classified" if data_dir else "")),
-            ("Managed 폴더",  _chk(f"{data_dir}/Managed" if data_dir else "")),
+            ("앱 데이터 폴더",  data_dir or "미설정"),
+            ("분류 대상 폴더",  inbox or "미설정"),
+            ("분류 대상 상태",  _chk(inbox)),
+            ("분류 완료 폴더",  classified or "미설정"),
+            ("분류 완료 상태",  _chk(classified)),
+            ("관리 폴더",      managed or "미설정"),
+            ("관리 폴더 상태",  _chk(managed)),
             (".thumbcache",   _chk(f"{data_dir}/.thumbcache" if data_dir else "")),
             (".runtime",      _chk(f"{data_dir}/.runtime" if data_dir else "")),
             ("DB 파일",       "✅ 정상" if db_ok else ("❌ 연결 실패" if db_path else "⚠ 미설정")),
@@ -378,14 +396,20 @@ class _Step1Root(_StepPanel):
 
     def _on_select_root(self) -> None:
         cfg   = self._config()
-        start = cfg.get("data_dir") or str(Path.home())
-        path  = QFileDialog.getExistingDirectory(self, "Archive Root 폴더 선택", start)
-        if not path:
+        start = cfg.get("inbox_dir") or str(Path.home())
+        dlg = PathSetupDialog(start_dir=start, data_dir=cfg.get("data_dir", ""), parent=self)
+        if dlg.exec() != PathSetupDialog.DialogCode.Accepted:
             return
-        from core.config_manager import update_archive_root, save_config
-        update_archive_root(cfg, path)
-        for sub in ["Inbox", "Classified", "Managed", ".thumbcache", ".runtime"]:
-            (Path(path) / sub).mkdir(parents=True, exist_ok=True)
+        from core.config_manager import (
+            ensure_app_directories, ensure_workspace_directories,
+            save_config, update_workspace_from_inbox,
+        )
+        paths = dlg.selected_paths()
+        if not paths:
+            return
+        update_workspace_from_inbox(cfg, paths["inbox_dir"])
+        ensure_app_directories(cfg)
+        ensure_workspace_directories(cfg)
         try:
             save_config(cfg, self._wizard._config_path)
         except Exception as exc:
@@ -394,16 +418,16 @@ class _Step1Root(_StepPanel):
         self.refresh_main.emit()
 
     def _on_open_folder(self) -> None:
-        data_dir = self._config().get("data_dir", "")
-        if not data_dir:
+        inbox_dir = self._config().get("inbox_dir", "")
+        if not inbox_dir:
             return
         try:
             if sys.platform == "win32":
-                subprocess.Popen(["explorer", data_dir])
+                subprocess.Popen(["explorer", inbox_dir])
             elif sys.platform == "darwin":
-                subprocess.Popen(["open", data_dir])
+                subprocess.Popen(["open", inbox_dir])
             else:
-                subprocess.Popen(["xdg-open", data_dir])
+                subprocess.Popen(["xdg-open", inbox_dir])
         except Exception as exc:
             logger.warning("폴더 열기 실패: %s", exc)
 
@@ -438,7 +462,7 @@ class _Step2Scan(_StepPanel):
     def refresh(self) -> None:
         cfg      = self._config()
         data_dir = cfg.get("data_dir", "")
-        inbox    = cfg.get("inbox_dir") or (f"{data_dir}/Inbox" if data_dir else "")
+        inbox    = cfg.get("inbox_dir", "")
         db_path  = self._db_path()
 
         total_groups = files_count = inbox_files = 0
@@ -483,14 +507,14 @@ class _Step2Scan(_StepPanel):
             return
         cfg      = self._config()
         data_dir = cfg.get("data_dir", "")
-        inbox    = cfg.get("inbox_dir") or (f"{data_dir}/Inbox" if data_dir else "")
+        inbox    = cfg.get("inbox_dir", "")
         db_path  = self._db_path()
         if not inbox:
-            QMessageBox.warning(self, "설정 필요", "먼저 Archive Root를 설정하세요.")
+            QMessageBox.warning(self, "설정 필요", "먼저 작업 폴더를 설정하세요.")
             return
         self._btn_scan.setEnabled(False)
         self._btn_scan.setText("스캔 중…")
-        self._scan_thread = _ScanThread(data_dir, inbox, db_path, self)
+        self._scan_thread = _ScanThread(data_dir, inbox, cfg.get("managed_dir", ""), db_path, self)
         self._scan_thread.log_msg.connect(self.log_msg)
         self._scan_thread.done.connect(self._on_scan_done)
         self._scan_thread.start()
@@ -1056,6 +1080,9 @@ class _Step7Preview(_StepPanel):
     def _on_preview_done(self, result: dict) -> None:
         self._btn_preview.setEnabled(True)
         self._btn_preview.setText("📋 미리보기 생성")
+        # developer: 분류 실패 export 로그 (기본값 OFF, 일반 사용자에게 표시 안 됨)
+        if result.get("dev_log_msg"):
+            self.log_msg.emit(result["dev_log_msg"])
         self._batch_preview = result
         self._show_preview_summary(result)
         self.preview_ready.emit(result)
@@ -1320,9 +1347,7 @@ class _Step9Result(_StepPanel):
 
     def _open_classified(self) -> None:
         cfg = self._config()
-        classified = cfg.get("classified_dir") or (
-            f"{cfg.get('data_dir','')}/Classified" if cfg.get("data_dir") else ""
-        )
+        classified = cfg.get("classified_dir", "")
         if not classified:
             return
         try:

@@ -309,6 +309,10 @@ class BatchClassifyDialog(QDialog):
         if not result:
             return
 
+        # developer: 분류 실패 export 로그 (기본값 OFF, 일반 사용자에게 표시 안 됨)
+        if result.get("dev_log_msg"):
+            self.log_msg.emit(result["dev_log_msg"])
+
         self._batch_preview = result
 
         total        = result.get("total_groups", 0)
