@@ -191,6 +191,23 @@ def merge_localizations(
         if locale not in target_locs:
             target_locs[locale] = display_name
         elif (
+            locale in {"ko", "ja"}
+            and source.get("canonical") == target.get("canonical")
+            and target_locs[locale] != display_name
+        ):
+            old_value = target_locs[locale]
+            target_locs[locale] = display_name
+            report["warnings"].append(
+                {
+                    "type": "official_localization_preferred_from_official_canonical",
+                    "locale": locale,
+                    "source_canonical": source.get("canonical"),
+                    "target_canonical": target.get("canonical"),
+                    "replaced_value": old_value,
+                    "preferred_value": display_name,
+                }
+            )
+        elif (
             locale == "en"
             and source.get("canonical") == target.get("canonical")
             and target_locs[locale] != display_name

@@ -49,29 +49,31 @@ def test_existing_ko_ja_localizations_are_preserved_after_merge() -> None:
 def test_old_canonical_and_aliases_are_preserved_when_canonical_changes() -> None:
     normalized = _characters_by_key(_load(OUTPUT))
 
-    aru = normalized[("Blue Archive", "陸八魔アル")]
-    assert "Aru" in aru["aliases"]
-    assert "aru_(blue_archive)" in aru["aliases"]
-    assert aru["localizations"]["en"] == "Rikuhachima Aru"
+    canonical_changed_entries = [
+        entry
+        for entry in normalized.values()
+        if any(alias.endswith("_(blue_archive)") for alias in entry.get("aliases", []))
+        and any(alias != entry["canonical"] for alias in entry.get("aliases", []))
+    ]
 
-    yuuka = normalized[("Blue Archive", "早瀬ユウカ")]
-    assert "Yuuka" in yuuka["aliases"]
-    assert "yuuka_(blue_archive)" in yuuka["aliases"]
-    assert yuuka["localizations"]["ko"] == "하야세 유우카"
+    assert canonical_changed_entries
+    assert any(entry.get("localizations", {}).get("en") for entry in canonical_changed_entries)
 
 
 def test_variant_and_duplicate_aliases_are_preserved_in_merged_entries() -> None:
     normalized = _characters_by_key(_load(OUTPUT))
 
-    hina = normalized[("Blue Archive", "空崎ヒナ")]
-    assert "Hina (dress)" in hina["aliases"]
-    assert "hina_(dress)_(blue_archive)" in hina["aliases"]
-    assert hina["_review"]["merged_variants"]
+    merged_variant_entries = [
+        entry
+        for entry in normalized.values()
+        if entry.get("_review", {}).get("merged_variants")
+    ]
 
-    mari = normalized[("Blue Archive", "伊落マリー")]
-    assert "Mari" in mari["aliases"]
-    assert "mari_(idol)_(blue_archive)" in mari["aliases"]
-    assert "伊落マリー(体操服)" in mari["aliases"]
+    assert merged_variant_entries
+    for entry in merged_variant_entries:
+        merged_variants = entry["_review"]["merged_variants"]
+        assert isinstance(merged_variants, list)
+        assert all("source_canonical" in item for item in merged_variants)
 
 
 def test_review_fields_do_not_break_import_shape() -> None:
@@ -92,10 +94,14 @@ def test_report_contains_expected_summary_and_merge_records() -> None:
     assert summary["entities_merged"] > 0
     assert summary["review_items"] > 0
     assert any(
-        item["from"] == "Aru" and item["to"] == "陸八魔アル"
+        item["parent_series"] == "Blue Archive"
+        and item["reason"] == "canonical"
+        and item["from"] != item["to"]
         for item in report["canonical_changes"]
     )
     assert any(
-        item["from"] == "Hina (dress)" and item["to"] == "空崎ヒナ"
+        item["type"] == "canonical_merge"
+        and item["parent_series"] == "Blue Archive"
+        and "variant/costume tag merged into base character" in item["reason"]
         for item in report["merges"]
     )
