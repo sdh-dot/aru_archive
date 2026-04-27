@@ -10,12 +10,18 @@ Pixiv 태그 분류 모듈.
 분류 결과는 core.metadata_enricher와 app.main_window의 수동 재분류 액션에서
 artwork_groups.*_tags_json 및 tags 테이블로 저장된다.
 
-alias 매칭 전략 (2-pass):
-  Pass 1 — series direct/normalized 매칭 (character와 독립적으로 수행)
-  Pass 2 — character direct/normalized 매칭
-           · parent_series를 series_tags에 자동 보강 (inferred_from_character)
+alias 매칭 전략:
+  Pass 1  — series direct/normalized 매칭 (character와 독립적으로 수행)
+  Pass 1b — 괄호 내용이 series alias면 series_set에 추가 (series_classified에는 추가 안 함)
+             예: アル(ブルアカ) → 'ブルアカ'→"Blue Archive", アル는 Pass 2에서 캐릭터 매칭
+  Pass 1c — Pixiv 인기 suffix strip → series hint
+             예: ブルーアーカイブ5000users入り → ブルーアーカイブ → "Blue Archive"
+             series_classified에도 추가하여 general 출력에서 제외
+  Pass 2  — character direct/normalized 매칭
+           · parent_series → series_tags 자동 보강 (inferred_from_character)
            · ambiguous alias(같은 alias → 여러 canonical)는
              series context가 있으면 확정, 없으면 자동 확정 금지
+           · fallback: 괄호 접미사 제거 후 베이스로 재시도 (match_type="variant_stripped")
 
 핵심 원칙:
   series_tags가 비어 있어도 character matching을 건너뛰지 않는다.
@@ -23,6 +29,8 @@ alias 매칭 전략 (2-pass):
   series → character 자동 추론은 하지 않는다.
 """
 from __future__ import annotations
+
+import re
 
 # 시리즈 별칭은 사용자가 Pixiv에서 실제로 마주치는 표기 차이를 canonical명으로 묶는다.
 # 분류 폴더명에는 canonical명이 사용되므로, 여기의 값 변경은 파일 경로 정책에도 영향을 준다.
@@ -44,6 +52,90 @@ CHARACTER_ALIASES: dict[str, dict] = {
     "リクハチマ・アル": {"canonical": "陸八魔アル", "series": "Blue Archive"},
     "Rikuhachima Aru":  {"canonical": "陸八魔アル", "series": "Blue Archive"},
 }
+
+
+# Matches Pixiv popularity suffix: 'ブルーアーカイブ5000users入り' → group1='ブルーアーカイブ'
+# Handles optional full-width space between base and number.
+_POPULARITY_RE = re.compile(r"^(.+?)[\s　]?\d+users入り$")
+
+# Matches a trailing parenthetical suffix in ASCII or full-width brackets.
+# '陸八魔アル(正月)' → group1='陸八魔アル', group2='正月'
+# 'アル（ブルアカ）' → group1='アル', group2='ブルアカ'
+# Non-greedy base ensures the LAST parenthetical is captured.
+_PAREN_RE = re.compile(
+    r"^(.*?)"
+    r"[(（\[［]"
+    r"([^）］)\]]+)"
+    r"[）］)\]]"
+    r"\s*$"
+)
+
+
+def strip_pixiv_popularity_suffix(tag: str) -> str | None:
+    """Strip Pixiv popularity suffix from a tag.
+
+    'ブルーアーカイブ5000users入り' → 'ブルーアーカイブ'
+    Returns None if the pattern does not match.
+    """
+    m = _POPULARITY_RE.match(tag)
+    return m.group(1) if m else None
+
+
+def normalize_pixiv_popularity_tag(raw_tag: str) -> dict | None:
+    """Detect and analyze a Pixiv popularity tag.
+
+    'ブルーアーカイブ5000users入り' → {
+        "base_tag": "ブルーアーカイブ",
+        "tag_kind": "popularity_series_hint",
+        "canonical_series": "Blue Archive",  # None if base not a known series
+    }
+    Returns None if the tag is not a popularity tag.
+    """
+    base = strip_pixiv_popularity_suffix(raw_tag)
+    if base is None:
+        return None
+    canonical_series: str | None = SERIES_ALIASES.get(base)
+    if canonical_series is None:
+        from core.tag_normalize import normalize_tag_key
+        nk = normalize_tag_key(base)
+        if nk:
+            for alias, canon in SERIES_ALIASES.items():
+                if normalize_tag_key(alias) == nk:
+                    canonical_series = canon
+                    break
+    return {
+        "base_tag": base,
+        "tag_kind": "popularity_series_hint",
+        "canonical_series": canonical_series,
+    }
+
+
+def _parse_parenthetical(tag: str) -> tuple[str, str]:
+    """Strip trailing parenthetical suffix from a tag.
+
+    Returns (base, inner). If no parenthetical is found returns (tag, '').
+    '陸八魔アル(正月)' → ('陸八魔アル', '正月')
+    'アル（ブルアカ）'  → ('アル', 'ブルアカ')
+    """
+    m = _PAREN_RE.match(tag)
+    if m:
+        base  = m.group(1).rstrip()
+        inner = m.group(2).strip()
+        if base:
+            return base, inner
+    return tag, ""
+
+
+def expand_tag_match_candidates(raw_tag: str) -> list[dict]:
+    """Return candidate interpretations of a raw tag for alias matching.
+
+    Each entry: {"tag": str, "type": "exact"|"base_stripped", "variant": str}
+    """
+    candidates: list[dict] = [{"tag": raw_tag, "type": "exact", "variant": ""}]
+    base, inner = _parse_parenthetical(raw_tag)
+    if base != raw_tag and base:
+        candidates.append({"tag": base, "type": "base_stripped", "variant": inner})
+    return candidates
 
 
 def load_db_aliases(conn) -> tuple[dict[str, str], dict[str, list[dict]]]:
@@ -152,7 +244,42 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
             series_set.add(series_aliases[norm_series[nk]])
             series_classified.add(tag)
 
+    # ===== Pass 1b: Parenthetical series hints =====
+    # e.g. アル(ブルアカ) → inner="ブルアカ" → series_set += "Blue Archive"
+    # NOT added to series_classified so the full tag enters Pass 2 for character matching.
+    for tag in raw_tags:
+        if tag in series_classified:
+            continue
+        _, inner = _parse_parenthetical(tag)
+        if not inner:
+            continue
+        if inner in series_aliases:
+            series_set.add(series_aliases[inner])
+        else:
+            nk_inner = normalize_tag_key(inner)
+            if nk_inner and nk_inner in norm_series:
+                series_set.add(series_aliases[norm_series[nk_inner]])
+
+    # ===== Pass 1c: Pixiv popularity suffix → series hint =====
+    # e.g. ブルーアーカイブ5000users入り → ブルーアーカイブ → Blue Archive
+    # Added to BOTH series_set AND series_classified (tag excluded from general output).
+    for tag in raw_tags:
+        if tag in series_classified:
+            continue
+        base = strip_pixiv_popularity_suffix(tag)
+        if base is None:
+            continue
+        if base in series_aliases:
+            series_set.add(series_aliases[base])
+            series_classified.add(tag)
+        else:
+            nk_base = normalize_tag_key(base)
+            if nk_base and nk_base in norm_series:
+                series_set.add(series_aliases[norm_series[nk_base]])
+                series_classified.add(tag)
+
     # direct series match 스냅샷 — character disambiguation 및 inferred evidence에 사용
+    # Includes Pass 1 exact matches, Pass 1b parenthetical hints, Pass 1c popularity strips.
     direct_series: frozenset[str] = frozenset(series_set)
 
     # ===== Pass 2: Character matching (series_set 유무와 무관하게 수행) =====
@@ -167,7 +294,8 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
             continue  # 이미 series로 분류된 태그는 건너뜀
 
         entries: list[dict] | None = None
-        match_type = ""
+        match_type    = ""
+        inner_variant = ""  # set when parenthetical was stripped for matching
 
         if tag in char_alias_groups:
             entries    = char_alias_groups[tag]
@@ -177,6 +305,21 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
             if nk and nk in norm_chars:
                 entries    = char_alias_groups[norm_chars[nk]]
                 match_type = "normalized"
+
+        if entries is None:
+            # Fallback: strip trailing parenthetical suffix and retry.
+            # Handles 陸八魔アル(正月) → base=陸八魔アル, inner=正月
+            # and アル(ブルアカ) → base=アル, inner=ブルアカ (series already added in Pass 1b)
+            base, inner_variant = _parse_parenthetical(tag)
+            if base != tag and base:
+                if base in char_alias_groups:
+                    entries    = char_alias_groups[base]
+                    match_type = "variant_stripped"
+                else:
+                    nk_base = normalize_tag_key(base)
+                    if nk_base and nk_base in norm_chars:
+                        entries    = char_alias_groups[norm_chars[nk_base]]
+                        match_type = "variant_stripped"
 
         if entries is None:
             continue
@@ -201,13 +344,16 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
                     })
                 series_set.add(char_series)
 
-            evidence_chars.append({
-                "canonical":     canonical,
-                "source":        "tag_aliases",
+            ev: dict = {
+                "canonical":       canonical,
+                "source":          "tag_aliases",
                 "matched_raw_tag": tag,
-                "parent_series": char_series,
-                "match_type":    match_type,
-            })
+                "parent_series":   char_series,
+                "match_type":      match_type,
+            }
+            if inner_variant:
+                ev["variant"] = inner_variant
+            evidence_chars.append(ev)
 
         else:
             # Ambiguous: 같은 alias → 여러 canonical
@@ -224,14 +370,17 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
                 char_classified.add(tag)
                 # series는 이미 direct_series에 있으므로 inferred evidence 추가 불필요
 
-                evidence_chars.append({
+                ev = {
                     "canonical":               canonical,
                     "source":                  "tag_aliases",
                     "matched_raw_tag":         tag,
                     "parent_series":           char_series,
                     "match_type":              match_type,
                     "disambiguated_by_series": True,
-                })
+                }
+                if inner_variant:
+                    ev["variant"] = inner_variant
+                evidence_chars.append(ev)
             else:
                 # 진짜 ambiguous — 자동 확정 금지
                 ambiguous_tags.append({

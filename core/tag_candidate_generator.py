@@ -303,6 +303,97 @@ def generate_ambiguous_alias_candidates(
     return results
 
 
+def generate_alias_candidates_from_failed_tags(
+    conn: sqlite3.Connection,
+) -> dict:
+    """
+    분류에 실패한 artwork_groups의 tags_json에서 괄호 변형 패턴을 분석하여
+    alias 후보를 생성한다.
+
+    대상: character_tags_json이 비어 있는 그룹 (Author Fallback / series_uncategorized)
+    로직:
+    - 각 raw tag에서 _parse_parenthetical(tag) → (base, inner) 추출
+    - base가 아직 tag_aliases에 없으면 "variant_stripped_pattern" 후보로 등록
+    - inner가 알려진 series alias면 suggested_series를 채움
+    - confidence_score는 등장 횟수에 비례
+
+    Returns:
+        {"candidates_created": int, "candidates_updated": int, "bases_found": int}
+    """
+    from core.tag_classifier import _parse_parenthetical, SERIES_ALIASES, load_db_aliases
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # 분류 실패 그룹 로드 — character_tags_json이 비거나 NULL인 것
+    rows = conn.execute(
+        "SELECT group_id, tags_json FROM artwork_groups "
+        "WHERE tags_json IS NOT NULL "
+        "AND (character_tags_json IS NULL OR character_tags_json = '[]')"
+    ).fetchall()
+
+    confirmed_aliases = _load_confirmed_aliases(conn)
+
+    # series alias 룩업 (시리즈 힌트 추출용)
+    db_series, _ = load_db_aliases(conn)
+    all_series_aliases: dict[str, str] = dict(SERIES_ALIASES)
+    all_series_aliases.update(db_series)
+
+    from core.tag_normalize import normalize_tag_key
+    norm_series = {normalize_tag_key(k): v for k, v in all_series_aliases.items() if k}
+
+    # base → {count, series_hint} 집계
+    base_stats: dict[str, dict] = {}
+    for row in rows:
+        try:
+            raw_tags: list[str] = json.loads(row["tags_json"] or "[]")
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for tag in raw_tags:
+            base, inner = _parse_parenthetical(tag)
+            if base == tag or not base:
+                continue
+            if base in confirmed_aliases:
+                continue
+            if base not in base_stats:
+                base_stats[base] = {"count": 0, "series_hint": ""}
+            base_stats[base]["count"] += 1
+            # inner이 series alias면 힌트 저장
+            if not base_stats[base]["series_hint"]:
+                series = all_series_aliases.get(inner, "")
+                if not series:
+                    nk = normalize_tag_key(inner)
+                    series = norm_series.get(nk, "")
+                if series:
+                    base_stats[base]["series_hint"] = series
+
+    candidates_saved = 0
+    for base, stats in base_stats.items():
+        count = stats["count"]
+        series_hint = stats["series_hint"]
+        score = min(0.20 + 0.10 * count + (0.20 if series_hint else 0.0), 0.70)
+        result = _upsert_candidate(
+            conn,
+            raw_tag=base,
+            translated_tag=None,
+            suggested_type="character",
+            suggested_series=series_hint,
+            confidence_score=score,
+            evidence_count=count,
+            source="variant_stripped_pattern",
+            now=now,
+        )
+        if result:
+            candidates_saved += 1
+
+    if base_stats:
+        conn.commit()
+
+    return {
+        "bases_found":      len(base_stats),
+        "candidates_saved": candidates_saved,
+    }
+
+
 # ---------------------------------------------------------------------------
 # 내부 헬퍼
 # ---------------------------------------------------------------------------
