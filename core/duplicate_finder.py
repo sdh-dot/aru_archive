@@ -51,14 +51,15 @@ _SCOPE_WHERE: dict[str, str] = {
     "all_archive": (
         "af.file_status = 'present'"
     ),
-    # 현재 뷰 (MVP: inbox_managed로 fallback)
+    # 현재 뷰에 보이는 group만 대상으로 하되, 기본 역할 범위는 Inbox/Managed
     "current_view": (
         "af.file_status = 'present' "
         "AND af.file_role IN ('original', 'managed')"
     ),
-    # 선택 항목 (group_ids 파라미터와 함께 사용)
+    # 선택 항목 group만 대상으로 하되, 기본 역할 범위는 Inbox/Managed
     "selected": (
-        "af.file_status = 'present'"
+        "af.file_status = 'present' "
+        "AND af.file_role IN ('original', 'managed')"
     ),
 }
 
@@ -82,11 +83,14 @@ def select_duplicate_candidate_files(
       'managed_only'   — Managed(managed)만
       'classified_only'— Classified(classified_copy)만 (고급)
       'all_archive'    — 전체 (Classified 포함, 고급)
-      'current_view'   — MVP에서는 inbox_managed 동작
-      'selected'       — group_ids로 지정된 그룹만
+      'current_view'   — 현재 보이는 group_ids만
+      'selected'       — 선택된 group_ids만
     """
     where = _SCOPE_WHERE.get(scope, _SCOPE_WHERE[_DEFAULT_SCOPE])
     params: list = []
+
+    if scope in {"selected", "current_view"} and not group_ids:
+        return []
 
     if group_ids:
         placeholders = ",".join("?" * len(group_ids))

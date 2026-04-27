@@ -166,6 +166,13 @@ class GalleryView(QWidget):
             for item in self._list.selectedItems()
         ]
 
+    def get_visible_group_ids(self) -> list[str]:
+        return [
+            self._list.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self._list.count())
+            if self._list.item(i) is not None
+        ]
+
     def refresh_item(self, group_id: str, row: dict) -> None:
         """특정 카드를 갱신한다."""
         for i in range(self._list.count()):

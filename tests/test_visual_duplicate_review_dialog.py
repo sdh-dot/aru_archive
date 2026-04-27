@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import pytest
+from PyQt6.QtWidgets import QPushButton
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("QT_QPA_PLATFORM", "") == "" and os.name == "nt",
@@ -93,3 +94,43 @@ class TestVisualDuplicateReviewDialogSmoke:
         from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
         dlg = VisualDuplicateReviewDialog(_make_dup_groups(3))
         assert dlg._btn_next.isEnabled()
+
+    def test_keep_marks_other_files_for_delete_in_same_group(self, app):
+        from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
+
+        dlg = VisualDuplicateReviewDialog(_make_dup_groups(1))
+        group = dlg._groups[0]["files"]
+        keep_id = group[0]["file_id"]
+        delete_id = group[1]["file_id"]
+
+        dlg._apply_group_decision(keep_id, "keep")
+
+        assert dlg._decisions[keep_id] == "keep"
+        assert dlg._decisions[delete_id] == "delete"
+        assert dlg.selected_for_delete() == [delete_id]
+
+    def test_delete_and_exclude_update_delete_selection(self, app):
+        from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
+
+        dlg = VisualDuplicateReviewDialog(_make_dup_groups(1))
+        file_id = dlg._groups[0]["files"][0]["file_id"]
+
+        dlg._apply_group_decision(file_id, "delete")
+        assert file_id in dlg.selected_for_delete()
+
+        dlg._apply_group_decision(file_id, "exclude")
+        assert file_id not in dlg.selected_for_delete()
+
+    def test_keep_button_click_updates_group_decisions(self, app):
+        from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
+
+        dlg = VisualDuplicateReviewDialog(_make_dup_groups(1))
+        buttons = [btn for btn in dlg.findChildren(QPushButton) if btn.text() == "유지"]
+        assert len(buttons) >= 1
+
+        buttons[0].click()
+
+        keep_id = dlg._groups[0]["files"][0]["file_id"]
+        delete_id = dlg._groups[0]["files"][1]["file_id"]
+        assert dlg._decisions[keep_id] == "keep"
+        assert dlg._decisions[delete_id] == "delete"

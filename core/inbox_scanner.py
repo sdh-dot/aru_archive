@@ -85,10 +85,12 @@ class InboxScanner:
         self,
         conn: sqlite3.Connection,
         data_dir: str,
+        managed_dir: str = "",
         log_fn: Optional[LogFn] = None,
     ):
         self.conn = conn
         self.data_dir = data_dir
+        self.managed_dir = managed_dir
         self.log_fn: LogFn = log_fn or (lambda msg: logger.info(msg))
 
     # ------------------------------------------------------------------
@@ -327,7 +329,9 @@ class InboxScanner:
         self, file_path: Path, group_id: str, original_file_id: str, now: str
     ) -> str:
         try:
-            png_path_str = convert_bmp_to_png(str(file_path), str(file_path.parent))
+            dest_dir = self.managed_dir or str(file_path.parent)
+            Path(dest_dir).mkdir(parents=True, exist_ok=True)
+            png_path_str = convert_bmp_to_png(str(file_path), dest_dir)
             png_path = Path(png_path_str)
             self.log_fn(f"[INFO] PNG managed 생성: {png_path.name}")
 
@@ -354,7 +358,9 @@ class InboxScanner:
         self, file_path: Path, group_id: str, original_file_id: str, now: str
     ) -> str:
         try:
-            webp_path_str = convert_gif_to_webp(str(file_path), str(file_path.parent))
+            dest_dir = self.managed_dir or str(file_path.parent)
+            Path(dest_dir).mkdir(parents=True, exist_ok=True)
+            webp_path_str = convert_gif_to_webp(str(file_path), dest_dir)
             webp_path = Path(webp_path_str)
             self.log_fn(f"[INFO] WebP managed 생성: {webp_path.name}")
 

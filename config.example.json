@@ -2,8 +2,9 @@
   "_comment": "Aru Archive 설정 예시. 실제 사용 시 config.json으로 복사하여 편집하세요.",
 
   "data_dir": "C:/Users/YourName/AruArchive",
-  "inbox_dir": "{data_dir}/Inbox",
-  "classified_dir": "{data_dir}/Classified",
+  "inbox_dir": "D:/YourInboxFolder",
+  "classified_dir": "D:/Classified",
+  "managed_dir": "D:/Managed",
 
   "db": {
     "path": "{data_dir}/aru_archive.db"

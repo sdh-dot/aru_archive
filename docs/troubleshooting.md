@@ -85,23 +85,23 @@ Native Host 로그 확인:
 
 ---
 
-## 3. Archive Root 문제
+## 3. 작업 폴더 문제
 
-### Archive Root 선택 안 됨
-- 툴바 `[📁 Archive Root 선택]` 클릭 후 폴더 선택
-- 선택 후 `config.json` 내 `data_dir` 확인
+### 작업 폴더 설정이 안 됨
+- 툴바 `[📁 작업 폴더 설정]` 클릭 후 분류 대상 폴더 선택
+- 선택 후 `config.json` 내 `inbox_dir`, `classified_dir`, `managed_dir` 확인
 
 ### config.json 없음
 ```bash
 cp config.example.json config.json
-# data_dir, inbox_dir, db.path 수정
+# data_dir, inbox_dir, classified_dir, managed_dir, db.path 수정
 ```
 
-### Inbox 폴더 없음
+### 분류 대상 폴더 없음
 `inbox_dir` 경로가 존재하지 않으면 CoreWorker가 자동 생성합니다.  
 수동 생성이 필요한 경우:
 ```bash
-mkdir "D:\AruArchive\Inbox"
+mkdir "D:\PixivInbox"
 ```
 
 ### 폴더 권한 문제

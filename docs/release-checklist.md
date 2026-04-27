@@ -72,7 +72,7 @@ EXTENSION_VERSION = "0.4.0"
 ## 5. 로컬 앱 테스트
 
 - [ ] `python main.py` 실행 — GUI 정상 표시
-- [ ] **Archive Root 선택** → `config.json`에 경로 저장 확인
+- [ ] **작업 폴더 설정** → `config.json`에 `inbox_dir`, `classified_dir`, `managed_dir` 저장 확인
 - [ ] **Inbox 스캔** → 갤러리에 파일 표시
 - [ ] **Pixiv 메타데이터 가져오기** → Status `json_only` 확인
 - [ ] **분류 미리보기** → 경로 확정 → **분류 실행** → 파일 복사 확인

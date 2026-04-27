@@ -38,6 +38,8 @@ def tmp_config(tmp_path):
     return {
         "data_dir":  str(tmp_path / "archive"),
         "inbox_dir": str(tmp_path / "inbox"),
+        "classified_dir": str(tmp_path / "Classified"),
+        "managed_dir": str(tmp_path / "Managed"),
         "db": {"path": str(tmp_path / "archive" / "aru.db")},
         "http_server": {"port": 19999},
     }
@@ -74,6 +76,64 @@ def test_main_window_db_init(qt_app, tmp_config, tmp_path):
     win.close()
 
 
+def test_main_window_defers_initial_path_setup_until_show(qt_app, tmp_path, monkeypatch):
+    """첫 실행 폴더 설정은 창이 표시된 뒤 이벤트 루프에서 호출된다."""
+    from app.main_window import MainWindow
+
+    called = []
+
+    def _fake_open(self, *, first_run: bool) -> None:
+        called.append(first_run)
+
+    monkeypatch.setattr(MainWindow, "_open_path_setup_dialog", _fake_open)
+
+    cfg = {
+        "data_dir": str(tmp_path / "archive"),
+        "inbox_dir": "",
+        "classified_dir": "",
+        "managed_dir": "",
+        "db": {"path": str(tmp_path / "archive" / "aru.db")},
+        "http_server": {"port": 19999},
+    }
+    win = MainWindow(cfg, config_path=str(tmp_path / "cfg.json"))
+    assert called == []
+
+    win.show()
+    qt_app.processEvents()
+
+    assert called == [True]
+    win.close()
+
+
+def test_main_window_opens_path_setup_when_configured_inbox_is_missing(qt_app, tmp_path, monkeypatch):
+    """config에 경로 문자열이 있어도 실제 Inbox가 없으면 경로 설정을 다시 연다."""
+    from app.main_window import MainWindow
+
+    called = []
+
+    def _fake_open(self, *, first_run: bool) -> None:
+        called.append(first_run)
+
+    monkeypatch.setattr(MainWindow, "_open_path_setup_dialog", _fake_open)
+
+    root = tmp_path / "AruArchive"
+    cfg = {
+        "data_dir": str(root),
+        "inbox_dir": str(root / "Inbox"),
+        "classified_dir": str(root / "Classified"),
+        "managed_dir": str(root / "Managed"),
+        "db": {"path": str(root / ".runtime" / "aru.db")},
+        "http_server": {"port": 19999},
+    }
+
+    win = MainWindow(cfg, config_path=str(tmp_path / "cfg.json"))
+    win.show()
+    qt_app.processEvents()
+
+    assert called == [True]
+    win.close()
+
+
 # ---------------------------------------------------------------------------
 # GalleryView
 # ---------------------------------------------------------------------------
@@ -105,6 +165,7 @@ def test_gallery_with_rows(qt_app):
     ]
     v.load_groups(rows)
     assert v.get_selected_group_id() is None
+    assert v.get_visible_group_ids() == [f"g{i}" for i in range(5)]
 
 
 # ---------------------------------------------------------------------------

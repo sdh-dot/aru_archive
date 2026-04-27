@@ -38,6 +38,7 @@ class VisualDuplicateReviewDialog(QDialog):
         self._current_idx = 0
         self._decisions: dict[str, str] = {}  # file_id → 'keep'|'delete'|'exclude'
         self._to_delete: list[str] = []
+        self._decision_labels: dict[str, QLabel] = {}
 
         self.setWindowTitle("시각적 중복 검토")
         self.resize(900, 700)
@@ -109,6 +110,7 @@ class VisualDuplicateReviewDialog(QDialog):
             f"그룹 {idx + 1} / {len(self._groups)}  —  "
             f"파일 {len(files)}개  Hamming distance: {dist}"
         )
+        self._decision_labels = {}
 
         container = QWidget()
         grid = QGridLayout(container)
@@ -193,31 +195,59 @@ class VisualDuplicateReviewDialog(QDialog):
         decision_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         decision_lbl.setStyleSheet("font-size: 10px; font-weight: bold;")
         vl.addWidget(decision_lbl)
+        self._decision_labels[file_id] = decision_lbl
         self._update_decision_label(decision_lbl, self._decisions.get(file_id, ""))
 
-        def _set_keep(_fid=file_id, _lbl=decision_lbl):
-            self._decisions[_fid] = "keep"
-            if _fid in self._to_delete:
-                self._to_delete.remove(_fid)
-            self._update_decision_label(_lbl, "keep")
+        def _set_keep(_checked: bool = False, _fid=file_id):
+            self._apply_group_decision(_fid, "keep")
 
-        def _set_delete(_fid=file_id, _lbl=decision_lbl):
-            self._decisions[_fid] = "delete"
-            if _fid not in self._to_delete:
-                self._to_delete.append(_fid)
-            self._update_decision_label(_lbl, "delete")
+        def _set_delete(_checked: bool = False, _fid=file_id):
+            self._apply_group_decision(_fid, "delete")
 
-        def _set_exclude(_fid=file_id, _lbl=decision_lbl):
-            self._decisions[_fid] = "exclude"
-            if _fid in self._to_delete:
-                self._to_delete.remove(_fid)
-            self._update_decision_label(_lbl, "exclude")
+        def _set_exclude(_checked: bool = False, _fid=file_id):
+            self._apply_group_decision(_fid, "exclude")
 
         btn_keep.clicked.connect(_set_keep)
         btn_del.clicked.connect(_set_delete)
         btn_excl.clicked.connect(_set_exclude)
 
         return card
+
+    def _current_group_files(self) -> list[dict]:
+        if not self._groups:
+            return []
+        return list(self._groups[self._current_idx].get("files", []))
+
+    def _set_file_decision(self, file_id: str, decision: str) -> None:
+        self._decisions[file_id] = decision
+        if decision == "delete":
+            if file_id not in self._to_delete:
+                self._to_delete.append(file_id)
+        elif file_id in self._to_delete:
+            self._to_delete.remove(file_id)
+
+        lbl = self._decision_labels.get(file_id)
+        if lbl is not None:
+            self._update_decision_label(lbl, decision)
+
+    def _apply_group_decision(self, file_id: str, decision: str) -> None:
+        current_file_ids = [
+            f.get("file_id", "")
+            for f in self._current_group_files()
+            if f.get("file_id")
+        ]
+        if file_id not in current_file_ids:
+            return
+
+        if decision == "keep":
+            for other_id in current_file_ids:
+                self._set_file_decision(
+                    other_id,
+                    "keep" if other_id == file_id else "delete",
+                )
+            return
+
+        self._set_file_decision(file_id, decision)
 
     def _update_decision_label(self, lbl: QLabel, decision: str) -> None:
         text_map = {

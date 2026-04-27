@@ -1,31 +1,7 @@
 # Aru Archive
 
-<p align="center">
-  <img src="docs/icon.png" width="160" alt="Aru Archive icon">
-</p>
-
-개인 아트워크 아카이브 관리 도구.  
-Pixiv 등 소스에서 수집한 파일을 메타데이터 기반으로 분류·관리합니다.
-
-**플랫폼:** Windows 11 · Python 3.12+ · PyQt6 · SQLite · v0.4.0
-
----
-
-## 구성 요소
-
-| 경로 | 역할 |
-|------|------|
-| `main.py` | GUI 진입점, 설정 로드, 로깅 초기화 |
-| `app/` | PyQt6 데스크톱 UI (갤러리, 분류 미리보기, 작업 로그) |
-| `core/` | 스캔, 메타데이터, Pixiv 보강, 태그·경로 분류 엔진 |
-| `db/` | SQLite 초기화 및 스키마 |
-| `extension/` | Chrome / Naver Whale MV3 브라우저 확장 |
-| `native_host/` | Native Messaging Host (protocol v2) |
-| `build/` | 설치 스크립트 및 패키징 설정 |
-| `tests/` | pytest 테스트 스위트 |
-| `docs/` | 설계 문서 |
-
----
+개인 아트워크 아카이브 관리 도구입니다.  
+Pixiv 등에서 수집한 파일을 메타데이터 기반으로 정리하고, 분류 미리보기와 분류 실행, Undo, 중복 점검까지 한 흐름으로 다룹니다.
 
 ## 빠른 시작
 
@@ -34,58 +10,61 @@ pip install -r requirements.txt
 python main.py
 ```
 
-설정 파일 지정:
+설정 파일을 별도로 쓰려면:
 
 ```bash
 python main.py --config path/to/config.json
 ```
 
-`config.example.json`을 `config.json`으로 복사하여 `data_dir`, `inbox_dir`, `db.path`를 수정하세요.
+## 첫 실행 안내
 
-### 작업 마법사 (권장 진입점)
+설치형 exe 또는 `python main.py`를 처음 실행하면 **작업 폴더 설정** 화면이 열립니다.
 
-앱 실행 후 툴바의 **[🧭 작업 마법사]** 를 클릭하면 9단계 순서형 가이드가 시작됩니다:
+- 분류 대상 폴더를 하나 선택하면 그 폴더를 이름 변경 없이 그대로 사용합니다.
+- 같은 위치에 `Classified`, `Managed` 폴더가 자동 생성됩니다.
+- 앱 내부 데이터(DB, 로그, 썸네일, 런타임 파일)는 기본적으로 `C:\Users\<사용자명>\AruArchive` 아래에 저장됩니다.
 
-1. **Archive Root** — 아카이브 루트 폴더 설정
-2. **Scan** — Inbox 파일 스캔
-3. **메타데이터 확인** — 상태 요약 및 경고 표시
-4. **메타데이터 보강** — Pixiv에서 메타데이터 가져오기
-5. **사전 정규화** — 태그 alias / 후보 검토
-6. **태그 재분류** — 사전 업데이트 반영
-7. **분류 미리보기** — 경로·위험도 확인
-8. **분류 실행** — Classified 폴더에 복사
-9. **결과 / Undo** — 작업 이력 및 Undo
+예:
 
-자세한 설명: [docs/workflow-wizard.md](docs/workflow-wizard.md)
+- 선택 폴더: `D:\PixivInbox`
+- 분류 대상 폴더: `D:\PixivInbox`
+- 분류 완료 폴더: `D:\Classified`
+- 관리 폴더: `D:\Managed`
 
----
+## 작업 폴더 모델
 
-## 브라우저 확장 설치
+- `inbox_dir`: 사용자가 고른 분류 대상 폴더
+- `classified_dir`: 분류 결과 복사본이 저장되는 폴더
+- `managed_dir`: BMP/GIF 변환 등 앱이 관리하는 관리본 폴더
+- `data_dir`: 앱 내부 데이터 저장 폴더
 
-1. Chrome / Whale에서 `extension/` 폴더를 개발자 모드로 로드 → **확장 ID 복사**
-2. Native Host 등록:
-   ```bat
-   build\install_host.bat chrome <extension_id>
-   ```
-3. 브라우저 재시작 → 팝업 **연결 테스트** → "연결 성공 ✓" 확인
+즉, `data_dir`는 더 이상 사용자 작업 루트가 아니고, 내부 저장소 역할만 맡습니다.
 
-자세한 절차: [docs/extension-setup.md](docs/extension-setup.md)
+## 작업 마법사
 
----
+툴바의 **[작업 마법사]** 버튼으로 9단계 가이드를 열 수 있습니다.
 
-## 기본 사용법
+1. 작업 폴더 설정
+2. Inbox 스캔
+3. 메타데이터 상태 확인
+4. 메타데이터 보강
+5. 사전 / 태그 정리
+6. 태그 재분류
+7. 분류 미리보기
+8. 분류 실행
+9. 결과 / Undo
 
-1. `python main.py` 실행
-2. **[📁 Archive Root 선택]** → 아카이브 루트 폴더 선택
-3. **[🔍 Inbox 스캔]** → Pixiv 파일 검색
-4. 갤러리에서 항목 선택 → **[🌐 Pixiv 메타데이터 가져오기]**
-5. **[📋 분류 미리보기]** → 경로 확인 → **[▶ 분류 실행]**
-6. Ctrl+Click으로 여러 항목 선택 → **[📋 일괄 분류]** → 범위·언어 설정 후 미리보기·실행
-7. **[🕘 작업 로그]** → Undo 가능
+자세한 설명은 [docs/workflow-wizard.md](docs/workflow-wizard.md) 를 참고하세요.
 
-Pixiv 작품 페이지에서 팝업 **저장** 버튼으로 직접 저장도 가능합니다.
+## 기본 사용 흐름
 
----
+1. 앱 실행
+2. **[📁 작업 폴더 설정]** 으로 분류 대상 폴더 선택
+3. **[🔍 Inbox 스캔]** 으로 파일 등록
+4. 필요 시 Pixiv 메타데이터 보강
+5. **[분류 미리보기]** 로 경로와 위험도 확인
+6. **[분류 실행]** 으로 `Classified` 에 복사
+7. **[작업 로그 / Undo]** 에서 결과 확인
 
 ## 테스트
 
@@ -93,111 +72,12 @@ Pixiv 작품 페이지에서 팝업 **저장** 버튼으로 직접 저장도 가
 QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 ```
 
-현재 750개 이상 테스트 통과.
+## 관련 문서
 
----
-
-## Bundled ExifTool (내장 ExifTool)
-
-Aru Archive는 XMP 메타데이터 기록을 위해 Portable ExifTool을 내장할 수 있습니다.
-
-### 내장 ExifTool 배치 경로
-
-```text
-tools/
-└── exiftool/
-    ├── exiftool.exe          ← 실행 파일
-    └── exiftool_files/       ← Perl 런타임 및 라이브러리
-```
-
-> Windows 공식 배포판은 `exiftool(-k).exe` 이름으로 배포됩니다.  
-> `exiftool.exe` 로 이름을 변경하면 표준 동작이 됩니다.  
-> 이름 변경 없이 `exiftool(-k).exe` 를 그대로 두어도 자동 탐색됩니다.
-
-### 탐색 우선순위
-
-| 순서 | 경로 |
-|------|------|
-| 1 | `config.json`의 `exiftool_path` |
-| 2 | `tools/exiftool/exiftool.exe` (개발 / onedir 배포) |
-| 3 | `sys._MEIPASS/tools/exiftool/exiftool.exe` (onefile 배포) |
-| 4 | 시스템 PATH의 `exiftool` |
-| 5 | (없으면) `json_only` 유지 |
-
-`config.json`의 `exiftool_path`를 `null` 또는 생략하면 자동 탐색합니다:
-
-```json
-{ "exiftool_path": null }
-```
-
-### 번들 검증
-
-```bash
-python build/check_exiftool_bundle.py
-```
-
-### 라이선스
-
-ExifTool은 Phil Harvey가 개발했으며 Artistic License 또는 GPL v2 이상으로 배포됩니다.  
-→ [LICENSES/ExifTool.txt](LICENSES/ExifTool.txt)
-
----
-
-## ExifTool XMP 설정 (사용자 지정 경로)
-
-내장 ExifTool 대신 별도 설치 버전을 사용하려면 config.json에 경로를 지정합니다:
-
-```json
-{ "exiftool_path": "C:/exiftool/exiftool.exe" }
-```
-
-ExifTool이 없으면 AruArchive JSON만 기록됩니다 (`json_only` 상태 유지).
-
-기록되는 XMP 필드: `XMP-dc:Title/Creator/Subject/Source/Identifier`,  
-`XMP:MetadataDate`, `XMP:Rating`, `XMP:Label`
-
-XMP 기록에 실패하면 `xmp_write_failed` 상태로 표시됩니다 (⚠ 사이드바).  
-Detail 패널 `[🔄 XMP 재시도]` 또는 툴바 `[🔄 전체 XMP 재처리]`로 재시도할 수 있습니다.
-
----
-
-## 문서
-
-| 문서 | 내용 |
-|------|------|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 전체 시스템 아키텍처, 데이터 흐름, DB 스키마 |
-| [docs/native-messaging.md](docs/native-messaging.md) | Native Messaging 프로토콜 v2 명세 |
-| [docs/extension-setup.md](docs/extension-setup.md) | 브라우저 확장 설치 절차 |
-| [docs/metadata-policy.md](docs/metadata-policy.md) | 메타데이터 정책, sync_status 값 |
-| [docs/classification-policy.md](docs/classification-policy.md) | 4-tier 분류 정책, 충돌 처리 |
-| [docs/tag-normalization.md](docs/tag-normalization.md) | 태그 정규화 파이프라인 |
-| [docs/packaging.md](docs/packaging.md) | PyInstaller 패키징, 릴리즈 구성 |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | 문제 해결 가이드 |
-| [docs/release-checklist.md](docs/release-checklist.md) | 릴리즈 전 확인 항목 |
-| [CHANGELOG.md](CHANGELOG.md) | 버전별 변경 이력 |
-
----
-
-## 현황 / 로드맵
-
-**v0.4.0 (현재)**
-- PyQt6 데스크톱 앱 + Chrome/Whale 브라우저 확장
-- Native Messaging 프로토콜 v2 (5개 액션)
-- 4-tier 분류 엔진 + 태그 정규화 파이프라인
-- **Tag Pack 시스템** — `resources/tag_packs/*.json`에서 시리즈/캐릭터 alias + 로컬라이제이션 자동 시드
-- **4단계 alias 매칭** — DB → built-in → 정규화(normalize_tag_key) 순서, 전각/공백 변형 처리
-- **Character-to-Series Inference** — Character aliases can infer their parent series when `parent_series` is known; series raw tag is not required
-- **Permanent Delete with Preview** — 다중 선택 갤러리 삭제, 위험도 평가(Low/Medium/High), High risk 시 `DELETE` 입력 확인; `delete_batches`/`delete_records` 감사 기록
-- **Exact Duplicate Cleanup** — SHA-256 완전 중복 탐지, 보존 파일 자동 추천(original/full 우선), 공통 삭제 미리보기 플로우; 기본 검사 범위 Inbox/Managed (Classified 복사본 오탐 방지)
-- **Visual Duplicate Review** — pHash 시각적 중복 탐지(Hamming distance), 나란히 비교 다이얼로그, 자동 삭제 금지; 기본 검사 범위 Inbox/Managed; Duplicate checks default to Inbox / Managed to avoid detecting Classified copies as duplicates
-- **Localized Tag Pack Import** — ko/ja localization 보강 JSON을 `tag_aliases`/`tag_localizations`에 import; `_review` 항목(merge_candidate, variant_tag)은 자동 병합하지 않고 report
-- **미분류 태그 후보 생성** — `series_uncategorized` / `author_fallback` 감지 → `tag_candidates` 생성 (사용자 승인 필요)
-- **외부 사전 가져오기** — Danbooru / Safebooru에서 캐릭터·시리즈 후보 수집, confidence 점수 기반 스테이징, 사용자 승인 후 `tag_aliases` 반영 (`[🌐 웹 사전]`); Danbooru 차단 시 Safebooru fallback 지원
-- 다국어 폴더명 (ko/ja/en) — `tag_localizations` DB + 내장 Blue Archive 데이터
-- 일괄 분류 (Batch Classification) — 재분류 옵션, 실패 원인 요약, Ctrl+Click 다중 선택
-- Undo 시스템, 저장 작업 실시간 모니터링
-- **ExifTool XMP 연동** — `XMP-dc:*` + `XMP:Rating/Label/MetadataDate` 기록, XMP 재시도 UI
-
-**예정**
-- Pixiv 쿠키 자동 수집 (R-18 저장 지원)
-- EXE 독립 배포 빌드
+- [docs/workflow-wizard.md](docs/workflow-wizard.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/classification-policy.md](docs/classification-policy.md)
+- [docs/metadata-policy.md](docs/metadata-policy.md)
+- [docs/duplicate-management.md](docs/duplicate-management.md)
+- [docs/file-deletion.md](docs/file-deletion.md)
+- [docs/troubleshooting.md](docs/troubleshooting.md)

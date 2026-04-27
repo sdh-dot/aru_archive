@@ -2,7 +2,7 @@
 Aru Archive 메인 윈도우.
 
 레이아웃:
-  QToolBar (Archive Root 선택 | Inbox 스캔 | DB 초기화)
+  QToolBar (작업 폴더 설정 | Inbox 스캔 | DB 초기화)
   QSplitter
     SidebarWidget (160px)
     QStackedWidget
@@ -11,8 +11,9 @@ Aru Archive 메인 윈도우.
     DetailView (340px)
   LogPanel (130px)
 
-Archive Root 선택 시 Inbox / Classified / Managed / .thumbcache / .runtime
-폴더를 자동 생성하고, config.json에 영속 저장한다.
+작업 폴더 설정 시 선택한 폴더를 Inbox로 사용하고 같은 레벨에
+Classified / Managed를 자동 생성한다.
+앱 내부 데이터는 data_dir 아래 .thumbcache / .runtime 등에 저장한다.
 
 이 파일은 UI 조립과 사용자 액션 orchestration을 담당한다.
 실제 도메인 로직은 core.* 모듈에 두고, 여기서는 백그라운드 스레드 실행,
@@ -26,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal as Signal
+from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal as Signal
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import (
     QApplication, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
@@ -37,10 +38,14 @@ from PyQt6.QtWidgets import (
 from app.views.detail_view import DetailView
 from app.views.gallery_view import GalleryView
 from app.views.no_metadata_view import NoMetadataView
+from app.views.path_setup_dialog import PathSetupDialog
 from app.widgets.log_panel import LogPanel
 from app.widgets.sidebar import SidebarWidget
 from core.config_manager import (
-    ensure_archive_directories, save_config, update_archive_root,
+    ensure_app_directories,
+    ensure_workspace_directories,
+    save_config,
+    update_workspace_from_inbox,
 )
 from core.filename_parser import parse_pixiv_filename
 from core.inbox_scanner import InboxScanner, ScanResult, compute_file_hash
@@ -49,8 +54,6 @@ from core.thumbnail_manager import generate_thumbnail
 from db.database import initialize_database
 
 logger = logging.getLogger(__name__)
-
-_ARCHIVE_SUBDIRS = ["Inbox", "Classified", "Managed", ".thumbcache", ".runtime"]
 
 # ------------------------------------------------------------------
 # DB 쿼리 상수
@@ -257,7 +260,7 @@ class EnrichThread(QThread):
 
 
 class ScanThread(QThread):
-    """Archive Root의 Inbox 스캔을 UI freeze 없이 실행한다."""
+    """Configured inbox scan without UI freeze."""
 
     log_msg   = Signal(str)
     scan_done = Signal(object)   # ScanResult
@@ -266,18 +269,22 @@ class ScanThread(QThread):
         self,
         data_dir: str,
         inbox_dir: str,
+        managed_dir: str,
         db_path: str,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
         self.data_dir  = data_dir
         self.inbox_dir = inbox_dir
+        self.managed_dir = managed_dir
         self.db_path   = db_path
 
     def run(self) -> None:
         conn = initialize_database(self.db_path)
         try:
-            scanner = InboxScanner(conn, self.data_dir, log_fn=self.log_msg.emit)
+            scanner = InboxScanner(
+                conn, self.data_dir, managed_dir=self.managed_dir, log_fn=self.log_msg.emit
+            )
             result  = scanner.scan(self.inbox_dir)
             self.scan_done.emit(result)
         except Exception as exc:
@@ -373,6 +380,9 @@ class MainWindow(QMainWindow):
         self._config_path = config_path
         self._scan_thread: Optional[ScanThread] = None
         self._current_category = "all"
+        self._initial_workspace_prompt_scheduled = False
+        self._initial_workspace_prompt_attempted = False
+        self._initial_workspace_setup_checked = False
 
         self.setWindowTitle("Aru Archive")
         self.resize(1400, 900)
@@ -383,7 +393,7 @@ class MainWindow(QMainWindow):
 
         self._setup_ui()
         self._connect_signals()
-        self._restore_archive_root()
+        self._restore_workspace_paths()
 
         if Path(self._db_path()).exists():
             try:
@@ -396,6 +406,13 @@ class MainWindow(QMainWindow):
             self._refresh_counts()
 
         self._start_ipc_server()
+
+    def showEvent(self, event) -> None:  # type: ignore[override]
+        super().showEvent(event)
+        if self._initial_workspace_setup_checked:
+            return
+        self._initial_workspace_setup_checked = True
+        self._schedule_initial_workspace_setup()
 
     # ------------------------------------------------------------------
     # UI 구성
@@ -414,7 +431,7 @@ class MainWindow(QMainWindow):
 
         self._btn_wizard  = _tb_btn("🧭 작업 마법사", tb)
         tb.addSeparator()
-        self._btn_root    = _tb_btn("📁 Archive Root 선택", tb)
+        self._btn_root    = _tb_btn("📁 작업 폴더 설정", tb)
         tb.addSeparator()
         self._btn_scan    = _tb_btn("🔍 Inbox 스캔", tb)
         self._btn_db_init = _tb_btn("🗄 DB 초기화",  tb)
@@ -438,12 +455,12 @@ class MainWindow(QMainWindow):
         self._btn_visual_dup       = _tb_btn("👁 시각적 중복 검사", tb)
         tb.addSeparator()
 
-        self._lbl_root = QLabel("Archive Root 미설정")
+        self._lbl_root = QLabel("분류 대상 폴더 미설정")
         self._lbl_root.setStyleSheet(_STYLE_PATH_NONE)
         self._lbl_root.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
-        self._lbl_root.setToolTip("Archive Root 폴더 경로")
+        self._lbl_root.setToolTip("분류 대상 폴더 경로")
         tb.addWidget(self._lbl_root)
 
         central = QWidget()
@@ -526,11 +543,13 @@ class MainWindow(QMainWindow):
         return str(self.config.get("data_dir", ""))
 
     def _inbox_dir(self) -> str:
-        raw = self.config.get("inbox_dir", "")
-        if raw:
-            return raw
-        dd = self._data_dir()
-        return f"{dd}/Inbox" if dd else ""
+        return str(self.config.get("inbox_dir", ""))
+
+    def _managed_dir(self) -> str:
+        return str(self.config.get("managed_dir", ""))
+
+    def _classified_dir(self) -> str:
+        return str(self.config.get("classified_dir", ""))
 
     def _db_path(self) -> str:
         raw = self.config.get("db", {}).get("path", "")
@@ -545,30 +564,66 @@ class MainWindow(QMainWindow):
         return initialize_database(db_path)
 
     # ------------------------------------------------------------------
-    # Archive Root 복원 (앱 시작 시)
+    # Workspace path restore (앱 시작 시)
     # ------------------------------------------------------------------
 
-    def _restore_archive_root(self) -> None:
-        data_dir = self._data_dir()
-        if not data_dir:
-            self._lbl_root.setText(
-                "Archive Root 미설정 — [📁 Archive Root 선택] 클릭"
-            )
+    def _restore_workspace_paths(self) -> None:
+        ensure_app_directories(self.config)
+
+        inbox_dir = self._inbox_dir()
+        if not inbox_dir:
+            self._lbl_root.setText("분류 대상 폴더 미설정 — [📁 작업 폴더 설정] 클릭")
             self._lbl_root.setStyleSheet(_STYLE_PATH_NONE)
             return
 
-        self._lbl_root.setToolTip(data_dir)
-        if Path(data_dir).exists():
-            self._lbl_root.setText(data_dir)
+        self._lbl_root.setToolTip(inbox_dir)
+        if Path(inbox_dir).exists():
+            self._lbl_root.setText(inbox_dir)
             self._lbl_root.setStyleSheet(_STYLE_PATH_OK)
             try:
-                ensure_archive_directories(self.config)
+                ensure_workspace_directories(self.config)
             except Exception as exc:
                 logger.warning("폴더 생성 실패: %s", exc)
         else:
-            self._lbl_root.setText(f"⚠ {data_dir}  (경로 없음)")
+            self._lbl_root.setText(f"⚠ {inbox_dir}  (경로 없음)")
             self._lbl_root.setStyleSheet(_STYLE_PATH_WARN)
-            logger.warning("Archive Root not found: %s", data_dir)
+            logger.warning("Inbox path not found: %s", inbox_dir)
+
+    def _ensure_initial_workspace_setup(self) -> None:
+        inbox_dir = self._inbox_dir().strip()
+        classified_dir = self._classified_dir().strip()
+        managed_dir = self._managed_dir().strip()
+
+        inbox_exists = bool(inbox_dir) and Path(inbox_dir).exists()
+        classified_exists = bool(classified_dir) and Path(classified_dir).exists()
+        managed_exists = bool(managed_dir) and Path(managed_dir).exists()
+
+        if inbox_exists:
+            if not classified_dir or not managed_dir:
+                update_workspace_from_inbox(self.config, inbox_dir)
+            if not classified_exists or not managed_exists:
+                ensure_workspace_directories(self.config)
+                try:
+                    save_config(self.config, self._config_path)
+                except Exception:
+                    pass
+                self._restore_workspace_paths()
+            return
+
+        if self._initial_workspace_prompt_attempted:
+            return
+        self._initial_workspace_prompt_attempted = True
+        self._open_path_setup_dialog(first_run=True)
+
+    def _schedule_initial_workspace_setup(self) -> None:
+        if self._initial_workspace_prompt_scheduled:
+            return
+        self._initial_workspace_prompt_scheduled = True
+        QTimer.singleShot(0, self._run_initial_workspace_setup)
+
+    def _run_initial_workspace_setup(self) -> None:
+        self._initial_workspace_prompt_scheduled = False
+        self._ensure_initial_workspace_setup()
 
     # ------------------------------------------------------------------
     # 갤러리 / 카운트 갱신
@@ -652,34 +707,39 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _on_select_root(self) -> None:
-        start = self._data_dir() or str(Path.home())
-        path  = QFileDialog.getExistingDirectory(
-            self, "Archive Root 폴더 선택", start
+        self._open_path_setup_dialog(first_run=False)
+
+    def _open_path_setup_dialog(self, *, first_run: bool) -> None:
+        start_dir = self._inbox_dir() or str(Path.home())
+        dlg = PathSetupDialog(
+            start_dir=start_dir,
+            data_dir=self._data_dir(),
+            parent=self,
         )
-        if not path:
+        if first_run:
+            dlg.setWindowTitle("첫 실행 폴더 설정")
+            self._log.append("[INFO] 첫 실행 감지: 분류 대상 폴더를 먼저 설정하세요.")
+        if dlg.exec() != PathSetupDialog.DialogCode.Accepted:
             return
 
-        update_archive_root(self.config, path)
+        paths = dlg.selected_paths()
+        if not paths:
+            return
+
+        update_workspace_from_inbox(self.config, paths["inbox_dir"])
         try:
+            ensure_app_directories(self.config)
+            ensure_workspace_directories(self.config)
             save_config(self.config, self._config_path)
             self._log.append(f"[INFO] Config saved: {self._config_path}")
         except Exception as exc:
             self._log.append(f"[ERROR] Config 저장 실패: {exc}")
+            return
 
-        self._lbl_root.setText(path)
-        self._lbl_root.setStyleSheet(_STYLE_PATH_OK)
-        self._lbl_root.setToolTip(path)
-        self._log.append(f"[INFO] Archive Root updated: {path}")
-
-        for sub in _ARCHIVE_SUBDIRS:
-            full    = Path(path) / sub
-            existed = full.exists()
-            try:
-                full.mkdir(parents=True, exist_ok=True)
-                if not existed:
-                    self._log.append(f"[INFO] Created folder: {full}")
-            except Exception as exc:
-                self._log.append(f"[ERROR] Failed to create folder {full}: {exc}")
+        self._restore_workspace_paths()
+        self._log.append(f"[INFO] Inbox folder set: {self._inbox_dir()}")
+        self._log.append(f"[INFO] Classified folder set: {self._classified_dir()}")
+        self._log.append(f"[INFO] Managed folder set: {self._managed_dir()}")
 
         if Path(self._db_path()).exists():
             self._refresh_gallery()
@@ -695,8 +755,8 @@ class MainWindow(QMainWindow):
 
         if not inbox:
             self._log.append(
-                "[WARN] Archive Root가 설정되지 않았습니다. "
-                "[📁 Archive Root 선택]을 먼저 클릭하세요."
+                "[WARN] 분류 대상 폴더가 설정되지 않았습니다. "
+                "[📁 작업 폴더 설정]을 먼저 실행하세요."
             )
             return
 
@@ -712,7 +772,9 @@ class MainWindow(QMainWindow):
         self._log.append(f"[INFO] Inbox 스캔 시작: {inbox}")
         self._btn_scan.setEnabled(False)
 
-        self._scan_thread = ScanThread(data_dir, inbox, db_path, parent=self)
+        self._scan_thread = ScanThread(
+            data_dir, inbox, self._managed_dir(), db_path, parent=self
+        )
         self._scan_thread.log_msg.connect(self._log.append)
         self._scan_thread.scan_done.connect(self._on_scan_done)
         self._scan_thread.start()
@@ -909,7 +971,9 @@ class MainWindow(QMainWindow):
                 self._log.append("[WARN] BMP 파일 없음")
                 return
             conn    = self._get_conn()
-            scanner = InboxScanner(conn, self._data_dir(), log_fn=self._log.append)
+            scanner = InboxScanner(
+                conn, self._data_dir(), managed_dir=self._managed_dir(), log_fn=self._log.append
+            )
             scanner._handle_bmp(Path(row["file_path"]), group_id, row["file_id"], _now_iso())
             conn.close()
             self._refresh_gallery_item(group_id)
@@ -930,7 +994,9 @@ class MainWindow(QMainWindow):
                 self._log.append("[WARN] GIF 파일 없음")
                 return
             conn    = self._get_conn()
-            scanner = InboxScanner(conn, self._data_dir(), log_fn=self._log.append)
+            scanner = InboxScanner(
+                conn, self._data_dir(), managed_dir=self._managed_dir(), log_fn=self._log.append
+            )
             scanner._handle_animated_gif(
                 Path(row["file_path"]), group_id, row["file_id"], _now_iso()
             )
@@ -953,7 +1019,9 @@ class MainWindow(QMainWindow):
                 self._log.append("[WARN] 원본 파일 없음")
                 return
             conn    = self._get_conn()
-            scanner = InboxScanner(conn, self._data_dir(), log_fn=self._log.append)
+            scanner = InboxScanner(
+                conn, self._data_dir(), managed_dir=self._managed_dir(), log_fn=self._log.append
+            )
             scanner._handle_static_gif(
                 Path(row["file_path"]), group_id, row["file_id"], _now_iso()
             )
@@ -969,7 +1037,9 @@ class MainWindow(QMainWindow):
             return
         try:
             conn    = self._get_conn()
-            scanner = InboxScanner(conn, self._data_dir(), log_fn=self._log.append)
+            scanner = InboxScanner(
+                conn, self._data_dir(), managed_dir=self._managed_dir(), log_fn=self._log.append
+            )
             scanner.reprocess_group(group_id)
             conn.close()
             self._refresh_gallery_item(group_id)
@@ -993,7 +1063,7 @@ class MainWindow(QMainWindow):
         if not classified_dir:
             self._log.append(
                 "[WARN] classified_dir 미설정 — "
-                "[📁 Archive Root 선택]을 먼저 실행하세요."
+                "[📁 작업 폴더 설정]을 먼저 실행하세요."
             )
             return None
         try:
@@ -1004,6 +1074,15 @@ class MainWindow(QMainWindow):
             except Exception as retag_exc:
                 logger.debug("단일 미리보기 retag 실패 (무시): %s", retag_exc)
             preview = build_classify_preview(conn, group_id, self.config)
+            # developer: 분류 실패 export (conn이 열린 상태에서 실행)
+            if preview is not None:
+                try:
+                    from core.classification_failure_exporter import export_from_preview
+                    dev_msg = export_from_preview(conn, preview, self.config)
+                    if dev_msg:
+                        self._log.append(dev_msg)
+                except Exception as _dev_exc:
+                    logger.debug("단일 dev failure export 실패 (무시): %s", _dev_exc)
             conn.close()
         except Exception as exc:
             self._log.append(f"[ERROR] 미리보기 생성 실패: {exc}")
@@ -1169,6 +1248,8 @@ class MainWindow(QMainWindow):
         self._refresh_counts()
 
     def _get_current_filter_group_ids(self) -> list[str]:
+        if self._current_category == "no_metadata":
+            return []
         cat   = self._current_category
         where = _GALLERY_WHERE.get(cat, "")
         sql   = f"SELECT g.group_id FROM artwork_groups g {where} ORDER BY g.indexed_at DESC"
@@ -1180,12 +1261,83 @@ class MainWindow(QMainWindow):
         except Exception:
             return []
 
+    def _build_duplicate_scope_request(self) -> tuple[str, list[str] | None, str] | None:
+        dup_cfg = self.config.get("duplicates", {})
+        configured_scope = dup_cfg.get("default_scope", "inbox_managed")
+        selected_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
+        current_ids = list(dict.fromkeys(self._get_current_filter_group_ids()))
+
+        scope = configured_scope
+        group_ids: list[str] | None = None
+
+        if configured_scope == "inbox_managed":
+            if len(selected_ids) >= 2:
+                scope = "selected"
+                group_ids = selected_ids
+            elif self._current_category != "all" and current_ids:
+                scope = "current_view"
+                group_ids = current_ids
+        elif configured_scope == "selected":
+            if len(selected_ids) < 2:
+                QMessageBox.information(
+                    self,
+                    "선택 항목 부족",
+                    "선택 범위 중복 검사는 갤러리에서 2개 이상 항목을 선택해야 실행할 수 있습니다.",
+                )
+                return None
+            group_ids = selected_ids
+        elif configured_scope == "current_view":
+            if not current_ids:
+                QMessageBox.information(
+                    self,
+                    "현재 화면 없음",
+                    "현재 화면 범위에서 검사할 항목이 없습니다.",
+                )
+                return None
+            group_ids = current_ids
+
+        if scope == "all_archive":
+            allow = dup_cfg.get("allow_all_archive_scan", False)
+            if not allow:
+                QMessageBox.warning(
+                    self,
+                    "전체 Archive 검사 차단됨",
+                    "config.json의 duplicates.allow_all_archive_scan 값이 false입니다.\n"
+                    "전체 Archive 검사를 허용하려면 해당 값을 true로 변경해 주세요.",
+                )
+                return None
+            reply = QMessageBox.warning(
+                self,
+                "전체 Archive 검사",
+                "전체 Archive 검사는 Classified 복사본까지 포함할 수 있습니다.\n\n"
+                "분류 결과물이 원본과 중복으로 감지될 수 있고,\n"
+                "파일 수가 많으면 시간이 오래 걸릴 수 있습니다.\n\n"
+                "정말 전체 Archive를 검사하시겠습니까?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return None
+
+        labels = {
+            "inbox_managed": "Inbox / Managed",
+            "inbox_only": "Inbox만",
+            "managed_only": "Managed만",
+            "classified_only": "Classified만",
+            "all_archive": "전체 Archive",
+            "current_view": "현재 화면",
+            "selected": "선택 항목",
+        }
+        label = labels.get(scope, scope)
+        if scope in {"current_view", "selected"} and group_ids is not None:
+            label = f"{label} {len(group_ids)}개"
+        return scope, group_ids, label
+
     def _on_batch_classify(self) -> None:
         classified_dir = self.config.get("classified_dir", "")
         if not classified_dir:
             self._log.append(
                 "[WARN] classified_dir 미설정 — "
-                "[📁 Archive Root 선택]을 먼저 실행하세요."
+                "[📁 작업 폴더 설정]을 먼저 실행하세요."
             )
             return
         from app.views.batch_classify_dialog import BatchClassifyDialog
@@ -1516,6 +1668,8 @@ class MainWindow(QMainWindow):
             self._log.append(f"[ERROR] 삭제 실패: {exc}")
 
     def _get_dup_scope(self) -> str | None:
+        request = self._build_duplicate_scope_request()
+        return request[0] if request else None
         """
         config에서 중복 검사 scope를 읽는다.
         all_archive이고 allow_all_archive_scan=False면 사용자 확인 후 None 반환.
@@ -1547,9 +1701,10 @@ class MainWindow(QMainWindow):
     def _on_exact_duplicate_check(self) -> None:
         """SHA-256 완전 중복 그룹을 검사하고 DeletePreviewDialog로 연결한다."""
         try:
-            scope = self._get_dup_scope()
-            if scope is None:
+            request = self._build_duplicate_scope_request()
+            if request is None:
                 return
+            scope, group_ids, scope_label = request
             conn = self._get_conn()
             from core.duplicate_finder import (
                 find_exact_duplicates,
@@ -1558,9 +1713,8 @@ class MainWindow(QMainWindow):
             from core.delete_manager import build_delete_preview, execute_delete_preview
             from app.views.delete_preview_dialog import DeletePreviewDialog
 
-            scope_label = "Inbox / Managed" if scope == "inbox_managed" else scope
             self._log.append(f"[INFO] 완전 중복 검사 중… (범위: {scope_label})")
-            dup_groups = find_exact_duplicates(conn, scope=scope)
+            dup_groups = find_exact_duplicates(conn, scope=scope, group_ids=group_ids)
             if not dup_groups:
                 QMessageBox.information(self, "완전 중복 검사", "완전 중복 파일이 없습니다.")
                 conn.close()
@@ -1614,18 +1768,18 @@ class MainWindow(QMainWindow):
     def _on_visual_duplicate_check(self) -> None:
         """시각적 중복 후보를 검사하고 리뷰 다이얼로그를 표시한다."""
         try:
-            scope = self._get_dup_scope()
-            if scope is None:
+            request = self._build_duplicate_scope_request()
+            if request is None:
                 return
+            scope, group_ids, scope_label = request
             conn = self._get_conn()
             from core.visual_duplicate_finder import find_visual_duplicates
             from core.delete_manager import build_delete_preview, execute_delete_preview
             from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
             from app.views.delete_preview_dialog import DeletePreviewDialog
 
-            scope_label = "Inbox / Managed" if scope == "inbox_managed" else scope
             self._log.append(f"[INFO] 시각적 중복 검사 중… (범위: {scope_label}, 시간이 걸릴 수 있습니다)")
-            dup_groups = find_visual_duplicates(conn, scope=scope)
+            dup_groups = find_visual_duplicates(conn, scope=scope, group_ids=group_ids)
             if not dup_groups:
                 QMessageBox.information(self, "시각적 중복 검사", "유사 이미지 그룹이 없습니다.")
                 conn.close()

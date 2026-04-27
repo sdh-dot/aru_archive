@@ -32,7 +32,7 @@ def conn_factory(tmp_path):
 @pytest.fixture
 def wizard(qapp, conn_factory):
     from app.views.workflow_wizard_view import WorkflowWizardView
-    config = {"data_dir": "", "db": {"path": ""}}
+    config = {"data_dir": "", "inbox_dir": "", "classified_dir": "", "managed_dir": "", "db": {"path": ""}}
     w = WorkflowWizardView(conn_factory, config, "config.json")
     yield w
     w.close()
@@ -140,7 +140,8 @@ class TestScanThread:
 
         results = []
         logs = []
-        thread = _ScanThread(str(data_dir), str(inbox), str(db_path))
+        managed = tmp_path / "Managed"
+        thread = _ScanThread(str(data_dir), str(inbox), str(managed), str(db_path))
         thread.done.connect(results.append)
         thread.log_msg.connect(logs.append)
 

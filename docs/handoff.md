@@ -38,7 +38,7 @@ pip install -r requirements.txt
 
 # 2. config 설정
 cp config.example.json config.json
-# config.json의 data_dir, inbox_dir, db.path를 로컬 경로로 수정
+# config.json의 data_dir는 앱 내부 데이터 폴더로, inbox_dir / classified_dir / managed_dir는 작업 폴더로 수정
 
 # 3. 테스트 실행 (headless)
 QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
@@ -231,9 +231,10 @@ QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 ```json
 {
   "schema_version": "1.0",
-  "data_dir": "<Archive Root 절대경로>",
-  "inbox_dir": "<data_dir>/Inbox",
-  "classified_dir": "<data_dir>/Classified",
+  "data_dir": "C:/Users/<user>/AruArchive",
+  "inbox_dir": "D:/YourInboxFolder",
+  "classified_dir": "D:/Classified",
+  "managed_dir": "D:/Managed",
   "exiftool_path": null,
   "db": { "path": "<data_dir>/.runtime/aru.db" },
   "duplicates": {
@@ -261,8 +262,6 @@ QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 | 우선순위 | 항목 |
 |---------|------|
 | 중 | `visual_duplicate_finder.py:50` — Pillow `getdata()` → `get_flattened_data()` deprecation 교체 (Pillow 14 이전까지 동작) |
-| 중 | `current_view` scope MVP 구현 — 현재 inbox_managed fallback, 실제 갤러리 필터 연동 필요 |
-| 중 | `selected` scope UI 연동 — 갤러리 다중 선택 항목으로 중복 검사 실행 |
 | 낮 | 중복 검사 진행 표시 (config의 `show_progress_every` 활용) |
 
 ### 장기
@@ -311,8 +310,8 @@ QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 
 현재 잔여 TODO:
 - Pillow getdata() → get_flattened_data() deprecation 교체
-- current_view scope 실제 구현 (현재 inbox_managed fallback)
-- selected scope UI 연동 (갤러리 다중 선택 → 중복 검사)
+- current_view scope 실제 구현 완료
+- selected scope UI 연동 완료 (갤러리 다중 선택 → 중복 검사)
 
 docs/handoff.md 파일에 전체 이관 정보 있음.
 ```

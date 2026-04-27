@@ -28,8 +28,8 @@ By default, Aru Archive scans only **Inbox** and **Managed** files for duplicate
 | `managed_only` | Managed(managed)만 | |
 | `classified_only` | Classified(classified_copy)만 | 고급 — 복사본 정리용 |
 | `all_archive` | 전체 (Classified 포함) | 고급 — 별도 확인 필요 |
-| `current_view` | MVP에서는 inbox_managed로 동작 | |
-| `selected` | group_ids 지정 항목만 | |
+| `current_view` | 현재 화면에 보이는 group_ids만 | 현재 카테고리 필터 기준 |
+| `selected` | group_ids 지정 항목만 | 갤러리 다중 선택 기준 |
 
 ### 기본 제외 대상
 

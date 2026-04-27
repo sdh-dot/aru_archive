@@ -285,6 +285,13 @@ class TestAllArchiveScope:
 # ---------------------------------------------------------------------------
 
 class TestGroupIdsFilter:
+    def test_selected_scope_without_group_ids_returns_empty(self, db, tmp_path):
+        g1 = _insert_group(db)
+        _insert_file(db, g1, str(tmp_path / "a.jpg"), file_role="original")
+
+        rows = select_duplicate_candidate_files(db, scope="selected")
+        assert rows == []
+
     def test_selected_scope_with_group_ids(self, db, tmp_path):
         g1 = _insert_group(db)
         g2 = _insert_group(db)
@@ -306,6 +313,31 @@ class TestGroupIdsFilter:
         # group_ids 필터로 g1만 대상 → 중복 없음 (파일 1개)
         result = find_exact_duplicates(db, scope="inbox_managed", group_ids=[g1])
         assert result == []
+
+    def test_current_view_without_group_ids_returns_empty(self, db, tmp_path):
+        g1 = _insert_group(db)
+        _insert_file(db, g1, str(tmp_path / "a.jpg"), file_role="original")
+
+        rows = select_duplicate_candidate_files(db, scope="current_view")
+        assert rows == []
+
+    def test_current_view_with_group_ids_filters_to_visible_groups(self, db, tmp_path):
+        g1 = _insert_group(db)
+        g2 = _insert_group(db)
+        _insert_file(db, g1, str(tmp_path / "a.jpg"), file_role="original",
+                     file_hash="same")
+        _insert_file(db, g2, str(tmp_path / "b.jpg"), file_role="original",
+                     file_hash="same")
+
+        result = find_exact_duplicates(db, scope="current_view", group_ids=[g1])
+        assert result == []
+
+    def test_selected_scope_excludes_classified_copy(self, db, tmp_path):
+        g1 = _insert_group(db)
+        _insert_file(db, g1, str(tmp_path / "copy.jpg"), file_role="classified_copy")
+
+        rows = select_duplicate_candidate_files(db, scope="selected", group_ids=[g1])
+        assert rows == []
 
 
 # ---------------------------------------------------------------------------
@@ -354,6 +386,19 @@ class TestConfigAndHandlers:
         """MainWindow에 _get_dup_scope 핸들러가 존재하는지 확인."""
         from app.main_window import MainWindow
         assert hasattr(MainWindow, "_get_dup_scope")
+
+    def test_main_window_has_duplicate_scope_request_builder(self):
+        from app.main_window import MainWindow
+        assert hasattr(MainWindow, "_build_duplicate_scope_request")
+
+    def test_main_window_duplicate_checks_pass_group_ids(self):
+        import inspect
+        from app.main_window import MainWindow
+
+        exact_src = inspect.getsource(MainWindow._on_exact_duplicate_check)
+        visual_src = inspect.getsource(MainWindow._on_visual_duplicate_check)
+        assert "group_ids=group_ids" in exact_src
+        assert "group_ids=group_ids" in visual_src
 
     def test_workflow_wizard_exact_dup_uses_inbox_managed(self):
         """_Step3Meta._on_exact_dup 소스에 inbox_managed가 명시적으로 포함된다."""

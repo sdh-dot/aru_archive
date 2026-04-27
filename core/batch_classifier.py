@@ -174,6 +174,16 @@ def build_classify_batch_preview(
             f"{author_fallback_count}개 작품: 시리즈/캐릭터 모두 미분류 (author_fallback)"
         )
 
+    # developer: 분류 실패 export (기본값 OFF)
+    dev_log_msg = ""
+    try:
+        from core.classification_failure_exporter import export_from_preview
+        if previews:
+            dev_log_msg = export_from_preview(conn, {"previews": previews}, config)
+    except Exception as _dev_exc:
+        import logging as _log
+        _log.getLogger(__name__).debug("dev failure export 실패 (무시): %s", _dev_exc)
+
     return {
         "folder_locale":              locale,
         "total_groups":               len(group_ids),
@@ -186,6 +196,7 @@ def build_classify_batch_preview(
         "series_uncategorized_count": series_uncategorized_count,
         "author_fallback_count":      author_fallback_count,
         "candidate_count":            candidate_count,
+        "dev_log_msg":                dev_log_msg,
     }
 
 

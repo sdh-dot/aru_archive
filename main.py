@@ -19,7 +19,7 @@ LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
 
 def _load_config(config_path: str | None) -> dict:
-    from core.config_manager import load_config
+    from core.config_manager import load_config, normalize_archive_config
 
     if config_path is None:
         for candidate in [
@@ -32,7 +32,7 @@ def _load_config(config_path: str | None) -> dict:
         else:
             config_path = "config.json"
 
-    return load_config(config_path)
+    return normalize_archive_config(load_config(config_path))
 
 
 def _setup_logging(config: dict) -> None:
@@ -59,8 +59,10 @@ def _setup_logging(config: dict) -> None:
 
 
 def _resolve_data_dir(config: dict) -> Path:
+    from core.config_manager import resolve_data_dir
+
     raw = config.get("data_dir", str(Path.home() / "AruArchive"))
-    return Path(raw).expanduser().resolve()
+    return resolve_data_dir(raw)
 
 
 def run_gui(config: dict, config_path: str = "config.json") -> int:

@@ -5,10 +5,15 @@ import json
 from pathlib import Path
 
 from core.config_manager import (
+    derive_workspace_dirs,
+    ensure_app_directories,
     ensure_archive_directories,
+    ensure_workspace_directories,
     load_config,
+    normalize_archive_config,
+    resolve_data_dir,
     save_config,
-    update_archive_root,
+    update_workspace_from_inbox,
 )
 
 
@@ -31,58 +36,63 @@ def test_save_and_reload(tmp_path):
     assert reloaded["data_dir"] == str(tmp_path / "root")
 
 
-def test_update_archive_root_sets_derived_paths(tmp_path):
-    """Archive Root 업데이트 시 data_dir/inbox_dir/classified_dir를 갱신한다."""
+def test_update_workspace_from_inbox_sets_sibling_paths(tmp_path):
+    """선택 폴더를 inbox로 유지하고 같은 레벨에 Classified/Managed를 만든다."""
     cfg: dict = {}
-    root = str(tmp_path / "ArchiveRoot")
-    update_archive_root(cfg, root)
-    assert cfg["data_dir"] == root
-    assert cfg["inbox_dir"] == str(tmp_path / "ArchiveRoot" / "Inbox")
-    assert cfg["classified_dir"] == str(tmp_path / "ArchiveRoot" / "Classified")
+    inbox = str(tmp_path / "PixivInbox")
+    update_workspace_from_inbox(cfg, inbox)
+    assert cfg["inbox_dir"] == inbox
+    assert cfg["classified_dir"] == str(tmp_path / "Classified")
+    assert cfg["managed_dir"] == str(tmp_path / "Managed")
 
 
-def test_update_archive_root_sets_db_path_if_empty(tmp_path):
-    """db.path가 비어 있으면 .runtime/aru.db로 채운다."""
-    cfg: dict = {"db": {"path": ""}}
-    root = str(tmp_path / "Root")
-    update_archive_root(cfg, root)
-    assert cfg["db"]["path"] == str(tmp_path / "Root" / ".runtime" / "aru.db")
+def test_derive_workspace_dirs_returns_siblings(tmp_path):
+    inbox = tmp_path / "ToSort"
+    paths = derive_workspace_dirs(inbox)
+    assert paths["inbox_dir"] == str(inbox.resolve(strict=False))
+    assert paths["classified_dir"] == str((tmp_path / "Classified").resolve(strict=False))
+    assert paths["managed_dir"] == str((tmp_path / "Managed").resolve(strict=False))
 
 
-def test_update_archive_root_preserves_existing_db_path(tmp_path):
-    """db.path가 이미 설정돼 있으면 덮어쓰지 않는다."""
-    existing_db = str(tmp_path / "custom.db")
-    cfg: dict = {"db": {"path": existing_db}}
-    update_archive_root(cfg, str(tmp_path / "Root"))
-    assert cfg["db"]["path"] == existing_db
-
-
-def test_ensure_archive_directories_creates_subdirs(tmp_path):
-    """ensure_archive_directories() 호출 시 필수 폴더가 모두 생성된다."""
-    root = tmp_path / "ArchRoot"
-    root.mkdir()
+def test_ensure_app_directories_creates_internal_subdirs(tmp_path):
+    root = tmp_path / "AppData"
     cfg = {"data_dir": str(root)}
-    created = ensure_archive_directories(cfg)
-    for sub in ["Inbox", "Classified", "Managed", ".thumbcache", ".runtime"]:
+    created = ensure_app_directories(cfg)
+    for sub in [".thumbcache", ".runtime", "logs"]:
         assert (root / sub).exists(), f"{sub} not created"
-    assert len(created) == 5
+    assert len(created) == 3
+
+
+def test_ensure_workspace_directories_creates_workspace_dirs(tmp_path):
+    cfg = {
+        "inbox_dir": str(tmp_path / "InboxSelected"),
+        "classified_dir": str(tmp_path / "Classified"),
+        "managed_dir": str(tmp_path / "Managed"),
+    }
+    created = ensure_workspace_directories(cfg)
+    assert Path(cfg["inbox_dir"]).exists()
+    assert Path(cfg["classified_dir"]).exists()
+    assert Path(cfg["managed_dir"]).exists()
+    assert len(created) == 3
 
 
 def test_ensure_archive_directories_idempotent(tmp_path):
-    """폴더가 이미 있으면 created 목록은 빈 리스트를 반환한다."""
-    root = tmp_path / "ArchRoot"
-    root.mkdir()
-    cfg = {"data_dir": str(root)}
+    """호환 래퍼를 두 번 호출해도 추가 생성이 없다."""
+    root = tmp_path / "AppData"
+    cfg = {
+        "data_dir": str(root),
+        "inbox_dir": str(tmp_path / "InboxSelected"),
+        "classified_dir": str(tmp_path / "Classified"),
+        "managed_dir": str(tmp_path / "Managed"),
+    }
     ensure_archive_directories(cfg)
     created2 = ensure_archive_directories(cfg)
     assert created2 == []
 
 
-def test_ensure_archive_directories_empty_data_dir():
+def test_ensure_app_directories_empty_data_dir():
     """data_dir가 비어 있으면 빈 리스트를 반환한다."""
-    cfg = {"data_dir": ""}
-    result = ensure_archive_directories(cfg)
-    assert result == []
+    assert ensure_app_directories({"data_dir": ""}) == []
 
 
 def test_load_config_preserves_extra_fields(tmp_path):
@@ -93,3 +103,39 @@ def test_load_config_preserves_extra_fields(tmp_path):
     cfg = load_config(p)
     assert cfg["extra_key"] == "extra_value"
     assert cfg["data_dir"] == "/foo"
+
+
+def test_resolve_data_dir_falls_back_when_drive_is_missing(monkeypatch, tmp_path):
+    fallback = tmp_path / "home"
+    monkeypatch.setattr("core.config_manager.Path.home", lambda: fallback)
+    monkeypatch.setattr("core.config_manager._has_missing_windows_drive", lambda path: True)
+
+    resolved = resolve_data_dir(r"F:\Aru_Archive")
+
+    assert resolved == (fallback / "AruArchive").resolve(strict=False)
+
+
+def test_normalize_archive_config_rebases_paths_when_root_drive_is_missing(monkeypatch, tmp_path):
+    fallback = tmp_path / "home"
+    monkeypatch.setattr("core.config_manager.Path.home", lambda: fallback)
+    monkeypatch.setattr(
+        "core.config_manager._has_missing_windows_drive",
+        lambda path: str(path).startswith("F:\\"),
+    )
+
+    cfg = {
+        "data_dir": r"F:\Aru_Archive",
+        "inbox_dir": r"F:\Aru_Archive\Inbox",
+        "classified_dir": r"F:\Aru_Archive\Classified",
+        "managed_dir": r"F:\Aru_Archive\Managed",
+        "db": {"path": r"F:\Aru_Archive\.runtime\aru.db"},
+    }
+
+    normalize_archive_config(cfg)
+
+    new_root = (fallback / "AruArchive").resolve(strict=False)
+    assert cfg["data_dir"] == str(new_root)
+    assert cfg["inbox_dir"] == str((new_root / "Inbox").resolve(strict=False))
+    assert cfg["classified_dir"] == str((new_root / "Classified").resolve(strict=False))
+    assert cfg["managed_dir"] == str((new_root / "Managed").resolve(strict=False))
+    assert cfg["db"]["path"] == str((new_root / ".runtime" / "aru.db").resolve(strict=False))
