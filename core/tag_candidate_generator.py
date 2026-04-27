@@ -258,6 +258,51 @@ def generate_classification_failure_candidates(
     return results
 
 
+def generate_ambiguous_alias_candidates(
+    conn: sqlite3.Connection,
+    group_id: str,
+    ambiguous_tags: list[dict],
+) -> list[dict]:
+    """
+    classify_pixiv_tags()의 ambiguous 목록에서 후보를 생성한다.
+
+    ambiguous_tags: [{"raw_tag": ..., "candidates": [{"canonical": ..., "parent_series": ...}]}]
+    각 후보 (canonical, parent_series) 쌍마다 tag_candidate 행을 생성한다.
+    자동 확정 금지 — source='ambiguous_alias', status='pending'.
+    """
+    if not ambiguous_tags:
+        return []
+
+    now = datetime.now(timezone.utc).isoformat()
+    results: list[dict] = []
+
+    for amb in ambiguous_tags:
+        raw_tag    = amb.get("raw_tag", "")
+        candidates = amb.get("candidates", [])
+        if not raw_tag or not candidates:
+            continue
+
+        for cand in candidates:
+            parent_series = cand.get("parent_series", "")
+            candidate = _upsert_candidate(
+                conn,
+                raw_tag=raw_tag,
+                translated_tag=None,
+                suggested_type="character",
+                suggested_series=parent_series,
+                confidence_score=0.30,
+                evidence_count=1,
+                source="ambiguous_alias",
+                now=now,
+            )
+            if candidate:
+                results.append(candidate)
+
+    if results:
+        conn.commit()
+    return results
+
+
 # ---------------------------------------------------------------------------
 # 내부 헬퍼
 # ---------------------------------------------------------------------------

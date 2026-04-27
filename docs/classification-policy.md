@@ -283,6 +283,42 @@ Step 9  결과 확인 / Undo
 
 자세한 설명: [workflow-wizard.md](workflow-wizard.md)
 
+---
+
+## 15. Fallback 순서 (Fallback Order)
+
+분류 엔진은 다음 순서로 분류를 결정합니다.
+
+| 순위 | 조건 | 분류 경로 |
+|------|------|-----------|
+| 1 | Series + Character 모두 있음 | `BySeries/{series}/{character}/` |
+| 2 | Character만 있고 parent_series가 있음 (inferred) | `BySeries/{inferred_series}/{character}/` |
+| 3 | Series만 있음 (character 없음) | `BySeries/{series}/_uncategorized/` |
+| 4 | Series / Character 모두 없음 | `ByAuthor/{artist}/` (fallback) |
+| 5 | Ambiguous character alias (series context 없음) | author_fallback 또는 review candidate 생성 |
+
+### 핵심 원칙
+
+- `author_fallback`으로 가기 전에 **character alias의 parent_series inference**가 먼저 수행됩니다.
+- series raw tag가 없어도 character alias의 `parent_series`가 있으면 **Tier 1 분류**가 가능합니다.
+- series → character 자동 추론은 **금지**됩니다.
+
+### Inference 흐름 요약
+
+```
+raw tags: ["ワカモ(正月)"]
+  └─ tag_aliases에 ワカモ(正月) → 狐坂ワカモ / Blue Archive
+        ↓
+  character_tags: ["狐坂ワカモ"]
+  series_tags:    ["Blue Archive"]   ← inferred from character
+        ↓
+  BySeries/블루 아카이브/코사카 와카모/
+```
+
+자세한 내용: [tag-normalization.md — Character-to-Series Inference](tag-normalization.md#15-character-to-series-inference)
+
+---
+
 > **alias 변경 → 태그 재분류 필수 원칙**  
 > `tag_aliases`에 새 항목을 추가하거나 기존 alias를 변경한 후에는  
 > Step 6 "태그 재분류"를 실행해야 `series_tags_json` / `character_tags_json`이 갱신됩니다.  

@@ -92,6 +92,15 @@ def retag_groups_from_existing_tags(
                     (group_id, tag),
                 )
 
+            # ambiguous alias가 있으면 tag_candidates에 후보 생성 (자동 확정 금지)
+            ambiguous = result.get("ambiguous", [])
+            if ambiguous:
+                try:
+                    from core.tag_candidate_generator import generate_ambiguous_alias_candidates
+                    generate_ambiguous_alias_candidates(conn, group_id, ambiguous)
+                except Exception as exc:
+                    logger.warning("ambiguous 후보 생성 실패 (group=%s): %s", group_id, exc)
+
             updated += 1
         except Exception as exc:
             logger.error("retag 실패 (group=%s): %s", group_id, exc)

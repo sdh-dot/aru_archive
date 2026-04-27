@@ -522,6 +522,31 @@ class _Step3Meta(_StepPanel):
         self._warnings_lbl = QLabel("")
         self._warnings_lbl.setWordWrap(True)
         layout.addWidget(self._warnings_lbl)
+
+        # ── Optional: 중복 검사 섹션 ──
+        layout.addWidget(_h_sep())
+        layout.addWidget(_label("중복 검사 (선택 사항)", bold=True))
+        self._dup_status_lbl = QLabel("마지막 검사: 미실행")
+        self._dup_status_lbl.setStyleSheet("color: #8F6874; font-size: 11px;")
+        layout.addWidget(self._dup_status_lbl)
+
+        dup_btn_row = QHBoxLayout()
+        self._btn_exact_dup  = QPushButton("🧬 완전 중복 검사")
+        self._btn_visual_dup = QPushButton("👁 시각적 중복 검사")
+        for btn in (self._btn_exact_dup, self._btn_visual_dup):
+            btn.setStyleSheet(
+                "QPushButton { background: #2B1720; color: #D8AEBB; "
+                "padding: 4px 10px; border-radius: 4px; }"
+                "QPushButton:hover { background: #3A202B; }"
+            )
+        dup_btn_row.addWidget(self._btn_exact_dup)
+        dup_btn_row.addWidget(self._btn_visual_dup)
+        dup_btn_row.addStretch()
+        layout.addLayout(dup_btn_row)
+
+        self._btn_exact_dup .clicked.connect(self._on_exact_dup)
+        self._btn_visual_dup.clicked.connect(self._on_visual_dup)
+
         layout.addStretch()
 
     def refresh(self) -> None:
@@ -573,6 +598,94 @@ class _Step3Meta(_StepPanel):
             self._warnings_lbl.setText(txt)
         else:
             self._warnings_lbl.setText("✅ 상태 이상 없음")
+
+    def _on_exact_dup(self) -> None:
+        try:
+            from core.duplicate_finder import find_exact_duplicates, build_exact_duplicate_cleanup_preview
+            from core.delete_manager import build_delete_preview, execute_delete_preview
+            from app.views.delete_preview_dialog import DeletePreviewDialog
+            from PyQt6.QtWidgets import QMessageBox
+            conn = self._conn_factory()
+            # 기본 범위: Inbox / Managed (Classified 제외)
+            dup_groups = find_exact_duplicates(conn, scope="inbox_managed")
+            if not dup_groups:
+                QMessageBox.information(self, "완전 중복", "완전 중복 파일이 없습니다. (검사 범위: Inbox / Managed)")
+                self._dup_status_lbl.setText("완전 중복: 없음 (Inbox / Managed)")
+                conn.close()
+                return
+            cleanup = build_exact_duplicate_cleanup_preview(conn, dup_groups)
+            total_del = cleanup["total_delete_candidates"]
+            self._dup_status_lbl.setText(
+                f"완전 중복 그룹: {cleanup['total_groups']}개 / 삭제 후보: {total_del}개 (Inbox / Managed)"
+            )
+            delete_file_ids = [
+                f.get("file_id")
+                for g in cleanup["groups"]
+                for f in g.get("delete_candidates", [])
+                if f.get("file_id")
+            ]
+            if not delete_file_ids:
+                conn.close()
+                return
+            msg = (
+                f"완전 중복 그룹: {cleanup['total_groups']}개\n"
+                f"삭제 후보: {total_del}개\n"
+                f"검사 범위: Inbox / Managed\n\n삭제 미리보기로 이동하시겠습니까?"
+            )
+            if QMessageBox.question(
+                self, "완전 중복 검사", msg,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            ) == QMessageBox.StandardButton.Yes:
+                preview = build_delete_preview(
+                    conn, file_ids=delete_file_ids, reason="exact_duplicate_cleanup"
+                )
+                dlg = DeletePreviewDialog(preview, parent=self)
+                if dlg.exec() == DeletePreviewDialog.DialogCode.Accepted and dlg.is_confirmed():
+                    result = execute_delete_preview(conn, preview, confirmed=True)
+                    self.log_msg.emit(
+                        f"[INFO] 완전 중복 정리: deleted={result['deleted']} "
+                        f"failed={result['failed']}"
+                    )
+                    self.refresh_main.emit()
+            conn.close()
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] 완전 중복 검사 실패: {exc}")
+
+    def _on_visual_dup(self) -> None:
+        try:
+            from core.visual_duplicate_finder import find_visual_duplicates
+            from core.delete_manager import build_delete_preview, execute_delete_preview
+            from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
+            from app.views.delete_preview_dialog import DeletePreviewDialog
+            from PyQt6.QtWidgets import QMessageBox
+            conn = self._conn_factory()
+            self.log_msg.emit("[INFO] 시각적 중복 검사 중… (범위: Inbox / Managed)")
+            # 기본 범위: Inbox / Managed (Classified 제외)
+            dup_groups = find_visual_duplicates(conn, scope="inbox_managed")
+            if not dup_groups:
+                QMessageBox.information(self, "시각적 중복", "유사 이미지 그룹이 없습니다. (검사 범위: Inbox / Managed)")
+                self._dup_status_lbl.setText("시각적 중복: 없음 (Inbox / Managed)")
+                conn.close()
+                return
+            self._dup_status_lbl.setText(f"시각적 중복 후보 그룹: {len(dup_groups)}개 (Inbox / Managed)")
+            review_dlg = VisualDuplicateReviewDialog(dup_groups, parent=self)
+            if review_dlg.exec() == VisualDuplicateReviewDialog.DialogCode.Accepted:
+                delete_file_ids = review_dlg.selected_for_delete()
+                if delete_file_ids:
+                    preview = build_delete_preview(
+                        conn, file_ids=delete_file_ids, reason="visual_duplicate_cleanup"
+                    )
+                    dlg = DeletePreviewDialog(preview, parent=self)
+                    if dlg.exec() == DeletePreviewDialog.DialogCode.Accepted and dlg.is_confirmed():
+                        result = execute_delete_preview(conn, preview, confirmed=True)
+                        self.log_msg.emit(
+                            f"[INFO] 시각적 중복 정리: deleted={result['deleted']} "
+                            f"failed={result['failed']}"
+                        )
+                        self.refresh_main.emit()
+            conn.close()
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] 시각적 중복 검사 실패: {exc}")
 
 
 # ── Step 4: Metadata Enrichment ─────────────────────────────────────────────

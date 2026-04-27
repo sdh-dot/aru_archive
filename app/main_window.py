@@ -433,6 +433,10 @@ class MainWindow(QMainWindow):
         self._btn_work_log         = _tb_btn("🕘 작업 로그",     tb)
         self._btn_save_jobs        = _tb_btn("💾 저장 작업",     tb)
         tb.addSeparator()
+        self._btn_delete_selected  = _tb_btn("🗑 선택 삭제",     tb)
+        self._btn_exact_dup        = _tb_btn("🧬 완전 중복 검사", tb)
+        self._btn_visual_dup       = _tb_btn("👁 시각적 중복 검사", tb)
+        tb.addSeparator()
 
         self._lbl_root = QLabel("Archive Root 미설정")
         self._lbl_root.setStyleSheet(_STYLE_PATH_NONE)
@@ -495,6 +499,9 @@ class MainWindow(QMainWindow):
         self._btn_dict_backup     .clicked.connect(self._on_dict_backup)
         self._btn_work_log        .clicked.connect(self._on_show_work_log)
         self._btn_save_jobs       .clicked.connect(self._on_show_save_jobs)
+        self._btn_delete_selected .clicked.connect(self._on_delete_selected)
+        self._btn_exact_dup       .clicked.connect(self._on_exact_duplicate_check)
+        self._btn_visual_dup      .clicked.connect(self._on_visual_duplicate_check)
 
         self._sidebar.category_selected.connect(self._on_category_changed)
         self._gallery.item_selected.connect(self._on_item_selected)
@@ -1477,6 +1484,178 @@ class MainWindow(QMainWindow):
             self._refresh_counts()
         except Exception as exc:
             self._log.append(f"[ERROR] 무시 처리 실패: {exc}")
+
+    # ------------------------------------------------------------------
+    # 삭제 / 중복 핸들러
+    # ------------------------------------------------------------------
+
+    def _on_delete_selected(self) -> None:
+        """다중 선택된 group_id를 대상으로 삭제 미리보기 → 영구 삭제를 실행한다."""
+        group_ids = self._gallery.get_selected_group_ids()
+        if not group_ids:
+            QMessageBox.information(self, "선택 없음", "갤러리에서 삭제할 항목을 선택하세요.")
+            return
+        try:
+            conn = self._get_conn()
+            from core.delete_manager import build_delete_preview, execute_delete_preview
+            from app.views.delete_preview_dialog import DeletePreviewDialog
+
+            preview = build_delete_preview(conn, group_ids=group_ids, reason="manual_delete")
+            dlg = DeletePreviewDialog(preview, parent=self)
+            if dlg.exec() == DeletePreviewDialog.DialogCode.Accepted and dlg.is_confirmed():
+                result = execute_delete_preview(conn, preview, confirmed=True)
+                self._log.append(
+                    f"[INFO] 삭제 완료 — "
+                    f"deleted={result['deleted']} failed={result['failed']} "
+                    f"skipped={result['skipped']}"
+                )
+                self._refresh_gallery()
+                self._refresh_counts()
+            conn.close()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 삭제 실패: {exc}")
+
+    def _get_dup_scope(self) -> str | None:
+        """
+        config에서 중복 검사 scope를 읽는다.
+        all_archive이고 allow_all_archive_scan=False면 사용자 확인 후 None 반환.
+        """
+        dup_cfg = self.config.get("duplicates", {})
+        scope = dup_cfg.get("default_scope", "inbox_managed")
+        if scope == "all_archive":
+            allow = dup_cfg.get("allow_all_archive_scan", False)
+            if not allow:
+                QMessageBox.warning(
+                    self, "전체 Archive 검사 차단됨",
+                    "config.json의 duplicates.allow_all_archive_scan이 false입니다.\n"
+                    "전체 Archive 검사를 허용하려면 해당 값을 true로 변경하세요.",
+                )
+                return None
+            # allow=True인 경우에도 경고 표시
+            reply = QMessageBox.warning(
+                self, "전체 Archive 검사",
+                "전체 Archive 검사는 Classified 복사본까지 포함할 수 있습니다.\n\n"
+                "분류 결과물이 원본과 중복으로 감지될 수 있으며,\n"
+                "파일 수가 많으면 시간이 오래 걸릴 수 있습니다.\n\n"
+                "정말 전체 Archive를 검사하시겠습니까?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return None
+        return scope
+
+    def _on_exact_duplicate_check(self) -> None:
+        """SHA-256 완전 중복 그룹을 검사하고 DeletePreviewDialog로 연결한다."""
+        try:
+            scope = self._get_dup_scope()
+            if scope is None:
+                return
+            conn = self._get_conn()
+            from core.duplicate_finder import (
+                find_exact_duplicates,
+                build_exact_duplicate_cleanup_preview,
+            )
+            from core.delete_manager import build_delete_preview, execute_delete_preview
+            from app.views.delete_preview_dialog import DeletePreviewDialog
+
+            scope_label = "Inbox / Managed" if scope == "inbox_managed" else scope
+            self._log.append(f"[INFO] 완전 중복 검사 중… (범위: {scope_label})")
+            dup_groups = find_exact_duplicates(conn, scope=scope)
+            if not dup_groups:
+                QMessageBox.information(self, "완전 중복 검사", "완전 중복 파일이 없습니다.")
+                conn.close()
+                return
+
+            cleanup = build_exact_duplicate_cleanup_preview(conn, dup_groups)
+            total_del = cleanup["total_delete_candidates"]
+
+            # 삭제 후보 file_id 목록 수집
+            delete_file_ids: list[str] = []
+            for g in cleanup["groups"]:
+                for f in g.get("delete_candidates", []):
+                    fid = f.get("file_id")
+                    if fid:
+                        delete_file_ids.append(fid)
+
+            if not delete_file_ids:
+                QMessageBox.information(self, "완전 중복 검사", "삭제 후보 파일이 없습니다.")
+                conn.close()
+                return
+
+            msg = (
+                f"완전 중복 그룹: {cleanup['total_groups']}개\n"
+                f"보존 파일: {cleanup['total_keep']}개\n"
+                f"삭제 후보: {total_del}개\n\n"
+                "삭제 미리보기로 이동하시겠습니까?"
+            )
+            if QMessageBox.question(
+                self, "완전 중복 검사 결과", msg,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            ) != QMessageBox.StandardButton.Yes:
+                conn.close()
+                return
+
+            preview = build_delete_preview(
+                conn, file_ids=delete_file_ids, reason="exact_duplicate_cleanup"
+            )
+            dlg = DeletePreviewDialog(preview, parent=self)
+            if dlg.exec() == DeletePreviewDialog.DialogCode.Accepted and dlg.is_confirmed():
+                result = execute_delete_preview(conn, preview, confirmed=True)
+                self._log.append(
+                    f"[INFO] 완전 중복 정리 완료 — "
+                    f"deleted={result['deleted']} failed={result['failed']}"
+                )
+                self._refresh_gallery()
+                self._refresh_counts()
+            conn.close()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 완전 중복 검사 실패: {exc}")
+
+    def _on_visual_duplicate_check(self) -> None:
+        """시각적 중복 후보를 검사하고 리뷰 다이얼로그를 표시한다."""
+        try:
+            scope = self._get_dup_scope()
+            if scope is None:
+                return
+            conn = self._get_conn()
+            from core.visual_duplicate_finder import find_visual_duplicates
+            from core.delete_manager import build_delete_preview, execute_delete_preview
+            from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
+            from app.views.delete_preview_dialog import DeletePreviewDialog
+
+            scope_label = "Inbox / Managed" if scope == "inbox_managed" else scope
+            self._log.append(f"[INFO] 시각적 중복 검사 중… (범위: {scope_label}, 시간이 걸릴 수 있습니다)")
+            dup_groups = find_visual_duplicates(conn, scope=scope)
+            if not dup_groups:
+                QMessageBox.information(self, "시각적 중복 검사", "유사 이미지 그룹이 없습니다.")
+                conn.close()
+                return
+
+            review_dlg = VisualDuplicateReviewDialog(dup_groups, parent=self)
+            if review_dlg.exec() != VisualDuplicateReviewDialog.DialogCode.Accepted:
+                conn.close()
+                return
+
+            delete_file_ids = review_dlg.selected_for_delete()
+            if not delete_file_ids:
+                conn.close()
+                return
+
+            preview = build_delete_preview(
+                conn, file_ids=delete_file_ids, reason="visual_duplicate_cleanup"
+            )
+            dlg = DeletePreviewDialog(preview, parent=self)
+            if dlg.exec() == DeletePreviewDialog.DialogCode.Accepted and dlg.is_confirmed():
+                result = execute_delete_preview(conn, preview, confirmed=True)
+                self._log.append(
+                    f"[INFO] 시각적 중복 정리 완료 — "
+                    f"deleted={result['deleted']} failed={result['failed']}"
+                )
+                self._refresh_gallery()
+                self._refresh_counts()
+            conn.close()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 시각적 중복 검사 실패: {exc}")
 
     # ------------------------------------------------------------------
     # IPC 서버

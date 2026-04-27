@@ -164,10 +164,60 @@ _Step7Preview.preview_ready  →  _Step8Execute.set_preview(batch_preview)
 Step 1  Archive Root 설정
 Step 2  Inbox 스캔
 Step 3  메타데이터 상태 확인 → metadata_missing 수 파악
+        [선택] 완전 중복 검사 (범위: Inbox / Managed) → 보존 파일 확인 → 삭제 미리보기 → 영구 삭제
+        [선택] 시각적 중복 검사 (범위: Inbox / Managed) → 비교 확인 → 삭제 미리보기 → 영구 삭제
 Step 4  (필요시) 메타데이터 보강
 Step 5  사전 확인 → 후보 태그 승인 / 외부 사전 가져오기
+        [선택] Localized Tag Pack 가져오기 → ko/ja localization 보강
 Step 6  태그 재분류 (Step 5에서 alias 변경이 있었다면 필수)
 Step 7  분류 미리보기 생성 → 위험도 확인
 Step 8  분류 실행
 Step 9  결과 확인 / 필요시 Undo
 ```
+
+---
+
+## 중복 검사 기본 범위
+
+Step 3의 중복 검사 버튼은 기본적으로 **Inbox / Managed** 파일만 검사합니다.
+
+| 검사 버튼 | 기본 범위 | Classified 포함 |
+|----------|----------|----------------|
+| 🧬 완전 중복 검사 | Inbox / Managed | 제외 |
+| 👁 시각적 중복 검사 | Inbox / Managed | 제외 |
+
+Classified 폴더의 복사본은 기본 제외됩니다. 이는 분류 결과물이 원본과 중복으로 오탐되는 것을 방지하기 위함입니다.
+
+전체 Archive 검사가 필요하면 툴바 버튼에서 `config.json → duplicates.allow_all_archive_scan: true` 설정 후 사용하세요.
+
+---
+
+## 삭제 경고
+
+중복 검사에서 삭제를 진행할 때 다음 사항을 주의하세요.
+
+- **모든 삭제는 영구 삭제**입니다. 복구할 수 없습니다.
+- original 파일이 포함된 경우 `DeletePreviewDialog`에서 `DELETE`를 직접 입력해야 합니다.
+- 삭제 결과는 `delete_batches` / `delete_records` 테이블에 기록됩니다.
+- 자세한 정책: [file-deletion.md](file-deletion.md)
+
+---
+
+## Localized Tag Pack Import 워크플로우
+
+Step 5 (사전 정규화) 단계의 `[📦 Localized Tag Pack 가져오기]` 버튼을 사용합니다.
+
+```
+1. JSON 파일 선택 (docs/tag_pack_export_localized_ko_ja.json 등)
+2. validate_localized_tag_pack() — 구조 검증
+3. import 미리보기 요약 표시
+4. 확인 후 import_localized_tag_pack() 실행
+5. tag_aliases / tag_localizations 갱신
+6. 태그 재분류 실행 안내 표시
+```
+
+**_review 항목 처리**:
+- `merge_candidate` → 자동 병합하지 않음, report에만 표시
+- `variant_tag` → 자동 병합하지 않음
+- `possibly_general_or_group_tag` → tag_type 자동 변경 안 함
+- import 완료 메시지에 review_items 수, merge_candidate 목록 표시

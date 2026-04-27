@@ -186,6 +186,11 @@ Detail 패널 `[🔄 XMP 재시도]` 또는 툴바 `[🔄 전체 XMP 재처리]`
 - 4-tier 분류 엔진 + 태그 정규화 파이프라인
 - **Tag Pack 시스템** — `resources/tag_packs/*.json`에서 시리즈/캐릭터 alias + 로컬라이제이션 자동 시드
 - **4단계 alias 매칭** — DB → built-in → 정규화(normalize_tag_key) 순서, 전각/공백 변형 처리
+- **Character-to-Series Inference** — Character aliases can infer their parent series when `parent_series` is known; series raw tag is not required
+- **Permanent Delete with Preview** — 다중 선택 갤러리 삭제, 위험도 평가(Low/Medium/High), High risk 시 `DELETE` 입력 확인; `delete_batches`/`delete_records` 감사 기록
+- **Exact Duplicate Cleanup** — SHA-256 완전 중복 탐지, 보존 파일 자동 추천(original/full 우선), 공통 삭제 미리보기 플로우; 기본 검사 범위 Inbox/Managed (Classified 복사본 오탐 방지)
+- **Visual Duplicate Review** — pHash 시각적 중복 탐지(Hamming distance), 나란히 비교 다이얼로그, 자동 삭제 금지; 기본 검사 범위 Inbox/Managed; Duplicate checks default to Inbox / Managed to avoid detecting Classified copies as duplicates
+- **Localized Tag Pack Import** — ko/ja localization 보강 JSON을 `tag_aliases`/`tag_localizations`에 import; `_review` 항목(merge_candidate, variant_tag)은 자동 병합하지 않고 report
 - **미분류 태그 후보 생성** — `series_uncategorized` / `author_fallback` 감지 → `tag_candidates` 생성 (사용자 승인 필요)
 - **외부 사전 가져오기** — Danbooru / Safebooru에서 캐릭터·시리즈 후보 수집, confidence 점수 기반 스테이징, 사용자 승인 후 `tag_aliases` 반영 (`[🌐 웹 사전]`); Danbooru 차단 시 Safebooru fallback 지원
 - 다국어 폴더명 (ko/ja/en) — `tag_localizations` DB + 내장 Blue Archive 데이터

@@ -306,6 +306,15 @@ class DictionaryImportView(QDialog):
             btn_row.addWidget(btn)
         btn_row.addStretch()
 
+        self._btn_localized_import = QPushButton("📦 Localized Tag Pack 가져오기")
+        self._btn_localized_import.setStyleSheet(
+            "QPushButton { background: #1A3A2A; color: #5CDB8F; "
+            "padding: 4px 10px; border-radius: 4px; }"
+            "QPushButton:hover { background: #224A34; }"
+        )
+        self._btn_localized_import.clicked.connect(self._on_localized_import)
+        btn_row.addWidget(self._btn_localized_import)
+
         btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         btns.rejected.connect(self.reject)
         btn_row.addWidget(btns)
@@ -529,3 +538,86 @@ class DictionaryImportView(QDialog):
             conn.close()
         self.log_msg.emit(f"[INFO] 사전 후보 {len(entry_ids)}건 무시")
         self._load_staged()
+
+    def _on_localized_import(self) -> None:
+        """Localized Tag Pack JSON 파일을 선택하여 import한다."""
+        from PyQt6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Localized Tag Pack JSON 파일 선택",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+        )
+        if not path:
+            return
+
+        try:
+            from core.tag_pack_loader import validate_localized_tag_pack, import_localized_tag_pack
+
+            validation = validate_localized_tag_pack(path)
+            if not validation["valid"]:
+                QMessageBox.critical(
+                    self, "검증 실패",
+                    "Tag Pack 검증에 실패했습니다:\n" + "\n".join(validation["errors"]),
+                )
+                return
+
+            # import preview 요약
+            stats = validation["stats"]
+            preview_msg = (
+                f"파일: {path}\n\n"
+                f"캐릭터: {stats['characters']}개\n"
+                f"시리즈: {stats['series']}개\n"
+                f"ko localization: {stats['has_ko']}개\n"
+                f"ja localization: {stats['has_ja']}개\n"
+                f"_review 항목: {stats['review_items']}개\n\n"
+                "_review 항목은 자동 병합하지 않고 report에만 표시됩니다.\n"
+                "계속하시겠습니까?"
+            )
+            if QMessageBox.question(
+                self, "Localized Tag Pack Import 확인", preview_msg,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            ) != QMessageBox.StandardButton.Yes:
+                return
+
+            conn = self._factory()
+            try:
+                result = import_localized_tag_pack(conn, path)
+            finally:
+                conn.close()
+
+            merge_details = result.get("merge_candidate_details", [])
+            merge_msg = ""
+            if merge_details:
+                lines = [
+                    f"  · {m['canonical']} → {m['merge_into']} ({m.get('reason', '')})"
+                    for m in merge_details[:10]
+                ]
+                if len(merge_details) > 10:
+                    lines.append(f"  … 외 {len(merge_details) - 10}건")
+                merge_msg = "\n\nMerge Candidates (자동 병합 안 됨):\n" + "\n".join(lines)
+
+            done_msg = (
+                f"Localized tag pack import 완료.\n\n"
+                f"Localizations: {result['localizations']}\n"
+                f"Series aliases: {result['series_aliases']}\n"
+                f"Character aliases: {result['character_aliases']}\n"
+                f"Review items: {result['review_items']}\n"
+                f"Merge candidates: {result['merge_candidates']}\n"
+                f"Variant items: {result['variant_items']}\n"
+                f"Conflicts: {len(result['conflicts'])}"
+                f"{merge_msg}\n\n"
+                "사전이 변경되었습니다.\n"
+                "태그 재분류를 실행해야 분류 결과에 반영됩니다."
+            )
+            QMessageBox.information(self, "Import 완료", done_msg)
+            self.log_msg.emit(
+                f"[INFO] Localized tag pack import: "
+                f"loc={result['localizations']} "
+                f"review={result['review_items']} "
+                f"merge={result['merge_candidates']}"
+            )
+
+        except Exception as exc:
+            logger.error("Localized tag pack import 실패: %s", exc)
+            QMessageBox.critical(self, "Import 실패", f"오류: {exc}")

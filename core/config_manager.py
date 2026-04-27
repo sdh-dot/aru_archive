@@ -28,6 +28,16 @@ _DEFAULTS: dict[str, Any] = {
     "thumbnail_size": "256x256",
     "ui_language": "ko",
     "db": {"path": ""},
+    "duplicates": {
+        # 중복 검사 기본 범위 — Classified 복사본 제외 (원본과의 중복 오탐 방지)
+        "default_scope":             "inbox_managed",
+        "max_exact_files_per_run":   1000,
+        "max_visual_files_per_run":  300,
+        "visual_hash_batch_size":    50,
+        "show_progress_every":       25,
+        # True로 변경하면 전체 Archive 검사 허용 (경고 표시 후 실행)
+        "allow_all_archive_scan":    False,
+    },
     "classification": {
         # primary_strategy는 현재 문서화용 값이다. 실제 분기 플래그는 아래 bool 옵션들이다.
         "primary_strategy":               "series_character",
@@ -55,6 +65,7 @@ _DEFAULTS: dict[str, Any] = {
 def _default_config() -> dict:
     cfg = dict(_DEFAULTS)
     cfg["db"]             = dict(_DEFAULTS["db"])              # type: ignore[arg-type]
+    cfg["duplicates"]     = dict(_DEFAULTS["duplicates"])      # type: ignore[arg-type]
     cfg["classification"] = dict(_DEFAULTS["classification"])  # type: ignore[arg-type]
     return cfg
 

@@ -410,9 +410,146 @@ Pixiv에서 계절/이벤트 코스튬 variant는 별도 캐릭터 canonical로 
 
 ---
 
-## 15. 주의사항
+## 15. Character-to-Series Inference
+
+Aru Archive는 series → character 자동 추론을 하지 않습니다.
+
+그러나 확정된 character alias에 `parent_series`가 있으면, series raw tag 없이도 character alias로부터 series를 역추론할 수 있습니다.
+
+### 동작 예시
+
+Raw tags:
+- `ワカモ(正月)`
+
+`tag_aliases` 항목:
+```
+alias = ワカモ(正月)
+canonical = 狐坂ワカモ
+tag_type = character
+parent_series = Blue Archive
+```
+
+분류 결과:
+```python
+{
+  "series_tags": ["Blue Archive"],
+  "character_tags": ["狐坂ワカモ"]
+}
+```
+
+→ 분류 경로: `BySeries/블루 아카이브/코사카 와카모/file.jpg`
+
+### Evidence 추적
+
+`classify_pixiv_tags()` 반환값에 evidence가 포함됩니다:
+
+```python
+{
+  "evidence": {
+    "series": [
+      {
+        "canonical": "Blue Archive",
+        "source": "inferred_from_character",
+        "matched_character": "狐坂ワカモ",
+        "matched_raw_tag": "ワカモ(正月)"
+      }
+    ]
+  }
+}
+```
+
+분류 미리보기(`build_classify_preview`)는 `inferred_series_evidence` 필드로 이 정보를 노출합니다.
+
+### Ambiguous Alias 처리
+
+같은 alias가 여러 series의 character에 매핑되는 경우:
+
+| 상황 | 처리 |
+|------|------|
+| series context 없음 | 자동 확정 금지 → `ambiguous` 목록 반환 |
+| series context 있음 (raw tags에 series alias 포함) | 해당 series의 character로 확정 |
+
+```python
+# series context 없음 → ambiguous
+raw_tags = ["マリー"]
+# result["ambiguous"] = [{"raw_tag": "マリー", "candidates": [...]}]
+# result["character_tags"] = []  ← 자동 확정 금지
+
+# series context 있음 → 확정
+raw_tags = ["マリー", "ブルアカ"]
+# result["character_tags"] = ["伊落マリー"]
+```
+
+`retag_groups_from_existing_tags()` 실행 시 ambiguous alias 후보가 `tag_candidates`에 생성됩니다 (source=`ambiguous_alias`, status=`pending`). 사용자가 TagCandidateView에서 승인해야 합니다.
+
+### 2-Pass 매칭 순서
+
+`classify_pixiv_tags()`는 다음 순서로 동작합니다:
+
+1. **Pass 1 — Series 매칭** (character와 독립적으로 수행)
+   - direct/normalized series alias 매칭
+   - 결과를 `direct_series` 스냅샷으로 저장
+
+2. **Pass 2 — Character 매칭** (series_tags 유무와 무관하게 수행)
+   - direct/normalized character alias 매칭
+   - 단일 canonical이면 즉시 확정 + parent_series → series_tags 보강
+   - ambiguous이면 `direct_series` context로 disambiguation 시도
+
+---
+
+## 16. 주의사항
 
 - 자동 승인은 구현되어 있지 않습니다. 모든 alias 생성에는 사용자 확인이 필요합니다.
 - `reject_candidate()`로 거부한 항목은 동일 `(raw_tag, suggested_alias)` 쌍에 대해 재생성되지 않습니다.
 - 이미 `tag_aliases`에 등록된 raw_tag에 대한 중복 후보는 생성되지 않습니다.
 - 외부 사전 후보는 사용자 승인 없이 `tag_aliases`/`tag_localizations`에 자동 반영되지 않습니다.
+
+---
+
+## 17. Localized Tag Pack Import
+
+`docs/tag_pack_export_localized_ko_ja.json` 등 보강된 localized JSON을 import할 수 있습니다.
+
+### import 정책
+
+| 데이터 | 처리 |
+|--------|------|
+| `aliases` | `tag_aliases` INSERT OR IGNORE |
+| `localizations.ko / ja` | `tag_localizations` INSERT (user source 충돌 시 report) |
+| `_review` 항목 | import 실패하지 않음, report에만 표시 |
+| `_review.merge_candidate` | **자동 병합 안 함** — report에만 표시 |
+| `_review.variant_tag` | **자동 병합 안 함** — report에만 표시 |
+| `_review.possibly_general_or_group_tag` | tag_type 자동 변경 안 함 |
+
+### import 후 분류 반영
+
+import 후 **태그 재분류**를 실행해야 분류 결과에 반영됩니다.
+
+```
+import_localized_tag_pack(conn, path)
+→ tag_localizations에 ko/ja 저장
+→ resolve_display_name(locale='ko') 사용 가능
+→ 태그 재분류 후 folder_locale=ko 경로에 반영됨
+```
+
+예시:
+
+```
+canonical: 狐坂ワカモ
+ko: 코사카 와카모
+ja: 狐坂ワカモ
+
+folder_locale=ko → BySeries/블루 아카이브/코사카 와카모/
+folder_locale=ja → BySeries/ブルーアーカイブ/狐坂ワカモ/
+```
+
+### _review 필드 값 목록
+
+| 값 | 의미 |
+|----|------|
+| `needs_localization_check` | localization 재검토 필요 |
+| `possibly_general_or_group_tag` | 일반 태그 또는 그룹 태그 의심 |
+| `variant_tag` | 코스튬/특정 의상 variant |
+| `merge_candidate` | 다른 canonical과 병합 후보 |
+| `ambiguous_candidates` | 동음이의어 후보 |
+| `needs_merge_review` | 병합 재검토 필요 |

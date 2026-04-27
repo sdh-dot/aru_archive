@@ -76,6 +76,8 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     _migrate_undo_entries(conn)
     _migrate_tag_localizations(conn)
     _migrate_external_dictionary_entries(conn)
+    _migrate_delete_batches(conn)
+    _migrate_delete_records(conn)
 
 
 def _add_column_if_missing(
@@ -310,6 +312,58 @@ def _migrate_external_dictionary_entries(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_ext_dict_alias ON "
         "external_dictionary_entries(alias)"
+    )
+    conn.commit()
+
+
+def _migrate_delete_batches(conn: sqlite3.Connection) -> None:
+    """delete_batches 테이블이 없으면 생성한다."""
+    if _table_exists(conn, "delete_batches"):
+        return
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS delete_batches (
+            delete_batch_id TEXT PRIMARY KEY,
+            operation_type  TEXT NOT NULL,
+            total_files     INTEGER NOT NULL DEFAULT 0,
+            deleted_files   INTEGER NOT NULL DEFAULT 0,
+            failed_files    INTEGER NOT NULL DEFAULT 0,
+            skipped_files   INTEGER NOT NULL DEFAULT 0,
+            created_at      TEXT NOT NULL,
+            summary_json    TEXT
+        )"""
+    )
+    conn.commit()
+
+
+def _migrate_delete_records(conn: sqlite3.Connection) -> None:
+    """delete_records 테이블이 없으면 생성한다."""
+    if _table_exists(conn, "delete_records"):
+        return
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS delete_records (
+            delete_id         TEXT PRIMARY KEY,
+            delete_batch_id   TEXT NOT NULL,
+            group_id          TEXT,
+            file_id           TEXT,
+            original_path     TEXT NOT NULL,
+            file_role         TEXT,
+            file_hash         TEXT,
+            file_size         INTEGER,
+            metadata_sync_status TEXT,
+            delete_reason     TEXT,
+            deleted_at        TEXT NOT NULL,
+            result_status     TEXT NOT NULL,
+            error_message     TEXT,
+            FOREIGN KEY(delete_batch_id) REFERENCES delete_batches(delete_batch_id)
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_delete_records_batch "
+        "ON delete_records(delete_batch_id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_delete_records_file "
+        "ON delete_records(file_id)"
     )
     conn.commit()
 

@@ -91,7 +91,9 @@ class TestClassifyPixivTags:
 
     def test_empty_input(self) -> None:
         result = classify_pixiv_tags([])
-        assert result == {"tags": [], "series_tags": [], "character_tags": []}
+        assert result["tags"] == []
+        assert result["series_tags"] == []
+        assert result["character_tags"] == []
 
     def test_general_tags_preserve_order(self) -> None:
         tags = ["Z", "A", "M", "B"]

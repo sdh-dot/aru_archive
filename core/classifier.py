@@ -330,12 +330,24 @@ def build_classify_preview(
         if d.get("used_fallback") and (d.get("series_canonical") or d.get("character_canonical"))
     })
 
-    # 분류 실패 원인 분석
+    # 분류 실패 원인 분석 및 inferred series evidence 검출
     group_dict = dict(group)
     series_tags_list = _parse_json_list(group_dict.get("series_tags_json"))
     char_tags_list   = _parse_json_list(group_dict.get("character_tags_json"))
     raw_tags_list    = _parse_json_list(group_dict.get("tags_json"))
     classification_info: dict | None = None
+
+    # character alias로부터 역추론된 series evidence 검출
+    inferred_series_evidence: list[dict] = []
+    if series_tags_list and raw_tags_list:
+        try:
+            from core.tag_classifier import classify_pixiv_tags
+            reclassify_ev = classify_pixiv_tags(raw_tags_list, conn=conn)
+            for ev in reclassify_ev.get("evidence", {}).get("series", []):
+                if ev.get("source") == "inferred_from_character":
+                    inferred_series_evidence.append(ev)
+        except Exception:
+            pass
 
     if series_tags_list and not char_tags_list:
         # series_uncategorized: series는 감지됐지만 character가 없음
@@ -374,16 +386,17 @@ def build_classify_preview(
         }
 
     return {
-        "group_id":            group_id,
-        "source_file_id":      source["file_id"],
-        "source_path":         source["file_path"],
-        "destinations":        dests,
-        "estimated_copies":    copies,
-        "estimated_bytes":     file_size * copies,
-        "folder_locale":       cfg.get("folder_locale", "canonical"),
-        "fallback_tags":       fallback_tags,
-        "classification_info": classification_info,
-        "deduped_destinations": len(dests),
+        "group_id":                  group_id,
+        "source_file_id":            source["file_id"],
+        "source_path":               source["file_path"],
+        "destinations":              dests,
+        "estimated_copies":          copies,
+        "estimated_bytes":           file_size * copies,
+        "folder_locale":             cfg.get("folder_locale", "canonical"),
+        "fallback_tags":             fallback_tags,
+        "classification_info":       classification_info,
+        "deduped_destinations":      len(dests),
+        "inferred_series_evidence":  inferred_series_evidence,
     }
 
 

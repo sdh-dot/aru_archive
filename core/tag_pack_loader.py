@@ -185,6 +185,307 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
     }
 
 
+def validate_localized_tag_pack(path: "Union[str, Path]") -> dict:
+    """
+    localized tag pack JSON을 검증한다.
+
+    확인:
+    - valid JSON
+    - characters/series 존재
+    - aliases/canonical/parent_series 구조 보존
+    - localizations.ko / ja 형식 확인
+    - _review 필드가 있어도 import가 깨지지 않는지 확인
+
+    반환: {"valid": bool, "errors": [...], "warnings": [...], "stats": {...}}
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+    stats: dict = {
+        "characters": 0,
+        "series": 0,
+        "has_ko": 0,
+        "has_ja": 0,
+        "review_items": 0,
+    }
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        return {"valid": False, "errors": [f"JSON 파싱 오류: {e}"], "warnings": [], "stats": stats}
+    except OSError as e:
+        return {"valid": False, "errors": [f"파일 읽기 오류: {e}"], "warnings": [], "stats": stats}
+
+    for key in ("characters", "series"):
+        if key not in data:
+            warnings.append(f"'{key}' 키 없음 (빈 목록으로 처리)")
+    if not isinstance(data.get("characters", []), list):
+        errors.append("'characters'는 list여야 합니다")
+    if not isinstance(data.get("series", []), list):
+        errors.append("'series'는 list여야 합니다")
+
+    if errors:
+        return {"valid": False, "errors": errors, "warnings": warnings, "stats": stats}
+
+    for char in data.get("characters", []):
+        if not isinstance(char, dict):
+            warnings.append("characters 항목이 dict가 아닌 항목 발견 (건너뜀)")
+            continue
+        stats["characters"] += 1
+        if "canonical" not in char:
+            warnings.append(f"canonical 없는 character 항목: {char}")
+        locs = char.get("localizations", {})
+        if locs.get("ko"):
+            stats["has_ko"] += 1
+        if locs.get("ja"):
+            stats["has_ja"] += 1
+        if "_review" in char:
+            stats["review_items"] += 1
+
+    for s in data.get("series", []):
+        if not isinstance(s, dict):
+            continue
+        stats["series"] += 1
+        locs = s.get("localizations", {})
+        if locs.get("ko"):
+            stats["has_ko"] += 1
+        if locs.get("ja"):
+            stats["has_ja"] += 1
+        if "_review" in s:
+            stats["review_items"] += 1
+
+    return {"valid": True, "errors": errors, "warnings": warnings, "stats": stats}
+
+
+def import_localized_tag_pack(
+    conn: sqlite3.Connection,
+    path: "Union[str, Path]",
+    *,
+    apply_review_items: bool = False,
+) -> dict:
+    """
+    localized tag pack JSON을 import한다.
+
+    기본 정책:
+    - aliases는 tag_aliases에 반영
+    - localizations는 tag_localizations에 반영
+    - _review가 있는 항목은 기본적으로 자동 병합하지 않음
+    - _review.merge_candidate / variant_tag는 자동 병합하지 않고 report에만 표시
+    - 기존 user source localization이 있으면 conflict를 report (덮어쓰지 않음)
+
+    반환:
+    {
+        "series_aliases":          N,
+        "character_aliases":       N,
+        "localizations":           N,
+        "review_items":            N,
+        "merge_candidates":        N,
+        "variant_items":           N,
+        "group_general_candidates":N,
+        "conflicts":               [...],
+        "merge_candidate_details": [...],
+    }
+    """
+    validation = validate_localized_tag_pack(path)
+    if not validation["valid"]:
+        raise ValueError(f"localized tag pack 검증 실패: {validation['errors']}")
+
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+
+    pack_id = data.get("pack_id", "localized_import")
+    source = "imported_localized_pack"
+    now = datetime.now(timezone.utc).isoformat()
+
+    series_count = 0
+    char_count = 0
+    loc_count = 0
+    conflicts: list[dict] = []
+    merge_candidates: list[dict] = []
+    variant_items: list[dict] = []
+    group_general_candidates: list[dict] = []
+    review_count = 0
+
+    # --- series ---
+    for s in data.get("series", []):
+        if not isinstance(s, dict):
+            continue
+        canonical = s.get("canonical", "")
+        if not canonical:
+            continue
+
+        review = s.get("_review", {})
+        if review:
+            review_count += 1
+            _collect_review_items(
+                review, canonical, "series", merge_candidates,
+                variant_items, group_general_candidates,
+            )
+
+        for alias in s.get("aliases", []):
+            try:
+                conn.execute(
+                    """INSERT OR IGNORE INTO tag_aliases
+                       (alias, canonical, tag_type, parent_series, source, enabled, created_at)
+                       VALUES (?, ?, 'series', '', ?, 1, ?)""",
+                    (alias, canonical, source, now),
+                )
+                if conn.execute("SELECT changes()").fetchone()[0]:
+                    series_count += 1
+            except Exception as exc:
+                logger.debug("series alias 삽입 실패 (%s): %s", alias, exc)
+
+        for locale, display_name in s.get("localizations", {}).items():
+            if not display_name or locale.startswith("_"):
+                continue
+            lc, conf = _upsert_localization(
+                conn, canonical, "series", "", locale, display_name, source, now
+            )
+            loc_count += lc
+            if conf:
+                conflicts.append(conf)
+
+    # --- characters ---
+    for char in data.get("characters", []):
+        if not isinstance(char, dict):
+            continue
+        canonical = char.get("canonical", "")
+        parent_series = char.get("parent_series", "")
+        if not canonical:
+            continue
+
+        review = char.get("_review", {})
+        if review:
+            review_count += 1
+            _collect_review_items(
+                review, canonical, "character", merge_candidates,
+                variant_items, group_general_candidates,
+            )
+
+        for alias in char.get("aliases", []):
+            try:
+                conn.execute(
+                    """INSERT OR IGNORE INTO tag_aliases
+                       (alias, canonical, tag_type, parent_series, source, enabled, created_at)
+                       VALUES (?, ?, 'character', ?, ?, 1, ?)""",
+                    (alias, canonical, parent_series, source, now),
+                )
+                if conn.execute("SELECT changes()").fetchone()[0]:
+                    char_count += 1
+            except Exception as exc:
+                logger.debug("character alias 삽입 실패 (%s): %s", alias, exc)
+
+        for locale, display_name in char.get("localizations", {}).items():
+            if not display_name or locale.startswith("_"):
+                continue
+            lc, conf = _upsert_localization(
+                conn, canonical, "character", parent_series, locale,
+                display_name, source, now,
+            )
+            loc_count += lc
+            if conf:
+                conflicts.append(conf)
+
+    conn.commit()
+
+    return {
+        "series_aliases":           series_count,
+        "character_aliases":        char_count,
+        "localizations":            loc_count,
+        "review_items":             review_count,
+        "merge_candidates":         len(merge_candidates),
+        "variant_items":            len(variant_items),
+        "group_general_candidates": len(group_general_candidates),
+        "conflicts":                conflicts,
+        "merge_candidate_details":  merge_candidates,
+        "variant_details":          variant_items,
+        "group_general_details":    group_general_candidates,
+    }
+
+
+def _upsert_localization(
+    conn: sqlite3.Connection,
+    canonical: str,
+    tag_type: str,
+    parent_series: str,
+    locale: str,
+    display_name: str,
+    source: str,
+    now: str,
+) -> tuple[int, dict | None]:
+    """
+    tag_localizations에 localization을 삽입한다.
+    기존 user source 데이터가 있으면 충돌로 기록하고 덮어쓰지 않는다.
+
+    반환: (삽입 수, conflict dict 또는 None)
+    """
+    existing = conn.execute(
+        """SELECT display_name, source FROM tag_localizations
+           WHERE canonical=? AND tag_type=? AND parent_series=? AND locale=?""",
+        (canonical, tag_type, parent_series, locale),
+    ).fetchone()
+
+    if existing:
+        if existing["source"] in ("user", "user_import") and existing["display_name"] != display_name:
+            return 0, {
+                "canonical": canonical,
+                "locale": locale,
+                "existing_display_name": existing["display_name"],
+                "new_display_name": display_name,
+                "reason": "user source 충돌 — 덮어쓰지 않음",
+            }
+        return 0, None
+
+    try:
+        lid = str(uuid.uuid4())
+        conn.execute(
+            """INSERT OR IGNORE INTO tag_localizations
+               (localization_id, canonical, tag_type, parent_series,
+                locale, display_name, source, enabled, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)""",
+            (lid, canonical, tag_type, parent_series, locale, display_name, source, now),
+        )
+        if conn.execute("SELECT changes()").fetchone()[0]:
+            return 1, None
+    except Exception as exc:
+        logger.debug("localization 삽입 실패 (%s/%s): %s", canonical, locale, exc)
+    return 0, None
+
+
+def _collect_review_items(
+    review: dict,
+    canonical: str,
+    tag_type: str,
+    merge_candidates: list[dict],
+    variant_items: list[dict],
+    group_general_candidates: list[dict],
+) -> None:
+    """_review 필드에서 merge/variant/group 후보를 수집한다."""
+    mc = review.get("merge_candidate")
+    if mc:
+        merge_candidates.append({
+            "canonical": canonical,
+            "tag_type": tag_type,
+            "merge_into": mc,
+            "reason": review.get("reason", ""),
+        })
+
+    if review.get("variant_tag"):
+        variant_items.append({
+            "canonical": canonical,
+            "tag_type": tag_type,
+            "base_character": review.get("base_character_candidate", ""),
+            "reason": review.get("reason", ""),
+        })
+
+    if review.get("possibly_general_or_group_tag"):
+        group_general_candidates.append({
+            "canonical": canonical,
+            "tag_type": tag_type,
+            "reason": review.get("reason", ""),
+        })
+
+
 def seed_builtin_tag_packs(conn: sqlite3.Connection) -> dict:
     """
     resources/tag_packs/ 내 모든 내장 tag pack을 seed한다.
