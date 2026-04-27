@@ -1,48 +1,18 @@
 {
   "summary": {
-    "ko_added": 55,
-    "ja_added": 55,
-    "canonical_changed": 64,
-    "entities_merged": 15,
-    "review_items": 82,
-    "variant_items": 7,
+    "ko_added": 30,
+    "ja_added": 30,
+    "canonical_changed": 35,
+    "entities_merged": 35,
+    "review_items": 96,
+    "variant_items": 6,
     "group_general_candidates": 9,
     "ambiguous_items": 0
   },
   "canonical_changes": [
     {
-      "from": "Akari",
-      "to": "鰐渕アカリ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Akira",
-      "to": "清澄アキラ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
       "from": "Arona",
       "to": "アロナ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Aru",
-      "to": "陸八魔アル",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Asuna",
-      "to": "一之瀬アスナ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Ayane",
-      "to": "奥空アヤネ",
       "parent_series": "Blue Archive",
       "reason": "canonical"
     },
@@ -77,32 +47,8 @@
       "reason": "canonical"
     },
     {
-      "from": "Hanae",
-      "to": "朝顔ハナエ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
       "from": "Hare",
       "to": "小鈎ハレ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Haruka",
-      "to": "伊草ハルカ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Haruna",
-      "to": "黒舘ハルナ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Himari",
-      "to": "明星ヒマリ",
       "parent_series": "Blue Archive",
       "reason": "canonical"
     },
@@ -113,28 +59,10 @@
       "reason": "canonical"
     },
     {
-      "from": "Hina (dress)",
-      "to": "空崎ヒナ",
-      "parent_series": "Blue Archive",
-      "reason": "variant"
-    },
-    {
-      "from": "Hina (pajamas)",
-      "to": "空崎ヒナ",
-      "parent_series": "Blue Archive",
-      "reason": "variant"
-    },
-    {
       "from": "Hina (swimsuit)",
       "to": "空崎ヒナ",
       "parent_series": "Blue Archive",
       "reason": "variant"
-    },
-    {
-      "from": "Hinata",
-      "to": "若葉ヒナタ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
     },
     {
       "from": "Hoshino",
@@ -145,24 +73,6 @@
     {
       "from": "Ibuki",
       "to": "丹花イブキ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Izumi",
-      "to": "獅子堂イズミ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Izuna",
-      "to": "久田イズナ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Junko",
-      "to": "赤司ジュンコ",
       "parent_series": "Blue Archive",
       "reason": "canonical"
     },
@@ -179,20 +89,8 @@
       "reason": "canonical"
     },
     {
-      "from": "Kazusa",
-      "to": "杏山カズサ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
       "from": "Kikyou",
       "to": "桐生キキョウ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Kirino",
-      "to": "中務キリノ",
       "parent_series": "Blue Archive",
       "reason": "canonical"
     },
@@ -211,12 +109,6 @@
     {
       "from": "Maki",
       "to": "小塗マキ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Makoto",
-      "to": "羽沼マコト",
       "parent_series": "Blue Archive",
       "reason": "canonical"
     },
@@ -245,32 +137,8 @@
       "reason": "variant"
     },
     {
-      "from": "Mika",
-      "to": "聖園ミカ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Mine",
-      "to": "蒼森ミネ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Miyako",
-      "to": "月雪ミヤコ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
       "from": "Miyu",
       "to": "霞沢ミユ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Moe",
-      "to": "風倉モエ",
       "parent_series": "Blue Archive",
       "reason": "canonical"
     },
@@ -293,12 +161,6 @@
       "reason": "canonical"
     },
     {
-      "from": "Nagusa",
-      "to": "御稜ナグサ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
       "from": "Noa",
       "to": "生塩ノア",
       "parent_series": "Blue Archive",
@@ -313,12 +175,6 @@
     {
       "from": "Reisa",
       "to": "宇沢レイサ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Renge",
-      "to": "不破レンゲ",
       "parent_series": "Blue Archive",
       "reason": "canonical"
     },
@@ -353,20 +209,8 @@
       "reason": "canonical"
     },
     {
-      "from": "Suzumi",
-      "to": "守月スズミ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
       "from": "Ui",
       "to": "古関ウイ",
-      "parent_series": "Blue Archive",
-      "reason": "canonical"
-    },
-    {
-      "from": "Yukari",
-      "to": "勘解由小路ユカリ",
       "parent_series": "Blue Archive",
       "reason": "canonical"
     },
@@ -375,24 +219,6 @@
       "to": "早瀬ユウカ",
       "parent_series": "Blue Archive",
       "reason": "canonical"
-    },
-    {
-      "from": "フウカ(正月)",
-      "to": "愛清フウカ",
-      "parent_series": "Blue Archive",
-      "reason": "variant"
-    },
-    {
-      "from": "伊落マリー(体操服)",
-      "to": "伊落マリー",
-      "parent_series": "Blue Archive",
-      "reason": "variant"
-    },
-    {
-      "from": "愛清フウカ(正月)",
-      "to": "愛清フウカ",
-      "parent_series": "Blue Archive",
-      "reason": "variant"
     }
   ],
   "merges": [
@@ -400,20 +226,6 @@
       "type": "canonical_merge",
       "from": "Chihiro (pajamas)",
       "to": "各務チヒロ",
-      "parent_series": "Blue Archive",
-      "reason": "variant/costume tag merged into base character"
-    },
-    {
-      "type": "canonical_merge",
-      "from": "Hina (dress)",
-      "to": "空崎ヒナ",
-      "parent_series": "Blue Archive",
-      "reason": "variant/costume tag merged into base character"
-    },
-    {
-      "type": "canonical_merge",
-      "from": "Hina (pajamas)",
-      "to": "空崎ヒナ",
       "parent_series": "Blue Archive",
       "reason": "variant/costume tag merged into base character"
     },
@@ -447,6 +259,34 @@
     },
     {
       "type": "canonical_merge",
+      "from": "アロナ",
+      "to": "アロナ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "プラナ",
+      "to": "プラナ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "不知火カヤ",
+      "to": "不知火カヤ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "丹花イブキ",
+      "to": "丹花イブキ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
       "from": "伊落マリー",
       "to": "伊落マリー",
       "parent_series": "Blue Archive",
@@ -454,15 +294,43 @@
     },
     {
       "type": "canonical_merge",
-      "from": "伊落マリー(体操服)",
-      "to": "伊落マリー",
+      "from": "先生",
+      "to": "先生",
       "parent_series": "Blue Archive",
-      "reason": "variant/costume tag merged into base character"
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "古関ウイ",
+      "to": "古関ウイ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
     },
     {
       "type": "canonical_merge",
       "from": "各務チヒロ",
       "to": "各務チヒロ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "宇沢レイサ",
+      "to": "宇沢レイサ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "小塗マキ",
+      "to": "小塗マキ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "小鈎ハレ",
+      "to": "小鈎ハレ",
       "parent_series": "Blue Archive",
       "reason": "short or duplicate canonical merged into official Japanese full name"
     },
@@ -475,15 +343,64 @@
     },
     {
       "type": "canonical_merge",
-      "from": "愛清フウカ(正月)",
-      "to": "愛清フウカ",
+      "from": "才羽ミドリ",
+      "to": "才羽ミドリ",
       "parent_series": "Blue Archive",
-      "reason": "variant/costume tag merged into base character"
+      "reason": "short or duplicate canonical merged into official Japanese full name"
     },
     {
       "type": "canonical_merge",
-      "from": "明星ヒマリ",
-      "to": "明星ヒマリ",
+      "from": "才羽モモイ",
+      "to": "才羽モモイ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "早瀬ユウカ",
+      "to": "早瀬ユウカ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "春原ココナ",
+      "to": "春原ココナ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "桐生キキョウ",
+      "to": "桐生キキョウ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "氷室セナ",
+      "to": "氷室セナ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "浅黄ムツキ",
+      "to": "浅黄ムツキ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "火宮チナツ",
+      "to": "火宮チナツ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "生塩ノア",
+      "to": "生塩ノア",
       "parent_series": "Blue Archive",
       "reason": "short or duplicate canonical merged into official Japanese full name"
     },
@@ -496,8 +413,57 @@
     },
     {
       "type": "canonical_merge",
-      "from": "陸八魔アル",
-      "to": "陸八魔アル",
+      "from": "砂狼シロコ",
+      "to": "砂狼シロコ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "空井サキ",
+      "to": "空井サキ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "空崎ヒナ",
+      "to": "空崎ヒナ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "錠前サオリ",
+      "to": "錠前サオリ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "霞沢ミユ",
+      "to": "霞沢ミユ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "音瀬コタマ",
+      "to": "音瀬コタマ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "鬼方カヨコ",
+      "to": "鬼方カヨコ",
+      "parent_series": "Blue Archive",
+      "reason": "short or duplicate canonical merged into official Japanese full name"
+    },
+    {
+      "type": "canonical_merge",
+      "from": "黒服",
+      "to": "黒服",
       "parent_series": "Blue Archive",
       "reason": "short or duplicate canonical merged into official Japanese full name"
     }
@@ -715,6 +681,15 @@
       }
     },
     {
+      "canonical": "General Student Council President",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
       "canonical": "Goldy",
       "parent_series": "Trickcal",
       "review": {
@@ -742,8 +717,26 @@
       }
     },
     {
+      "canonical": "Hare (camp)",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
       "canonical": "Heidi",
       "parent_series": "Trickcal",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Hibiki",
+      "parent_series": "Blue Archive",
       "review": {
         "needs_localization_check": true,
         "reason": "ko/ja official name not verified",
@@ -765,21 +758,20 @@
       "review": {
         "merged_variants": [
           {
-            "source_canonical": "Hina (dress)",
-            "variant": "dress",
-            "reason": "costume/variant tag merged into base character"
-          },
-          {
-            "source_canonical": "Hina (pajamas)",
-            "variant": "pajamas",
-            "reason": "costume/variant tag merged into base character"
-          },
-          {
             "source_canonical": "Hina (swimsuit)",
             "variant": "swimsuit",
             "reason": "costume/variant tag merged into base character"
           }
         ]
+      }
+    },
+    {
+      "canonical": "Ichika",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
       }
     },
     {
@@ -802,6 +794,15 @@
     },
     {
       "canonical": "Kanoe",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Kaya (prison)",
       "parent_series": "Blue Archive",
       "review": {
         "needs_localization_check": true,
@@ -838,8 +839,26 @@
       }
     },
     {
+      "canonical": "Koharu",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
       "canonical": "Kommy",
       "parent_series": "Trickcal",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Konoka",
+      "parent_series": "Blue Archive",
       "review": {
         "needs_localization_check": true,
         "reason": "ko/ja official name not verified",
@@ -917,11 +936,6 @@
           {
             "source_canonical": "Mari (idol)",
             "variant": "idol",
-            "reason": "costume/variant tag merged into base character"
-          },
-          {
-            "source_canonical": "伊落マリー(体操服)",
-            "variant": "体操服",
             "reason": "costume/variant tag merged into base character"
           }
         ]
@@ -1116,6 +1130,15 @@
       }
     },
     {
+      "canonical": "Rena",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
       "canonical": "Rim",
       "parent_series": "Trickcal",
       "review": {
@@ -1152,6 +1175,42 @@
       }
     },
     {
+      "canonical": "Serika",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Serina",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Serina (nurse)",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Shiroko Terror",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
       "canonical": "Smol Mari (blue Archive)",
       "parent_series": "Horuhara",
       "review": {
@@ -1163,6 +1222,33 @@
     {
       "canonical": "Speaki",
       "parent_series": "Trickcal",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Toki",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Toki (school Uniform)",
+      "parent_series": "Blue Archive",
+      "review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Tsubasa",
+      "parent_series": "Blue Archive",
       "review": {
         "needs_localization_check": true,
         "reason": "ko/ja official name not verified",
@@ -1242,24 +1328,6 @@
       }
     },
     {
-      "canonical": "愛清フウカ",
-      "parent_series": "Blue Archive",
-      "review": {
-        "merged_variants": [
-          {
-            "source_canonical": "フウカ(正月)",
-            "variant": "正月",
-            "reason": "costume/variant tag merged into base character"
-          },
-          {
-            "source_canonical": "愛清フウカ(正月)",
-            "variant": "正月",
-            "reason": "costume/variant tag merged into base character"
-          }
-        ]
-      }
-    },
-    {
       "canonical": "メガネ",
       "parent_series": "Blue Archive",
       "review": {
@@ -1294,22 +1362,6 @@
       "target_canonical": "各務チヒロ",
       "source_value": "Chihiro (pajamas)",
       "target_value": "Chihiro"
-    },
-    {
-      "type": "localization_conflict_preserved_as_alias",
-      "locale": "en",
-      "source_canonical": "Hina (dress)",
-      "target_canonical": "空崎ヒナ",
-      "source_value": "Hina (dress)",
-      "target_value": "Hina"
-    },
-    {
-      "type": "localization_conflict_preserved_as_alias",
-      "locale": "en",
-      "source_canonical": "Hina (pajamas)",
-      "target_canonical": "空崎ヒナ",
-      "source_value": "Hina (pajamas)",
-      "target_value": "Hina"
     },
     {
       "type": "localization_conflict_preserved_as_alias",
@@ -1368,12 +1420,12 @@
       "preferred_value": "Shirosuzu Azusa"
     },
     {
-      "type": "english_display_preferred_from_official_canonical",
-      "locale": "en",
-      "source_canonical": "陸八魔アル",
-      "target_canonical": "陸八魔アル",
-      "preserved_alias": "Aru",
-      "preferred_value": "Rikuhachima Aru"
+      "type": "official_localization_preferred_from_official_canonical",
+      "locale": "ko",
+      "source_canonical": "砂狼シロコ",
+      "target_canonical": "砂狼シロコ",
+      "replaced_value": "스나오오카미 시로코",
+      "preferred_value": "스나오카미 시로코"
     }
   ]
 }

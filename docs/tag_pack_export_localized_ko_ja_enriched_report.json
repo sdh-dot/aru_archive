@@ -1,0 +1,1060 @@
+{
+  "summary": {
+    "aliases_added": 17,
+    "canonical_changed": 4,
+    "entities_merged": 1,
+    "localizations_added": 0,
+    "review_items_remaining": 88,
+    "external_aliases_added": 0,
+    "ambiguous_short_aliases": 2,
+    "group_general_candidates": 9
+  },
+  "canonical_changes": [
+    {
+      "from": "Hibiki",
+      "to": "日下部ヒビキ",
+      "parent_series": "Blue Archive",
+      "confidence": "medium",
+      "evidence": "Abydos High School student council treasurer; medium confidence"
+    },
+    {
+      "from": "Serika",
+      "to": "赤城セリカ",
+      "parent_series": "Blue Archive",
+      "confidence": "medium",
+      "evidence": "Abydos High School; medium confidence"
+    },
+    {
+      "from": "Toki",
+      "to": "飛鳥馬トキ",
+      "parent_series": "Blue Archive",
+      "confidence": "high",
+      "evidence": "Millennium Science School; official JP full name 飛鳥馬トキ"
+    },
+    {
+      "from": "Tsubasa",
+      "to": "小鳥遊ツバサ",
+      "parent_series": "Blue Archive",
+      "confidence": "high",
+      "evidence": "Millennium; same 小鳥遊 (Takanashi) family as Hoshino"
+    }
+  ],
+  "merges": [
+    {
+      "from": "Toki (school Uniform)",
+      "into": "飛鳥馬トキ",
+      "variant": "school_uniform",
+      "absorbed_aliases": [
+        "toki_(school_uniform)_(blue_archive)",
+        "Toki (school Uniform)"
+      ]
+    }
+  ],
+  "aliases_added": [
+    {
+      "canonical": "日下部ヒビキ",
+      "alias": "Kusakabe Hibiki",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "日下部ヒビキ",
+      "alias": "ヒビキ",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "日下部ヒビキ",
+      "alias": "日下部ヒビキ",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "日下部ヒビキ",
+      "alias": "쿠사카베 히비키",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "赤城セリカ",
+      "alias": "Akagi Serika",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "赤城セリカ",
+      "alias": "セリカ",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "赤城セリカ",
+      "alias": "赤城セリカ",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "赤城セリカ",
+      "alias": "아카기 세리카",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "飛鳥馬トキ",
+      "alias": "Asuma Toki",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "飛鳥馬トキ",
+      "alias": "トキ",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "飛鳥馬トキ",
+      "alias": "飛鳥馬トキ",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "飛鳥馬トキ",
+      "alias": "토키",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "飛鳥馬トキ",
+      "alias": "아스마 토키",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "小鳥遊ツバサ",
+      "alias": "Takanashi Tsubasa",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "小鳥遊ツバサ",
+      "alias": "ツバサ",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "小鳥遊ツバサ",
+      "alias": "小鳥遊ツバサ",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    },
+    {
+      "canonical": "小鳥遊ツバサ",
+      "alias": "타카나시 츠바사",
+      "source": "enrichment",
+      "parent_series": "Blue Archive"
+    }
+  ],
+  "external_evidence": [],
+  "ambiguous_aliases": [
+    {
+      "type": "ambiguous_short_alias",
+      "alias": "Alice",
+      "candidates": [
+        {
+          "canonical": "Alice",
+          "parent_series": "Trickcal"
+        },
+        {
+          "canonical": "天童アリス",
+          "parent_series": "Blue Archive"
+        }
+      ],
+      "multi_series": true
+    },
+    {
+      "type": "ambiguous_short_alias",
+      "alias": "Ui",
+      "candidates": [
+        {
+          "canonical": "古関ウイ",
+          "parent_series": "Blue Archive"
+        },
+        {
+          "canonical": "Ui",
+          "parent_series": "Trickcal"
+        }
+      ],
+      "multi_series": true
+    }
+  ],
+  "review_items_remaining": [
+    {
+      "canonical": "Akira (miria)",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Alice",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Aragnia",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Arco",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Ashur",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Asia",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Aya",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Barong",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Belita",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Belorta",
+      "parent_series": "Nikke",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko localization is transliteration candidate",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Blanchet",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Blonde Student Council President",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Butter",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Chloe",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Daya",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Doodle Sensei",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Ed",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Elena",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Eri",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Erpin",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Espi",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Fricle",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "General Student Council President",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Goldy",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Gourmet Research Society",
+      "parent_series": "Blue Archive",
+      "reason": "group_or_general_candidate",
+      "suggested_tag_type": "group"
+    },
+    {
+      "canonical": "Haley",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Hare (camp)",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Heidi",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "日下部ヒビキ",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "canonical changed with medium confidence — Abydos High School student council treasurer; medium confidence",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Hikari",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Ichika",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Joanne",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Justice Task Force Member",
+      "parent_series": "Blue Archive",
+      "reason": "group_or_general_candidate",
+      "suggested_tag_type": "group"
+    },
+    {
+      "canonical": "Kanoe",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Kaya (prison)",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Kei",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified"
+      }
+    },
+    {
+      "canonical": "Kei (new Body)",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "reason": "variant tag; base canonical was not normalized automatically",
+        "needs_localization_check": true,
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Kidian",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Koharu",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Kommy",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Konoka",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Kurumi",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Kyuri",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Leader",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Leets",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Levi",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Liliweiss",
+      "parent_series": "Nikke",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko localization is transliteration candidate",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Mago",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Mayo",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Mica",
+      "parent_series": "Nikke",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Misaki",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Natsuki",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Ner",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Niko",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Nozomi",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Occult Studies Club",
+      "parent_series": "Blue Archive",
+      "reason": "group_or_general_candidate",
+      "suggested_tag_type": "group"
+    },
+    {
+      "canonical": "Opal",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Otogi",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Picora",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Pira",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Polan",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Problem Solver 68",
+      "parent_series": "Blue Archive",
+      "reason": "group_or_general_candidate",
+      "suggested_tag_type": "group"
+    },
+    {
+      "canonical": "Professor Niyaniya",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Rabbit Platoon",
+      "parent_series": "Blue Archive",
+      "reason": "group_or_general_candidate",
+      "suggested_tag_type": "group"
+    },
+    {
+      "canonical": "Rabu",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Ran",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Rena",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Rim",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Rohne",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Rohne (mayor)",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Satsuki",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "赤城セリカ",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "canonical changed with medium confidence — Abydos High School; medium confidence",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Serina",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Serina (nurse)",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Shiroko Terror",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Smol Mari (blue Archive)",
+      "parent_series": "Horuhara",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "fan-work or crossover tag; ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Speaki",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Ui",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Veritas",
+      "parent_series": "Blue Archive",
+      "reason": "group_or_general_candidate",
+      "suggested_tag_type": "group"
+    },
+    {
+      "canonical": "Vivi",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Xion",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Yomi",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Youngchun",
+      "parent_series": "Trickcal",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "Yukino",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "canonical": "タイツ",
+      "parent_series": "Blue Archive",
+      "reason": "group_or_general_candidate",
+      "suggested_tag_type": "general"
+    },
+    {
+      "canonical": "メガネ",
+      "parent_series": "Blue Archive",
+      "reason": "group_or_general_candidate",
+      "suggested_tag_type": "general"
+    },
+    {
+      "canonical": "天童アリス",
+      "parent_series": "Blue Archive",
+      "reason": "needs_further_verification",
+      "flags": {
+        "needs_canonical_check": true,
+        "reason": "official Japanese full-name canonical not verified"
+      }
+    },
+    {
+      "canonical": "白タイツ",
+      "parent_series": "Blue Archive",
+      "reason": "group_or_general_candidate",
+      "suggested_tag_type": "general"
+    }
+  ],
+  "warnings": [
+    {
+      "type": "unconfirmed_variant_alias_suggestion",
+      "canonical": "飛鳥馬トキ",
+      "suggestion": "toki_(new_year)_(blue_archive)",
+      "reason": "not auto-confirmed; requires manual verification"
+    },
+    {
+      "type": "unconfirmed_variant_alias_suggestion",
+      "canonical": "飛鳥馬トキ",
+      "suggestion": "Toki (new year)",
+      "reason": "not auto-confirmed; requires manual verification"
+    },
+    {
+      "type": "unconfirmed_variant_alias_suggestion",
+      "canonical": "飛鳥馬トキ",
+      "suggestion": "トキ(正月)",
+      "reason": "not auto-confirmed; requires manual verification"
+    },
+    {
+      "type": "unconfirmed_variant_alias_suggestion",
+      "canonical": "飛鳥馬トキ",
+      "suggestion": "飛鳥馬トキ(正月)",
+      "reason": "not auto-confirmed; requires manual verification"
+    }
+  ]
+}

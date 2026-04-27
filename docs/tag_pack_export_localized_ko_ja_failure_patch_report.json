@@ -1,0 +1,262 @@
+{
+  "summary": {
+    "characters_added": 26,
+    "characters_skipped_existing": 0,
+    "variant_aliases_merged": 6,
+    "series_disambiguator_aliases_added": 4
+  },
+  "added": [
+    {
+      "canonical": "羽川ハスミ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "黒崎コユキ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "合歓垣フブキ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 8
+    },
+    {
+      "canonical": "猫塚ヒビキ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 4
+    },
+    {
+      "canonical": "十六夜ノノミ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 8
+    },
+    {
+      "canonical": "七神リン",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "桐藤ナギサ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "京極サツキ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 8
+    },
+    {
+      "canonical": "夜桜キララ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 8
+    },
+    {
+      "canonical": "竜華キサキ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 8
+    },
+    {
+      "canonical": "下江コハル",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "鷲見セリナ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "河和シズコ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "天雨アコ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "歌住サクラコ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "花岡ユズ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "春日ツバキ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 6
+    },
+    {
+      "canonical": "牛牧ジュリ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "佐城トモエ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "柚鳥ナツ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "栗村アイリ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "阿慈谷ヒフミ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "剣先ツルギ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "静山マシロ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "旗見エリカ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "伊原木ヨシミ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    }
+  ],
+  "skipped": [],
+  "variant_merges": [
+    {
+      "variant_tag": "猫塚ヒビキ(応援団)",
+      "into": "猫塚ヒビキ",
+      "variant": "cheerleader"
+    },
+    {
+      "variant_tag": "羽川ハスミ(体操服)",
+      "into": "羽川ハスミ",
+      "variant": "gym_uniform"
+    },
+    {
+      "variant_tag": "黒崎コユキ(バニーガール)",
+      "into": "黒崎コユキ",
+      "variant": "bunny_girl"
+    },
+    {
+      "variant_tag": "鷲見セリナ(クリスマス)",
+      "into": "鷲見セリナ",
+      "variant": "christmas"
+    },
+    {
+      "variant_tag": "鷲見セリナ(ナース)",
+      "into": "鷲見セリナ",
+      "variant": "nurse"
+    },
+    {
+      "variant_tag": "河和シズコ(水着)",
+      "into": "河和シズコ",
+      "variant": "swimsuit"
+    }
+  ],
+  "series_disambiguators": [
+    {
+      "tag": "サツキ(ブルーアーカイブ)",
+      "resolved_to": "京極サツキ",
+      "status": "present"
+    },
+    {
+      "tag": "キサキ(ブルーアーカイブ)",
+      "resolved_to": "竜華キサキ",
+      "status": "present"
+    },
+    {
+      "tag": "キララ(ブルーアーカイブ)",
+      "resolved_to": "夜桜キララ",
+      "status": "present"
+    },
+    {
+      "tag": "ノノミ(ブルーアーカイブ)",
+      "resolved_to": "十六夜ノノミ",
+      "status": "present"
+    }
+  ],
+  "warnings": [],
+  "failure_analysis": {
+    "title_only_candidates": [],
+    "popularity_tags_observed": [
+      "ブルーアーカイブ5000users入り",
+      "ブルーアーカイブ10000users入り",
+      "ブルーアーカイブ1000users入り",
+      "ブルーアーカイブ100users入り",
+      "ブルーアーカイブ500users入り",
+      "ブルーアーカイブ30000users入り"
+    ],
+    "group_tags_observed": [
+      "便利屋68",
+      "ミレニアムサイエンススクール",
+      "正義実現委員会のモブ",
+      "ゲヘナ学園",
+      "トリニティ総合学園",
+      "正義実現委員会",
+      "ブルアカモータリゼーション",
+      "キラキラ部",
+      "連邦生徒会",
+      "生活安全局",
+      "ヴァルキューレ警察学校"
+    ],
+    "general_tags_observed": [
+      "巨乳",
+      "おっぱい",
+      "黒スト",
+      "バニーガール",
+      "魅惑の谷間",
+      "水着",
+      "イラスト",
+      "上目遣い",
+      "黒タイツ",
+      "ツインテール",
+      "コイカツ",
+      "着衣巨乳",
+      "ふともも",
+      "女の子",
+      "爆乳",
+      "体操服",
+      "ニーソ",
+      "眼鏡",
+      "セーラー服",
+      "しゃがみ",
+      "足組み",
+      "魅惑のふともも",
+      "晄輪大祭",
+      "制服",
+      "ストッキング",
+      "ポニーテール",
+      "体操着",
+      "SD",
+      "百合",
+      "ロリ巨乳",
+      "ぺたん座り",
+      "補習授業部",
+      "少女",
+      "漫画",
+      "チアガール",
+      "チアリーダー",
+      "お腹",
+      "エンジニア部",
+      "ハイヒール",
+      "美少女"
+    ]
+  }
+}

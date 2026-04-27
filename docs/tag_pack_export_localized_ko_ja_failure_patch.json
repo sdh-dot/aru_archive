@@ -1,4 +1,27 @@
 {
+  "pack_id": "tag_pack_export",
+  "name": "Tag Pack Export",
+  "version": "1.0.0",
+  "source": "failure_patched",
+  "series": [
+    {
+      "aliases": [
+        "Blue Archive",
+        "BlueArchive",
+        "ブルアカ",
+        "ブルーアーカイブ",
+        "블루 아카이브",
+        "블아",
+        "ＢｌｕｅＡｒｃｈｉｖｅ"
+      ],
+      "canonical": "Blue Archive",
+      "localizations": {
+        "en": "Blue Archive",
+        "ja": "ブルーアーカイブ",
+        "ko": "블루 아카이브"
+      }
+    }
+  ],
   "characters": [
     {
       "aliases": [
@@ -556,16 +579,22 @@
     {
       "aliases": [
         "hibiki_(blue_archive)",
-        "Hibiki"
+        "Hibiki",
+        "Kusakabe Hibiki",
+        "ヒビキ",
+        "日下部ヒビキ",
+        "쿠사카베 히비키"
       ],
-      "canonical": "Hibiki",
+      "canonical": "日下部ヒビキ",
       "localizations": {
-        "en": "Hibiki"
+        "en": "Kusakabe Hibiki",
+        "ja": "日下部ヒビキ",
+        "ko": "쿠사카베 히비키"
       },
       "parent_series": "Blue Archive",
       "_review": {
         "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
+        "reason": "canonical changed with medium confidence — Abydos High School student council treasurer; medium confidence",
         "needs_canonical_check": true
       }
     },
@@ -1616,16 +1645,22 @@
     {
       "aliases": [
         "serika_(blue_archive)",
-        "Serika"
+        "Serika",
+        "Akagi Serika",
+        "セリカ",
+        "赤城セリカ",
+        "아카기 세리카"
       ],
-      "canonical": "Serika",
+      "canonical": "赤城セリカ",
       "localizations": {
-        "en": "Serika"
+        "en": "Akagi Serika",
+        "ja": "赤城セリカ",
+        "ko": "아카기 세리카"
       },
       "parent_series": "Blue Archive",
       "_review": {
         "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
+        "reason": "canonical changed with medium confidence — Abydos High School; medium confidence",
         "needs_canonical_check": true
       }
     },
@@ -1727,49 +1762,55 @@
     {
       "aliases": [
         "toki_(blue_archive)",
-        "Toki"
-      ],
-      "canonical": "Toki",
-      "localizations": {
-        "en": "Toki"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
+        "Toki",
+        "Asuma Toki",
+        "トキ",
+        "飛鳥馬トキ",
+        "토키",
+        "아스마 토키",
         "toki_(school_uniform)_(blue_archive)",
         "Toki (school Uniform)"
       ],
-      "canonical": "Toki (school Uniform)",
+      "canonical": "飛鳥馬トキ",
       "localizations": {
-        "en": "Toki (school Uniform)"
+        "en": "Asuma Toki",
+        "ja": "飛鳥馬トキ",
+        "ko": "아스마 토키"
       },
       "parent_series": "Blue Archive",
       "_review": {
-        "needs_localization_check": true,
         "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
+        "merged_variants": [
+          {
+            "source_canonical": "Toki (school Uniform)",
+            "variant": "school_uniform",
+            "reason": "costume/variant tag merged into base character",
+            "absorbed_aliases": [
+              "toki_(school_uniform)_(blue_archive)",
+              "Toki (school Uniform)"
+            ]
+          }
+        ]
       }
     },
     {
       "aliases": [
         "tsubasa_(blue_archive)",
-        "Tsubasa"
+        "Tsubasa",
+        "Takanashi Tsubasa",
+        "ツバサ",
+        "小鳥遊ツバサ",
+        "타카나시 츠바사"
       ],
-      "canonical": "Tsubasa",
+      "canonical": "小鳥遊ツバサ",
       "localizations": {
-        "en": "Tsubasa"
+        "en": "Takanashi Tsubasa",
+        "ja": "小鳥遊ツバサ",
+        "ko": "타카나시 츠바사"
       },
       "parent_series": "Blue Archive",
       "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
+        "reason": "ko/ja official name not verified"
       }
     },
     {
@@ -2387,30 +2428,534 @@
         "ko": "쿠로다테 하루나"
       },
       "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Hasumi",
+        "ハスミ",
+        "Hanekawa Hasumi",
+        "hanekawa_hasumi_(blue_archive)",
+        "羽川ハスミ",
+        "하스미",
+        "하네카와 하스미",
+        "羽川ハスミ(体操服)"
+      ],
+      "canonical": "羽川ハスミ",
+      "localizations": {
+        "en": "Hanekawa Hasumi",
+        "ja": "羽川ハスミ",
+        "ko": "하네카와 하스미"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "merged_variants": [
+          {
+            "source_tag": "羽川ハスミ(体操服)",
+            "variant": "gym_uniform",
+            "reason": "costume/variant tag merged into base character from failure report"
+          }
+        ]
+      }
+    },
+    {
+      "aliases": [
+        "Koyuki",
+        "コユキ",
+        "Kurosaki Koyuki",
+        "kurosaki_koyuki_(blue_archive)",
+        "黒崎コユキ",
+        "코유키",
+        "쿠로사키 코유키",
+        "黒崎コユキ(バニーガール)"
+      ],
+      "canonical": "黒崎コユキ",
+      "localizations": {
+        "en": "Kurosaki Koyuki",
+        "ja": "黒崎コユキ",
+        "ko": "쿠로사키 코유키"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "merged_variants": [
+          {
+            "source_tag": "黒崎コユキ(バニーガール)",
+            "variant": "bunny_girl",
+            "reason": "costume/variant tag merged into base character from failure report"
+          }
+        ]
+      }
+    },
+    {
+      "aliases": [
+        "Fubuki",
+        "フブキ",
+        "Nekogaki Fubuki",
+        "nekogaki_fubuki_(blue_archive)",
+        "合歓垣フブキ",
+        "후부키",
+        "네코가키 후부키",
+        "ネムガキ"
+      ],
+      "canonical": "合歓垣フブキ",
+      "localizations": {
+        "en": "Nekogaki Fubuki",
+        "ja": "合歓垣フブキ",
+        "ko": "네코가키 후부키"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Nekozuka Hibiki",
+        "nekozuka_hibiki_(blue_archive)",
+        "猫塚ヒビキ",
+        "네코즈카 히비키",
+        "猫塚ヒビキ(応援団)"
+      ],
+      "canonical": "猫塚ヒビキ",
+      "localizations": {
+        "en": "Nekozuka Hibiki",
+        "ja": "猫塚ヒビキ",
+        "ko": "네코즈카 히비키"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "merged_variants": [
+          {
+            "source_tag": "猫塚ヒビキ(応援団)",
+            "variant": "cheerleader",
+            "reason": "costume/variant tag merged into base character from failure report"
+          }
+        ]
+      }
+    },
+    {
+      "aliases": [
+        "Nonomi",
+        "ノノミ",
+        "Izayoi Nonomi",
+        "izayoi_nonomi_(blue_archive)",
+        "十六夜ノノミ",
+        "노노미",
+        "이자요이 노노미",
+        "ノノミ(ブルーアーカイブ)"
+      ],
+      "canonical": "十六夜ノノミ",
+      "localizations": {
+        "en": "Izayoi Nonomi",
+        "ja": "十六夜ノノミ",
+        "ko": "이자요이 노노미"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Rin",
+        "リン",
+        "Nanagami Rin",
+        "nanagami_rin_(blue_archive)",
+        "七神リン",
+        "린",
+        "나나카미 린"
+      ],
+      "canonical": "七神リン",
+      "localizations": {
+        "en": "Nanagami Rin",
+        "ja": "七神リン",
+        "ko": "나나카미 린"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Nagisa",
+        "ナギサ",
+        "Kiritou Nagisa",
+        "kiritou_nagisa_(blue_archive)",
+        "桐藤ナギサ",
+        "나기사",
+        "키리토 나기사"
+      ],
+      "canonical": "桐藤ナギサ",
+      "localizations": {
+        "en": "Kiritou Nagisa",
+        "ja": "桐藤ナギサ",
+        "ko": "키리토 나기사"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Satsuki",
+        "サツキ",
+        "Kyogoku Satsuki",
+        "kyogoku_satsuki_(blue_archive)",
+        "京極サツキ",
+        "사츠키",
+        "쿄고쿠 사츠키",
+        "サツキ(ブルーアーカイブ)"
+      ],
+      "canonical": "京極サツキ",
+      "localizations": {
+        "en": "Kyogoku Satsuki",
+        "ja": "京極サツキ",
+        "ko": "쿄고쿠 사츠키"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kirara",
+        "キララ",
+        "Yozakura Kirara",
+        "yozakura_kirara_(blue_archive)",
+        "夜桜キララ",
+        "키라라",
+        "요자쿠라 키라라",
+        "キララ(ブルーアーカイブ)"
+      ],
+      "canonical": "夜桜キララ",
+      "localizations": {
+        "en": "Yozakura Kirara",
+        "ja": "夜桜キララ",
+        "ko": "요자쿠라 키라라"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kisaki",
+        "キサキ",
+        "Ryuka Kisaki",
+        "ryuka_kisaki_(blue_archive)",
+        "竜華キサキ",
+        "키사키",
+        "류카 키사키",
+        "キサキ(ブルーアーカイブ)"
+      ],
+      "canonical": "竜華キサキ",
+      "localizations": {
+        "en": "Ryuka Kisaki",
+        "ja": "竜華キサキ",
+        "ko": "류카 키사키"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Koharu",
+        "コハル",
+        "Shimoe Koharu",
+        "shimoe_koharu_(blue_archive)",
+        "下江コハル",
+        "코하루",
+        "시모에 코하루"
+      ],
+      "canonical": "下江コハル",
+      "localizations": {
+        "en": "Shimoe Koharu",
+        "ja": "下江コハル",
+        "ko": "시모에 코하루"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Serina",
+        "セリナ",
+        "Washimi Serina",
+        "washimi_serina_(blue_archive)",
+        "鷲見セリナ",
+        "세리나",
+        "와시미 세리나",
+        "鷲見セリナ(クリスマス)",
+        "鷲見セリナ(ナース)"
+      ],
+      "canonical": "鷲見セリナ",
+      "localizations": {
+        "en": "Washimi Serina",
+        "ja": "鷲見セリナ",
+        "ko": "와시미 세리나"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "merged_variants": [
+          {
+            "source_tag": "鷲見セリナ(クリスマス)",
+            "variant": "christmas",
+            "reason": "costume/variant tag merged into base character from failure report"
+          },
+          {
+            "source_tag": "鷲見セリナ(ナース)",
+            "variant": "nurse",
+            "reason": "costume/variant tag merged into base character from failure report"
+          }
+        ]
+      }
+    },
+    {
+      "aliases": [
+        "Shizuko",
+        "シズコ",
+        "Kawawa Shizuko",
+        "kawawa_shizuko_(blue_archive)",
+        "河和シズコ",
+        "시즈코",
+        "카와와 시즈코",
+        "河和シズコ(水着)"
+      ],
+      "canonical": "河和シズコ",
+      "localizations": {
+        "en": "Kawawa Shizuko",
+        "ja": "河和シズコ",
+        "ko": "카와와 시즈코"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "merged_variants": [
+          {
+            "source_tag": "河和シズコ(水着)",
+            "variant": "swimsuit",
+            "reason": "costume/variant tag merged into base character from failure report"
+          }
+        ]
+      }
+    },
+    {
+      "aliases": [
+        "Ako",
+        "アコ",
+        "Amamiya Ako",
+        "amamiya_ako_(blue_archive)",
+        "天雨アコ",
+        "아코",
+        "아마미야 아코"
+      ],
+      "canonical": "天雨アコ",
+      "localizations": {
+        "en": "Amamiya Ako",
+        "ja": "天雨アコ",
+        "ko": "아마미야 아코"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Sakurako",
+        "サクラコ",
+        "Utasumi Sakurako",
+        "utasumi_sakurako_(blue_archive)",
+        "歌住サクラコ",
+        "사쿠라코",
+        "우타스미 사쿠라코"
+      ],
+      "canonical": "歌住サクラコ",
+      "localizations": {
+        "en": "Utasumi Sakurako",
+        "ja": "歌住サクラコ",
+        "ko": "우타스미 사쿠라코"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Yuzu",
+        "ユズ",
+        "Hanaoka Yuzu",
+        "hanaoka_yuzu_(blue_archive)",
+        "花岡ユズ",
+        "유즈",
+        "하나오카 유즈"
+      ],
+      "canonical": "花岡ユズ",
+      "localizations": {
+        "en": "Hanaoka Yuzu",
+        "ja": "花岡ユズ",
+        "ko": "하나오카 유즈"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "ツバキ",
+        "Kasuga Tsubaki",
+        "kasuga_tsubaki_(blue_archive)",
+        "春日ツバキ",
+        "츠바키",
+        "카스가 츠바키"
+      ],
+      "canonical": "春日ツバキ",
+      "localizations": {
+        "en": "Kasuga Tsubaki",
+        "ja": "春日ツバキ",
+        "ko": "카스가 츠바키"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Juri",
+        "ジュリ",
+        "Ushimaki Juri",
+        "ushimaki_juri_(blue_archive)",
+        "牛牧ジュリ",
+        "주리",
+        "우시마키 주리"
+      ],
+      "canonical": "牛牧ジュリ",
+      "localizations": {
+        "en": "Ushimaki Juri",
+        "ja": "牛牧ジュリ",
+        "ko": "우시마키 주리"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Tomoe",
+        "トモエ",
+        "Sajo Tomoe",
+        "sajo_tomoe_(blue_archive)",
+        "佐城トモエ",
+        "토모에",
+        "사죠 토모에"
+      ],
+      "canonical": "佐城トモエ",
+      "localizations": {
+        "en": "Sajo Tomoe",
+        "ja": "佐城トモエ",
+        "ko": "사죠 토모에"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Natsu",
+        "ナツ",
+        "Yudori Natsu",
+        "yudori_natsu_(blue_archive)",
+        "柚鳥ナツ",
+        "나츠",
+        "유도리 나츠"
+      ],
+      "canonical": "柚鳥ナツ",
+      "localizations": {
+        "en": "Yudori Natsu",
+        "ja": "柚鳥ナツ",
+        "ko": "유도리 나츠"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Airi",
+        "アイリ",
+        "Kurimura Airi",
+        "kurimura_airi_(blue_archive)",
+        "栗村アイリ",
+        "아이리",
+        "쿠리무라 아이리"
+      ],
+      "canonical": "栗村アイリ",
+      "localizations": {
+        "en": "Kurimura Airi",
+        "ja": "栗村アイリ",
+        "ko": "쿠리무라 아이리"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Hifumi",
+        "ヒフミ",
+        "Azaiya Hifumi",
+        "azaiya_hifumi_(blue_archive)",
+        "阿慈谷ヒフミ",
+        "히후미",
+        "아자이야 히후미"
+      ],
+      "canonical": "阿慈谷ヒフミ",
+      "localizations": {
+        "en": "Azaiya Hifumi",
+        "ja": "阿慈谷ヒフミ",
+        "ko": "아자이야 히후미"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Tsurugi",
+        "ツルギ",
+        "Kensaki Tsurugi",
+        "kensaki_tsurugi_(blue_archive)",
+        "剣先ツルギ",
+        "츠루기",
+        "켄사키 츠루기"
+      ],
+      "canonical": "剣先ツルギ",
+      "localizations": {
+        "en": "Kensaki Tsurugi",
+        "ja": "剣先ツルギ",
+        "ko": "켄사키 츠루기"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Mashiro",
+        "マシロ",
+        "Shizuyama Mashiro",
+        "shizuyama_mashiro_(blue_archive)",
+        "静山マシロ",
+        "마시로",
+        "시즈야마 마시로"
+      ],
+      "canonical": "静山マシロ",
+      "localizations": {
+        "en": "Shizuyama Mashiro",
+        "ja": "静山マシロ",
+        "ko": "시즈야마 마시로"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Erika",
+        "エリカ",
+        "Hatami Erika",
+        "hatami_erika_(blue_archive)",
+        "旗見エリカ",
+        "에리카",
+        "하타미 에리카"
+      ],
+      "canonical": "旗見エリカ",
+      "localizations": {
+        "en": "Hatami Erika",
+        "ja": "旗見エリカ",
+        "ko": "하타미 에리카"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Yoshimi",
+        "ヨシミ",
+        "Ibaraki Yoshimi",
+        "ibaraki_yoshimi_(blue_archive)",
+        "伊原木ヨシミ",
+        "요시미",
+        "이바라키 요시미"
+      ],
+      "canonical": "伊原木ヨシミ",
+      "localizations": {
+        "en": "Ibaraki Yoshimi",
+        "ja": "伊原木ヨシミ",
+        "ko": "이바라키 요시미"
+      },
+      "parent_series": "Blue Archive"
     }
   ],
   "exported_at": "2026-04-27T09:02:56.037397+00:00",
-  "name": "Tag Pack Export",
-  "pack_id": "tag_pack_export",
-  "series": [
-    {
-      "aliases": [
-        "Blue Archive",
-        "BlueArchive",
-        "ブルアカ",
-        "ブルーアーカイブ",
-        "블루 아카이브",
-        "블아",
-        "ＢｌｕｅＡｒｃｈｉｖｅ"
-      ],
-      "canonical": "Blue Archive",
-      "localizations": {
-        "en": "Blue Archive",
-        "ja": "ブルーアーカイブ",
-        "ko": "블루 아카이브"
-      }
-    }
-  ],
-  "source": "user_export",
-  "version": "1.0.0"
+  "enriched_at": "2026-04-27T09:42:35.259258+00:00",
+  "patched_at": "2026-04-27T11:18:30.274695+00:00"
 }

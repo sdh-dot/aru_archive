@@ -1,0 +1,260 @@
+{
+  "summary": {
+    "characters_added": 3,
+    "aliases_added": 5,
+    "canonical_changed": 0,
+    "variants_merged": 1,
+    "web_verified_items": 4,
+    "needs_review": 6,
+    "ignored_general_tags": 51
+  },
+  "characters_added": [
+    {
+      "canonical": "仲正イチカ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "浦和ハナコ",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    },
+    {
+      "canonical": "春原シュン",
+      "parent_series": "Blue Archive",
+      "aliases_count": 7
+    }
+  ],
+  "aliases_added": [
+    {
+      "canonical": "春原シュン",
+      "alias_added": "春原シュン(幼女)",
+      "reason": "variant costume/form tag merged into base character (child_form)"
+    },
+    {
+      "canonical": "京極サツキ",
+      "alias_added": "サツキ(ブルーアーカイブ)",
+      "reason": "series disambiguator alias already present in character entry"
+    },
+    {
+      "canonical": "竜華キサキ",
+      "alias_added": "キサキ(ブルーアーカイブ)",
+      "reason": "series disambiguator alias already present in character entry"
+    },
+    {
+      "canonical": "夜桜キララ",
+      "alias_added": "キララ(ブルーアーカイブ)",
+      "reason": "series disambiguator alias already present in character entry"
+    },
+    {
+      "canonical": "十六夜ノノミ",
+      "alias_added": "ノノミ(ブルーアーカイブ)",
+      "reason": "series disambiguator alias already present in character entry"
+    }
+  ],
+  "variants_merged": [
+    {
+      "variant_tag": "春原シュン(幼女)",
+      "into": "春原シュン",
+      "variant": "child_form"
+    }
+  ],
+  "web_evidence": [
+    {
+      "tag": "仲正イチカ",
+      "verified_as": "Blue Archive character (Millennium Science School)",
+      "source": "training_knowledge",
+      "evidence_url": ""
+    },
+    {
+      "tag": "浦和ハナコ",
+      "verified_as": "Blue Archive character (Gehenna Academy)",
+      "source": "training_knowledge",
+      "evidence_url": ""
+    },
+    {
+      "tag": "春原シュン",
+      "verified_as": "Blue Archive character (Hyakkiyako Academy)",
+      "source": "training_knowledge",
+      "evidence_url": ""
+    },
+    {
+      "tag": "伊落マリー",
+      "verified_as": "Blue Archive character (Trinity General School)",
+      "source": "training_knowledge",
+      "evidence_url": ""
+    }
+  ],
+  "needs_review": [
+    {
+      "tag": "ムツキ",
+      "reason": "ambiguous — multiple series share this name; no Blue Archive context confirmed"
+    },
+    {
+      "tag": "カヨアル",
+      "reason": "likely a ship name (カヨ + アル) rather than a standalone character"
+    },
+    {
+      "tag": "碧蓝档案",
+      "reason": "Chinese name for Blue Archive series — add as series alias, not character alias"
+    },
+    {
+      "tag": "ヘイロー(ブルーアーカイブ)",
+      "reason": "in-game halo item/mechanic tag, not a character"
+    },
+    {
+      "tag": "ティーパーティー(ブルーアーカイブ)",
+      "reason": "faction/group tag, not a character"
+    },
+    {
+      "tag": "コハル(アニポケ)",
+      "reason": "Pokémon anime character, not Blue Archive コハル"
+    }
+  ],
+  "ignored_general_tags": [
+    "巨乳",
+    "おっぱい",
+    "黒スト",
+    "バニーガール",
+    "魅惑の谷間",
+    "水着",
+    "イラスト",
+    "上目遣い",
+    "黒タイツ",
+    "ツインテール",
+    "コイカツ",
+    "着衣巨乳",
+    "ふともも",
+    "女の子",
+    "爆乳",
+    "体操服",
+    "ニーソ",
+    "眼鏡",
+    "セーラー服",
+    "しゃがみ",
+    "足組み",
+    "魅惑のふともも",
+    "晄輪大祭",
+    "制服",
+    "ストッキング",
+    "ポニーテール",
+    "体操着",
+    "SD",
+    "百合",
+    "ロリ巨乳",
+    "ぺたん座り",
+    "補習授業部",
+    "少女",
+    "漫画",
+    "チアガール",
+    "チアリーダー",
+    "お腹",
+    "エンジニア部",
+    "ハイヒール",
+    "美少女",
+    "便利屋68",
+    "ミレニアムサイエンススクール",
+    "正義実現委員会のモブ",
+    "ゲヘナ学園",
+    "トリニティ総合学園",
+    "正義実現委員会",
+    "ブルアカモータリゼーション",
+    "キラキラ部",
+    "連邦生徒会",
+    "生活安全局",
+    "ヴァルキューレ警察学校"
+  ],
+  "title_only_candidates": [
+    {
+      "file_name": "106571741_p0_master1200.jpg",
+      "title": "マリーちゃん",
+      "artist": "NonDDu",
+      "candidate_name": "マリー"
+    },
+    {
+      "file_name": "105486627_p0_master1200.jpg",
+      "title": "伊落マリー",
+      "artist": "長友かぼちゃ",
+      "candidate_name": "伊落マリー"
+    },
+    {
+      "file_name": "105389574_p0_master1200.jpg",
+      "title": "春原シュン",
+      "artist": "五日",
+      "candidate_name": "春原シュン"
+    },
+    {
+      "file_name": "105252148_p0_master1200.jpg",
+      "title": "マリー",
+      "artist": "NonDDu",
+      "candidate_name": "マリー"
+    },
+    {
+      "file_name": "104930638_p0_master1200.jpg",
+      "title": "伊落マリー",
+      "artist": "長友かぼちゃ",
+      "candidate_name": "伊落マリー"
+    },
+    {
+      "file_name": "104867395_p0_master1200.jpg",
+      "title": "伊落マリー",
+      "artist": "長友かぼちゃ",
+      "candidate_name": "伊落マリー"
+    },
+    {
+      "file_name": "104744647_p0_master1200.jpg",
+      "title": "正義実現マリー",
+      "artist": "長友かぼちゃ",
+      "candidate_name": "マリー"
+    },
+    {
+      "file_name": "104711114_p0_master1200.jpg",
+      "title": "ナースマリー",
+      "artist": "長友かぼちゃ",
+      "candidate_name": "マリー"
+    },
+    {
+      "file_name": "104400671_p0_master1200.jpg",
+      "title": "バニーマリー",
+      "artist": "長友かぼちゃ",
+      "candidate_name": "マリー"
+    },
+    {
+      "file_name": "103964704_p0_master1200.jpg",
+      "title": "伊落マリー",
+      "artist": "長友かぼちゃ",
+      "candidate_name": "伊落マリー"
+    },
+    {
+      "file_name": "103933115_p0_master1200.jpg",
+      "title": "伊落マリー",
+      "artist": "ハブリー",
+      "candidate_name": "伊落マリー"
+    },
+    {
+      "file_name": "103390219_p0_master1200.jpg",
+      "title": "伊落マリー",
+      "artist": "長友かぼちゃ",
+      "candidate_name": "伊落マリー"
+    },
+    {
+      "file_name": "103342770_p0_master1200.jpg",
+      "title": "伊落マリー",
+      "artist": "長友かぼちゃ",
+      "candidate_name": "伊落マリー"
+    },
+    {
+      "file_name": "103342733_p0_master1200.jpg",
+      "title": "伊落マリー",
+      "artist": "長友かぼちゃ",
+      "candidate_name": "伊落マリー"
+    },
+    {
+      "file_name": "102980932_p0_master1200.jpg",
+      "title": "伊落マリー",
+      "artist": "犬山ななみ＠お仕事募集中",
+      "candidate_name": "伊落マリー"
+    }
+  ],
+  "warnings": []
+}

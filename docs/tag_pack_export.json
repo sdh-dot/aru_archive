@@ -2,26 +2,7 @@
   "characters": [
     {
       "aliases": [
-        "akari_(blue_archive)"
-      ],
-      "canonical": "Akari",
-      "localizations": {
-        "en": "Akari"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "akira_(blue_archive)"
-      ],
-      "canonical": "Akira",
-      "localizations": {
-        "en": "Akira"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
+        "Akira (miria)",
         "akira_(miria)_(blue_archive)"
       ],
       "canonical": "Akira (miria)",
@@ -32,6 +13,7 @@
     },
     {
       "aliases": [
+        "Alice",
         "alice_(trickcal)"
       ],
       "canonical": "Alice",
@@ -42,6 +24,7 @@
     },
     {
       "aliases": [
+        "Aragnia",
         "aragnia_(trickcal)"
       ],
       "canonical": "Aragnia",
@@ -52,6 +35,7 @@
     },
     {
       "aliases": [
+        "Arco",
         "arco_(trickcal)"
       ],
       "canonical": "Arco",
@@ -72,16 +56,7 @@
     },
     {
       "aliases": [
-        "aru_(blue_archive)"
-      ],
-      "canonical": "Aru",
-      "localizations": {
-        "en": "Aru"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
+        "Ashur",
         "ashur_(trickcal)"
       ],
       "canonical": "Ashur",
@@ -92,6 +67,7 @@
     },
     {
       "aliases": [
+        "Asia",
         "asia_(trickcal)"
       ],
       "canonical": "Asia",
@@ -102,16 +78,7 @@
     },
     {
       "aliases": [
-        "asuna_(blue_archive)"
-      ],
-      "canonical": "Asuna",
-      "localizations": {
-        "en": "Asuna"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
+        "Aya",
         "aya_(trickcal)"
       ],
       "canonical": "Aya",
@@ -119,16 +86,6 @@
         "en": "Aya"
       },
       "parent_series": "Trickcal"
-    },
-    {
-      "aliases": [
-        "ayane_(blue_archive)"
-      ],
-      "canonical": "Ayane",
-      "localizations": {
-        "en": "Ayane"
-      },
-      "parent_series": "Blue Archive"
     },
     {
       "aliases": [
@@ -142,6 +99,7 @@
     },
     {
       "aliases": [
+        "Barong",
         "barong_(trickcal)"
       ],
       "canonical": "Barong",
@@ -152,6 +110,7 @@
     },
     {
       "aliases": [
+        "Belita",
         "belita_(trickcal)"
       ],
       "canonical": "Belita",
@@ -162,11 +121,13 @@
     },
     {
       "aliases": [
+        "Belorta",
         "belorta_(nikke)"
       ],
       "canonical": "Belorta",
       "localizations": {
-        "en": "Belorta"
+        "en": "Belorta",
+        "ko": "벨로타"
       },
       "parent_series": "Nikke"
     },
@@ -182,6 +143,7 @@
     },
     {
       "aliases": [
+        "Blanchet",
         "blanchet_(trickcal)"
       ],
       "canonical": "Blanchet",
@@ -192,6 +154,7 @@
     },
     {
       "aliases": [
+        "Blonde Student Council President",
         "blonde_student_council_president_(blue_archive)"
       ],
       "canonical": "Blonde Student Council President",
@@ -202,6 +165,7 @@
     },
     {
       "aliases": [
+        "Butter",
         "butter_(trickcal)"
       ],
       "canonical": "Butter",
@@ -242,6 +206,7 @@
     },
     {
       "aliases": [
+        "Chloe",
         "chloe_(trickcal)"
       ],
       "canonical": "Chloe",
@@ -252,6 +217,7 @@
     },
     {
       "aliases": [
+        "Daya",
         "daya_(trickcal)"
       ],
       "canonical": "Daya",
@@ -262,6 +228,7 @@
     },
     {
       "aliases": [
+        "Doodle Sensei",
         "doodle_sensei_(blue_archive)"
       ],
       "canonical": "Doodle Sensei",
@@ -272,6 +239,7 @@
     },
     {
       "aliases": [
+        "Ed",
         "ed_(trickcal)"
       ],
       "canonical": "Ed",
@@ -282,6 +250,7 @@
     },
     {
       "aliases": [
+        "Elena",
         "elena_(trickcal)"
       ],
       "canonical": "Elena",
@@ -292,6 +261,7 @@
     },
     {
       "aliases": [
+        "Eri",
         "eri_(blue_archive)"
       ],
       "canonical": "Eri",
@@ -302,6 +272,7 @@
     },
     {
       "aliases": [
+        "Erpin",
         "erpin_(trickcal)"
       ],
       "canonical": "Erpin",
@@ -312,6 +283,7 @@
     },
     {
       "aliases": [
+        "Espi",
         "espi_(trickcal)"
       ],
       "canonical": "Espi",
@@ -322,6 +294,7 @@
     },
     {
       "aliases": [
+        "Fricle",
         "fricle_(trickcal)"
       ],
       "canonical": "Fricle",
@@ -332,6 +305,17 @@
     },
     {
       "aliases": [
+        "general_student_council_president_(blue_archive)"
+      ],
+      "canonical": "General Student Council President",
+      "localizations": {
+        "en": "General Student Council President"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Goldy",
         "goldy_(trickcal)"
       ],
       "canonical": "Goldy",
@@ -342,6 +326,7 @@
     },
     {
       "aliases": [
+        "Gourmet Research Society",
         "gourmet_research_society_(blue_archive)"
       ],
       "canonical": "Gourmet Research Society",
@@ -352,6 +337,7 @@
     },
     {
       "aliases": [
+        "Haley",
         "haley_(trickcal)"
       ],
       "canonical": "Haley",
@@ -359,16 +345,6 @@
         "en": "Haley"
       },
       "parent_series": "Trickcal"
-    },
-    {
-      "aliases": [
-        "hanae_(blue_archive)"
-      ],
-      "canonical": "Hanae",
-      "localizations": {
-        "en": "Hanae"
-      },
-      "parent_series": "Blue Archive"
     },
     {
       "aliases": [
@@ -382,26 +358,17 @@
     },
     {
       "aliases": [
-        "haruka_(blue_archive)"
+        "hare_(camp)_(blue_archive)"
       ],
-      "canonical": "Haruka",
+      "canonical": "Hare (camp)",
       "localizations": {
-        "en": "Haruka"
+        "en": "Hare (camp)"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "haruna_(blue_archive)"
-      ],
-      "canonical": "Haruna",
-      "localizations": {
-        "en": "Haruna"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
+        "Heidi",
         "heidi_(trickcal)"
       ],
       "canonical": "Heidi",
@@ -412,20 +379,23 @@
     },
     {
       "aliases": [
+        "hibiki_(blue_archive)"
+      ],
+      "canonical": "Hibiki",
+      "localizations": {
+        "en": "Hibiki"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Hikari",
         "hikari_(blue_archive)"
       ],
       "canonical": "Hikari",
       "localizations": {
         "en": "Hikari"
       },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Himari"
-      ],
-      "canonical": "Himari",
-      "localizations": {},
       "parent_series": "Blue Archive"
     },
     {
@@ -440,41 +410,11 @@
     },
     {
       "aliases": [
-        "hina_(dress)_(blue_archive)"
-      ],
-      "canonical": "Hina (dress)",
-      "localizations": {
-        "en": "Hina (dress)"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "hina_(pajamas)_(blue_archive)"
-      ],
-      "canonical": "Hina (pajamas)",
-      "localizations": {
-        "en": "Hina (pajamas)"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
         "hina_(swimsuit)_(blue_archive)"
       ],
       "canonical": "Hina (swimsuit)",
       "localizations": {
         "en": "Hina (swimsuit)"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "hinata_(blue_archive)"
-      ],
-      "canonical": "Hinata",
-      "localizations": {
-        "en": "Hinata"
       },
       "parent_series": "Blue Archive"
     },
@@ -500,26 +440,17 @@
     },
     {
       "aliases": [
-        "izumi_(blue_archive)"
+        "ichika_(blue_archive)"
       ],
-      "canonical": "Izumi",
+      "canonical": "Ichika",
       "localizations": {
-        "en": "Izumi"
+        "en": "Ichika"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "izuna_(blue_archive)"
-      ],
-      "canonical": "Izuna",
-      "localizations": {
-        "en": "Izuna"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
+        "Joanne",
         "joanne_(trickcal)"
       ],
       "canonical": "Joanne",
@@ -530,16 +461,7 @@
     },
     {
       "aliases": [
-        "junko_(blue_archive)"
-      ],
-      "canonical": "Junko",
-      "localizations": {
-        "en": "Junko"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
+        "Justice Task Force Member",
         "justice_task_force_member_(blue_archive)"
       ],
       "canonical": "Justice Task Force Member",
@@ -550,6 +472,7 @@
     },
     {
       "aliases": [
+        "Kanoe",
         "kanoe_(blue_archive)"
       ],
       "canonical": "Kanoe",
@@ -570,6 +493,16 @@
     },
     {
       "aliases": [
+        "kaya_(prison)_(blue_archive)"
+      ],
+      "canonical": "Kaya (prison)",
+      "localizations": {
+        "en": "Kaya (prison)"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
         "kayoko_(blue_archive)"
       ],
       "canonical": "Kayoko",
@@ -580,16 +513,7 @@
     },
     {
       "aliases": [
-        "kazusa_(blue_archive)"
-      ],
-      "canonical": "Kazusa",
-      "localizations": {
-        "en": "Kazusa"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
+        "Kei",
         "kei_(blue_archive)"
       ],
       "canonical": "Kei",
@@ -600,6 +524,7 @@
     },
     {
       "aliases": [
+        "Kei (new Body)",
         "kei_(new_body)_(blue_archive)"
       ],
       "canonical": "Kei (new Body)",
@@ -610,6 +535,7 @@
     },
     {
       "aliases": [
+        "Kidian",
         "kidian_(trickcal)"
       ],
       "canonical": "Kidian",
@@ -630,11 +556,11 @@
     },
     {
       "aliases": [
-        "kirino_(blue_archive)"
+        "koharu_(blue_archive)"
       ],
-      "canonical": "Kirino",
+      "canonical": "Koharu",
       "localizations": {
-        "en": "Kirino"
+        "en": "Koharu"
       },
       "parent_series": "Blue Archive"
     },
@@ -650,6 +576,7 @@
     },
     {
       "aliases": [
+        "Kommy",
         "kommy_(trickcal)"
       ],
       "canonical": "Kommy",
@@ -657,6 +584,16 @@
         "en": "Kommy"
       },
       "parent_series": "Trickcal"
+    },
+    {
+      "aliases": [
+        "konoka_(blue_archive)"
+      ],
+      "canonical": "Konoka",
+      "localizations": {
+        "en": "Konoka"
+      },
+      "parent_series": "Blue Archive"
     },
     {
       "aliases": [
@@ -670,6 +607,7 @@
     },
     {
       "aliases": [
+        "Kurumi",
         "kurumi_(blue_archive)"
       ],
       "canonical": "Kurumi",
@@ -680,6 +618,7 @@
     },
     {
       "aliases": [
+        "Kyuri",
         "kyuri_(trickcal)"
       ],
       "canonical": "Kyuri",
@@ -690,6 +629,7 @@
     },
     {
       "aliases": [
+        "Leader",
         "leader_(trickcal)"
       ],
       "canonical": "Leader",
@@ -700,6 +640,7 @@
     },
     {
       "aliases": [
+        "Leets",
         "leets_(trickcal)"
       ],
       "canonical": "Leets",
@@ -710,6 +651,7 @@
     },
     {
       "aliases": [
+        "Levi",
         "levi_(trickcal)"
       ],
       "canonical": "Levi",
@@ -720,16 +662,19 @@
     },
     {
       "aliases": [
+        "Liliweiss",
         "liliweiss_(nikke)"
       ],
       "canonical": "Liliweiss",
       "localizations": {
-        "en": "Liliweiss"
+        "en": "Liliweiss",
+        "ko": "릴리바이스"
       },
       "parent_series": "Nikke"
     },
     {
       "aliases": [
+        "Mago",
         "mago_(trickcal)"
       ],
       "canonical": "Mago",
@@ -745,16 +690,6 @@
       "canonical": "Maki",
       "localizations": {
         "en": "Maki"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "makoto_(blue_archive)"
-      ],
-      "canonical": "Makoto",
-      "localizations": {
-        "en": "Makoto"
       },
       "parent_series": "Blue Archive"
     },
@@ -780,6 +715,7 @@
     },
     {
       "aliases": [
+        "Mayo",
         "mayo_(trickcal)"
       ],
       "canonical": "Mayo",
@@ -790,6 +726,7 @@
     },
     {
       "aliases": [
+        "Mica",
         "mica_(nikke)"
       ],
       "canonical": "Mica",
@@ -820,26 +757,7 @@
     },
     {
       "aliases": [
-        "mika_(blue_archive)"
-      ],
-      "canonical": "Mika",
-      "localizations": {
-        "en": "Mika"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "mine_(blue_archive)"
-      ],
-      "canonical": "Mine",
-      "localizations": {
-        "en": "Mine"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
+        "Misaki",
         "misaki_(blue_archive)"
       ],
       "canonical": "Misaki",
@@ -850,31 +768,11 @@
     },
     {
       "aliases": [
-        "miyako_(blue_archive)"
-      ],
-      "canonical": "Miyako",
-      "localizations": {
-        "en": "Miyako"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
         "miyu_(blue_archive)"
       ],
       "canonical": "Miyu",
       "localizations": {
         "en": "Miyu"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "moe_(blue_archive)"
-      ],
-      "canonical": "Moe",
-      "localizations": {
-        "en": "Moe"
       },
       "parent_series": "Blue Archive"
     },
@@ -910,16 +808,7 @@
     },
     {
       "aliases": [
-        "nagusa_(blue_archive)"
-      ],
-      "canonical": "Nagusa",
-      "localizations": {
-        "en": "Nagusa"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
+        "Natsuki",
         "natsuki_(blue_archive)"
       ],
       "canonical": "Natsuki",
@@ -930,6 +819,7 @@
     },
     {
       "aliases": [
+        "Ner",
         "ner_(trickcal)"
       ],
       "canonical": "Ner",
@@ -940,6 +830,7 @@
     },
     {
       "aliases": [
+        "Niko",
         "niko_(blue_archive)"
       ],
       "canonical": "Niko",
@@ -960,6 +851,7 @@
     },
     {
       "aliases": [
+        "Nozomi",
         "nozomi_(blue_archive)"
       ],
       "canonical": "Nozomi",
@@ -970,6 +862,7 @@
     },
     {
       "aliases": [
+        "Occult Studies Club",
         "occult_studies_club_(blue_archive)"
       ],
       "canonical": "Occult Studies Club",
@@ -980,6 +873,7 @@
     },
     {
       "aliases": [
+        "Opal",
         "opal_(trickcal)"
       ],
       "canonical": "Opal",
@@ -990,6 +884,7 @@
     },
     {
       "aliases": [
+        "Otogi",
         "otogi_(blue_archive)"
       ],
       "canonical": "Otogi",
@@ -1000,6 +895,7 @@
     },
     {
       "aliases": [
+        "Picora",
         "picora_(trickcal)"
       ],
       "canonical": "Picora",
@@ -1010,6 +906,7 @@
     },
     {
       "aliases": [
+        "Pira",
         "pira_(trickcal)"
       ],
       "canonical": "Pira",
@@ -1030,6 +927,7 @@
     },
     {
       "aliases": [
+        "Polan",
         "polan_(trickcal)"
       ],
       "canonical": "Polan",
@@ -1040,6 +938,7 @@
     },
     {
       "aliases": [
+        "Problem Solver 68",
         "problem_solver_68_(blue_archive)"
       ],
       "canonical": "Problem Solver 68",
@@ -1050,6 +949,7 @@
     },
     {
       "aliases": [
+        "Professor Niyaniya",
         "professor_niyaniya_(blue_archive)"
       ],
       "canonical": "Professor Niyaniya",
@@ -1060,6 +960,7 @@
     },
     {
       "aliases": [
+        "Rabbit Platoon",
         "rabbit_platoon_(blue_archive)"
       ],
       "canonical": "Rabbit Platoon",
@@ -1070,6 +971,7 @@
     },
     {
       "aliases": [
+        "Rabu",
         "rabu_(blue_archive)"
       ],
       "canonical": "Rabu",
@@ -1080,6 +982,7 @@
     },
     {
       "aliases": [
+        "Ran",
         "ran_(trickcal)"
       ],
       "canonical": "Ran",
@@ -1100,16 +1003,17 @@
     },
     {
       "aliases": [
-        "renge_(blue_archive)"
+        "rena_(blue_archive)"
       ],
-      "canonical": "Renge",
+      "canonical": "Rena",
       "localizations": {
-        "en": "Renge"
+        "en": "Rena"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
+        "Rim",
         "rim_(trickcal)"
       ],
       "canonical": "Rim",
@@ -1120,6 +1024,7 @@
     },
     {
       "aliases": [
+        "Rohne",
         "rohne_(trickcal)"
       ],
       "canonical": "Rohne",
@@ -1130,6 +1035,7 @@
     },
     {
       "aliases": [
+        "Rohne (mayor)",
         "rohne_(mayor)_(trickcal)"
       ],
       "canonical": "Rohne (mayor)",
@@ -1160,6 +1066,7 @@
     },
     {
       "aliases": [
+        "Satsuki",
         "satsuki_(blue_archive)"
       ],
       "canonical": "Satsuki",
@@ -1190,6 +1097,36 @@
     },
     {
       "aliases": [
+        "serika_(blue_archive)"
+      ],
+      "canonical": "Serika",
+      "localizations": {
+        "en": "Serika"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "serina_(blue_archive)"
+      ],
+      "canonical": "Serina",
+      "localizations": {
+        "en": "Serina"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "serina_(nurse)_(blue_archive)"
+      ],
+      "canonical": "Serina (nurse)",
+      "localizations": {
+        "en": "Serina (nurse)"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
         "shiroko_(blue_archive)"
       ],
       "canonical": "Shiroko",
@@ -1200,6 +1137,17 @@
     },
     {
       "aliases": [
+        "shiroko_terror_(blue_archive)"
+      ],
+      "canonical": "Shiroko Terror",
+      "localizations": {
+        "en": "Shiroko Terror"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Smol Mari (blue Archive)",
         "smol_mari_(blue_archive)_(horuhara)"
       ],
       "canonical": "Smol Mari (blue Archive)",
@@ -1210,6 +1158,7 @@
     },
     {
       "aliases": [
+        "Speaki",
         "speaki_(trickcal)"
       ],
       "canonical": "Speaki",
@@ -1220,11 +1169,31 @@
     },
     {
       "aliases": [
-        "suzumi_(blue_archive)"
+        "toki_(blue_archive)"
       ],
-      "canonical": "Suzumi",
+      "canonical": "Toki",
       "localizations": {
-        "en": "Suzumi"
+        "en": "Toki"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "toki_(school_uniform)_(blue_archive)"
+      ],
+      "canonical": "Toki (school Uniform)",
+      "localizations": {
+        "en": "Toki (school Uniform)"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "tsubasa_(blue_archive)"
+      ],
+      "canonical": "Tsubasa",
+      "localizations": {
+        "en": "Tsubasa"
       },
       "parent_series": "Blue Archive"
     },
@@ -1240,6 +1209,7 @@
     },
     {
       "aliases": [
+        "Ui",
         "ui_(trickcal)"
       ],
       "canonical": "Ui",
@@ -1250,6 +1220,7 @@
     },
     {
       "aliases": [
+        "Veritas",
         "veritas_(blue_archive)"
       ],
       "canonical": "Veritas",
@@ -1260,6 +1231,7 @@
     },
     {
       "aliases": [
+        "Vivi",
         "vivi_(trickcal)"
       ],
       "canonical": "Vivi",
@@ -1270,6 +1242,7 @@
     },
     {
       "aliases": [
+        "Xion",
         "xion_(trickcal)"
       ],
       "canonical": "Xion",
@@ -1280,6 +1253,7 @@
     },
     {
       "aliases": [
+        "Yomi",
         "yomi_(trickcal)"
       ],
       "canonical": "Yomi",
@@ -1290,6 +1264,7 @@
     },
     {
       "aliases": [
+        "Youngchun",
         "youngchun_(trickcal)"
       ],
       "canonical": "Youngchun",
@@ -1300,16 +1275,7 @@
     },
     {
       "aliases": [
-        "yukari_(blue_archive)"
-      ],
-      "canonical": "Yukari",
-      "localizations": {
-        "en": "Yukari"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
+        "Yukino",
         "yukino_(blue_archive)"
       ],
       "canonical": "Yukino",
@@ -1330,6 +1296,18 @@
     },
     {
       "aliases": [
+        "Arona"
+      ],
+      "canonical": "アロナ",
+      "localizations": {
+        "en": "Arona",
+        "ja": "アロナ",
+        "ko": "아로나"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
         "タイツ"
       ],
       "canonical": "タイツ",
@@ -1338,10 +1316,14 @@
     },
     {
       "aliases": [
-        "フウカ(正月)"
+        "Plana"
       ],
-      "canonical": "フウカ(正月)",
-      "localizations": {},
+      "canonical": "プラナ",
+      "localizations": {
+        "en": "Plana",
+        "ja": "プラナ",
+        "ko": "프라나"
+      },
       "parent_series": "Blue Archive"
     },
     {
@@ -1354,11 +1336,102 @@
     },
     {
       "aliases": [
+        "Asuna",
+        "asuna_(blue_archive)"
+      ],
+      "canonical": "一之瀬アスナ",
+      "localizations": {
+        "en": "Asuna",
+        "ja": "一之瀬アスナ",
+        "ko": "이치노세 아스나"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kaya"
+      ],
+      "canonical": "不知火カヤ",
+      "localizations": {
+        "en": "Kaya",
+        "ja": "不知火カヤ",
+        "ko": "시라누이 카야"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Renge",
+        "renge_(blue_archive)"
+      ],
+      "canonical": "不破レンゲ",
+      "localizations": {
+        "en": "Renge",
+        "ja": "不破レンゲ",
+        "ko": "후와 렌게"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kirino",
+        "kirino_(blue_archive)"
+      ],
+      "canonical": "中務キリノ",
+      "localizations": {
+        "en": "Kirino",
+        "ja": "中務キリノ",
+        "ko": "나카츠카사 키리노"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Ibuki"
+      ],
+      "canonical": "丹花イブキ",
+      "localizations": {
+        "en": "Ibuki",
+        "ja": "丹花イブキ",
+        "ko": "탄가 이부키"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Izuna",
+        "izuna_(blue_archive)"
+      ],
+      "canonical": "久田イズナ",
+      "localizations": {
+        "en": "Izuna",
+        "ja": "久田イズナ",
+        "ko": "쿠다 이즈나"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Haruka",
+        "haruka_(blue_archive)"
+      ],
+      "canonical": "伊草ハルカ",
+      "localizations": {
+        "en": "Haruka",
+        "ja": "伊草ハルカ",
+        "ko": "이구사 하루카"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
         "Iochi Mari",
         "Mari",
+        "Mari (idol)",
         "イオチマリ",
         "マリー",
         "伊落マリー",
+        "伊落マリー(体操服)",
         "이오치 마리"
       ],
       "canonical": "伊落マリー",
@@ -1371,18 +1444,53 @@
     },
     {
       "aliases": [
-        "伊落マリー(体操服)"
+        "Sensei"
       ],
-      "canonical": "伊落マリー(体操服)",
-      "localizations": {},
+      "canonical": "先生",
+      "localizations": {
+        "en": "Sensei",
+        "ja": "先生",
+        "ko": "선생"
+      },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
+        "Yukari",
+        "yukari_(blue_archive)"
+      ],
+      "canonical": "勘解由小路ユカリ",
+      "localizations": {
+        "en": "Yukari",
+        "ja": "勘解由小路ユカリ",
+        "ko": "카데노코지 유카리"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Ui"
+      ],
+      "canonical": "古関ウイ",
+      "localizations": {
+        "en": "Ui",
+        "ja": "古関ウイ",
+        "ko": "코제키 우이"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Chihiro",
+        "Chihiro (pajamas)",
         "各務チヒロ"
       ],
       "canonical": "各務チヒロ",
-      "localizations": {},
+      "localizations": {
+        "en": "Chihiro",
+        "ja": "各務チヒロ",
+        "ko": "카가미 치히로"
+      },
       "parent_series": "Blue Archive"
     },
     {
@@ -1398,6 +1506,68 @@
         "en": "Tendou Alice",
         "ja": "天童アリス",
         "ko": "텐도 아리스"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Ayane",
+        "ayane_(blue_archive)"
+      ],
+      "canonical": "奥空アヤネ",
+      "localizations": {
+        "en": "Ayane",
+        "ja": "奥空アヤネ",
+        "ko": "오쿠소라 아야네"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Reisa"
+      ],
+      "canonical": "宇沢レイサ",
+      "localizations": {
+        "en": "Reisa",
+        "ja": "宇沢レイサ",
+        "ko": "우자와 레이사"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Suzumi",
+        "suzumi_(blue_archive)"
+      ],
+      "canonical": "守月スズミ",
+      "localizations": {
+        "en": "Suzumi",
+        "ja": "守月スズミ",
+        "ko": "모리츠키 스즈미"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Maki"
+      ],
+      "canonical": "小塗マキ",
+      "localizations": {
+        "en": "Maki",
+        "ja": "小塗マキ",
+        "ko": "코누리 마키"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Hare"
+      ],
+      "canonical": "小鈎ハレ",
+      "localizations": {
+        "en": "Hare",
+        "ja": "小鈎ハレ",
+        "ko": "오마가리 하레"
       },
       "parent_series": "Blue Archive"
     },
@@ -1419,18 +1589,140 @@
     },
     {
       "aliases": [
-        "愛清フウカ(正月)"
+        "Nagusa",
+        "nagusa_(blue_archive)"
       ],
-      "canonical": "愛清フウカ(正月)",
-      "localizations": {},
+      "canonical": "御稜ナグサ",
+      "localizations": {
+        "en": "Nagusa",
+        "ja": "御稜ナグサ",
+        "ko": "미사사기 나구사"
+      },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
+        "フウカ(正月)",
+        "愛清フウカ(正月)"
+      ],
+      "canonical": "愛清フウカ",
+      "localizations": {
+        "ja": "愛清フウカ",
+        "ko": "아이키요 후우카"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Midori",
+        "Midori (maid)"
+      ],
+      "canonical": "才羽ミドリ",
+      "localizations": {
+        "en": "Midori",
+        "ja": "才羽ミドリ",
+        "ko": "사이바 미도리"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Momoi",
+        "Momoi (maid)"
+      ],
+      "canonical": "才羽モモイ",
+      "localizations": {
+        "en": "Momoi",
+        "ja": "才羽モモイ",
+        "ko": "사이바 모모이"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Yuuka"
+      ],
+      "canonical": "早瀬ユウカ",
+      "localizations": {
+        "en": "Yuuka",
+        "ja": "早瀬ユウカ",
+        "ko": "하야세 유우카"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Himari",
         "明星ヒマリ"
       ],
       "canonical": "明星ヒマリ",
-      "localizations": {},
+      "localizations": {
+        "ja": "明星ヒマリ",
+        "ko": "아케보시 히마리"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kokona"
+      ],
+      "canonical": "春原ココナ",
+      "localizations": {
+        "en": "Kokona",
+        "ja": "春原ココナ",
+        "ko": "스노하라 코코나"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Miyako",
+        "miyako_(blue_archive)"
+      ],
+      "canonical": "月雪ミヤコ",
+      "localizations": {
+        "en": "Miyako",
+        "ja": "月雪ミヤコ",
+        "ko": "츠키유키 미야코"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Hanae",
+        "hanae_(blue_archive)"
+      ],
+      "canonical": "朝顔ハナエ",
+      "localizations": {
+        "en": "Hanae",
+        "ja": "朝顔ハナエ",
+        "ko": "아사가오 하나에"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kazusa",
+        "kazusa_(blue_archive)"
+      ],
+      "canonical": "杏山カズサ",
+      "localizations": {
+        "en": "Kazusa",
+        "ja": "杏山カズサ",
+        "ko": "쿄야마 카즈사"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kikyou"
+      ],
+      "canonical": "桐生キキョウ",
+      "localizations": {
+        "en": "Kikyou",
+        "ja": "桐生キキョウ",
+        "ko": "키류 키쿄"
+      },
       "parent_series": "Blue Archive"
     },
     {
@@ -1446,6 +1738,55 @@
         "en": "Mizuha Mimori",
         "ja": "水羽ミモリ",
         "ko": "미즈하 미모리"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Sena"
+      ],
+      "canonical": "氷室セナ",
+      "localizations": {
+        "en": "Sena",
+        "ja": "氷室セナ",
+        "ko": "히무로 세나"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Mutsuki"
+      ],
+      "canonical": "浅黄ムツキ",
+      "localizations": {
+        "en": "Mutsuki",
+        "ja": "浅黄ムツキ",
+        "ko": "아사기 무츠키"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Akira",
+        "akira_(blue_archive)"
+      ],
+      "canonical": "清澄アキラ",
+      "localizations": {
+        "en": "Akira",
+        "ja": "清澄アキラ",
+        "ko": "키요스미 아키라"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Chinatsu"
+      ],
+      "canonical": "火宮チナツ",
+      "localizations": {
+        "en": "Chinatsu",
+        "ja": "火宮チナツ",
+        "ko": "히노미야 치나츠"
       },
       "parent_series": "Blue Archive"
     },
@@ -1468,6 +1809,31 @@
         "en": "Kosaka Wakamo",
         "ja": "狐坂ワカモ",
         "ko": "코사카 와카모"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Izumi",
+        "izumi_(blue_archive)"
+      ],
+      "canonical": "獅子堂イズミ",
+      "localizations": {
+        "en": "Izumi",
+        "ja": "獅子堂イズミ",
+        "ko": "시시도우 이즈미"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Noa"
+      ],
+      "canonical": "生塩ノア",
+      "localizations": {
+        "en": "Noa",
+        "ja": "生塩ノア",
+        "ko": "우시오 노아"
       },
       "parent_series": "Blue Archive"
     },
@@ -1497,8 +1863,127 @@
     },
     {
       "aliases": [
+        "Shiroko"
+      ],
+      "canonical": "砂狼シロコ",
+      "localizations": {
+        "en": "Shiroko",
+        "ja": "砂狼シロコ",
+        "ko": "스나오카미 시로코"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Saki"
+      ],
+      "canonical": "空井サキ",
+      "localizations": {
+        "en": "Saki",
+        "ja": "空井サキ",
+        "ko": "소라이 사키"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Hina",
+        "Hina (dress)",
+        "Hina (pajamas)",
+        "Hina (swimsuit)",
+        "hina_(dress)_(blue_archive)",
+        "hina_(pajamas)_(blue_archive)"
+      ],
+      "canonical": "空崎ヒナ",
+      "localizations": {
+        "en": "Hina",
+        "ja": "空崎ヒナ",
+        "ko": "소라사키 히나"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Makoto",
+        "makoto_(blue_archive)"
+      ],
+      "canonical": "羽沼マコト",
+      "localizations": {
+        "en": "Makoto",
+        "ja": "羽沼マコト",
+        "ko": "하누마 마코토"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Mika",
+        "mika_(blue_archive)"
+      ],
+      "canonical": "聖園ミカ",
+      "localizations": {
+        "en": "Mika",
+        "ja": "聖園ミカ",
+        "ko": "미소노 미카"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Hinata",
+        "hinata_(blue_archive)"
+      ],
+      "canonical": "若葉ヒナタ",
+      "localizations": {
+        "en": "Hinata",
+        "ja": "若葉ヒナタ",
+        "ko": "와카바 히나타"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Mine",
+        "mine_(blue_archive)"
+      ],
+      "canonical": "蒼森ミネ",
+      "localizations": {
+        "en": "Mine",
+        "ja": "蒼森ミネ",
+        "ko": "아오모리 미네"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Junko",
+        "junko_(blue_archive)"
+      ],
+      "canonical": "赤司ジュンコ",
+      "localizations": {
+        "en": "Junko",
+        "ja": "赤司ジュンコ",
+        "ko": "아카시 준코"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Saori"
+      ],
+      "canonical": "錠前サオリ",
+      "localizations": {
+        "en": "Saori",
+        "ja": "錠前サオリ",
+        "ko": "조마에 사오리"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
         "Aru",
         "Rikuhachima Aru",
+        "aru_(blue_archive)",
         "アル",
         "リクハチマ アル",
         "リクハチマ・アル",
@@ -1513,9 +1998,96 @@
         "ko": "리쿠하치마 아루"
       },
       "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Miyu"
+      ],
+      "canonical": "霞沢ミユ",
+      "localizations": {
+        "en": "Miyu",
+        "ja": "霞沢ミユ",
+        "ko": "카스미자와 미유"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kotama"
+      ],
+      "canonical": "音瀬コタマ",
+      "localizations": {
+        "en": "Kotama",
+        "ja": "音瀬コタマ",
+        "ko": "오토세 코타마"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Moe",
+        "moe_(blue_archive)"
+      ],
+      "canonical": "風倉モエ",
+      "localizations": {
+        "en": "Moe",
+        "ja": "風倉モエ",
+        "ko": "카자쿠라 모에"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kayoko"
+      ],
+      "canonical": "鬼方カヨコ",
+      "localizations": {
+        "en": "Kayoko",
+        "ja": "鬼方カヨコ",
+        "ko": "오니카타 카요코"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Akari",
+        "akari_(blue_archive)"
+      ],
+      "canonical": "鰐渕アカリ",
+      "localizations": {
+        "en": "Akari",
+        "ja": "鰐渕アカリ",
+        "ko": "와니부치 아카리"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Black Suit"
+      ],
+      "canonical": "黒服",
+      "localizations": {
+        "en": "Black Suit",
+        "ja": "黒服",
+        "ko": "검은 양복"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Haruna",
+        "haruna_(blue_archive)"
+      ],
+      "canonical": "黒舘ハルナ",
+      "localizations": {
+        "en": "Haruna",
+        "ja": "黒舘ハルナ",
+        "ko": "쿠로다테 하루나"
+      },
+      "parent_series": "Blue Archive"
     }
   ],
-  "exported_at": "2026-04-26T19:03:14.967241+00:00",
+  "exported_at": "2026-04-27T09:02:56.037397+00:00",
   "name": "Tag Pack Export",
   "pack_id": "tag_pack_export",
   "series": [

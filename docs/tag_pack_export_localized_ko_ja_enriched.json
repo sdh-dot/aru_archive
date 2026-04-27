@@ -1,4 +1,27 @@
 {
+  "pack_id": "tag_pack_export",
+  "name": "Tag Pack Export",
+  "version": "1.0.0",
+  "source": "enriched",
+  "series": [
+    {
+      "aliases": [
+        "Blue Archive",
+        "BlueArchive",
+        "ブルアカ",
+        "ブルーアーカイブ",
+        "블루 아카이브",
+        "블아",
+        "ＢｌｕｅＡｒｃｈｉｖｅ"
+      ],
+      "canonical": "Blue Archive",
+      "localizations": {
+        "en": "Blue Archive",
+        "ja": "ブルーアーカイブ",
+        "ko": "블루 아카이브"
+      }
+    }
+  ],
   "characters": [
     {
       "aliases": [
@@ -556,16 +579,22 @@
     {
       "aliases": [
         "hibiki_(blue_archive)",
-        "Hibiki"
+        "Hibiki",
+        "Kusakabe Hibiki",
+        "ヒビキ",
+        "日下部ヒビキ",
+        "쿠사카베 히비키"
       ],
-      "canonical": "Hibiki",
+      "canonical": "日下部ヒビキ",
       "localizations": {
-        "en": "Hibiki"
+        "en": "Kusakabe Hibiki",
+        "ja": "日下部ヒビキ",
+        "ko": "쿠사카베 히비키"
       },
       "parent_series": "Blue Archive",
       "_review": {
         "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
+        "reason": "canonical changed with medium confidence — Abydos High School student council treasurer; medium confidence",
         "needs_canonical_check": true
       }
     },
@@ -1616,16 +1645,22 @@
     {
       "aliases": [
         "serika_(blue_archive)",
-        "Serika"
+        "Serika",
+        "Akagi Serika",
+        "セリカ",
+        "赤城セリカ",
+        "아카기 세리카"
       ],
-      "canonical": "Serika",
+      "canonical": "赤城セリカ",
       "localizations": {
-        "en": "Serika"
+        "en": "Akagi Serika",
+        "ja": "赤城セリカ",
+        "ko": "아카기 세리카"
       },
       "parent_series": "Blue Archive",
       "_review": {
         "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
+        "reason": "canonical changed with medium confidence — Abydos High School; medium confidence",
         "needs_canonical_check": true
       }
     },
@@ -1727,49 +1762,55 @@
     {
       "aliases": [
         "toki_(blue_archive)",
-        "Toki"
-      ],
-      "canonical": "Toki",
-      "localizations": {
-        "en": "Toki"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
+        "Toki",
+        "Asuma Toki",
+        "トキ",
+        "飛鳥馬トキ",
+        "토키",
+        "아스마 토키",
         "toki_(school_uniform)_(blue_archive)",
         "Toki (school Uniform)"
       ],
-      "canonical": "Toki (school Uniform)",
+      "canonical": "飛鳥馬トキ",
       "localizations": {
-        "en": "Toki (school Uniform)"
+        "en": "Asuma Toki",
+        "ja": "飛鳥馬トキ",
+        "ko": "아스마 토키"
       },
       "parent_series": "Blue Archive",
       "_review": {
-        "needs_localization_check": true,
         "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
+        "merged_variants": [
+          {
+            "source_canonical": "Toki (school Uniform)",
+            "variant": "school_uniform",
+            "reason": "costume/variant tag merged into base character",
+            "absorbed_aliases": [
+              "toki_(school_uniform)_(blue_archive)",
+              "Toki (school Uniform)"
+            ]
+          }
+        ]
       }
     },
     {
       "aliases": [
         "tsubasa_(blue_archive)",
-        "Tsubasa"
+        "Tsubasa",
+        "Takanashi Tsubasa",
+        "ツバサ",
+        "小鳥遊ツバサ",
+        "타카나시 츠바사"
       ],
-      "canonical": "Tsubasa",
+      "canonical": "小鳥遊ツバサ",
       "localizations": {
-        "en": "Tsubasa"
+        "en": "Takanashi Tsubasa",
+        "ja": "小鳥遊ツバサ",
+        "ko": "타카나시 츠바사"
       },
       "parent_series": "Blue Archive",
       "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
+        "reason": "ko/ja official name not verified"
       }
     },
     {
@@ -2390,27 +2431,5 @@
     }
   ],
   "exported_at": "2026-04-27T09:02:56.037397+00:00",
-  "name": "Tag Pack Export",
-  "pack_id": "tag_pack_export",
-  "series": [
-    {
-      "aliases": [
-        "Blue Archive",
-        "BlueArchive",
-        "ブルアカ",
-        "ブルーアーカイブ",
-        "블루 아카이브",
-        "블아",
-        "ＢｌｕｅＡｒｃｈｉｖｅ"
-      ],
-      "canonical": "Blue Archive",
-      "localizations": {
-        "en": "Blue Archive",
-        "ja": "ブルーアーカイブ",
-        "ko": "블루 아카이브"
-      }
-    }
-  ],
-  "source": "user_export",
-  "version": "1.0.0"
+  "enriched_at": "2026-04-27T09:42:35.259258+00:00"
 }
