@@ -1,7 +1,7 @@
 # Aru Archive
 
 <p align="center">
-  <img src="docs/icon.png" alt="Aru Archive banner" width="160">
+  <img src="docs/icon.png" alt="Aru Archive 배너" width="160">
 </p>
 
 <p align="center">
@@ -15,16 +15,16 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/UI-PyQt6-41CD52?logo=qt&logoColor=white" alt="PyQt6">
-  <img src="https://img.shields.io/badge/Focus-Pixiv%20Archive-CC4C7A" alt="Pixiv Archive">
-  <img src="https://img.shields.io/badge/Workflow-Inbox%20%E2%86%92%20Classified-7A3FF2" alt="Workflow">
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 버전">
+  <img src="https://img.shields.io/badge/UI-PyQt6-41CD52?logo=qt&logoColor=white" alt="PyQt6 UI">
+  <img src="https://img.shields.io/badge/Focus-Pixiv%20Archive-CC4C7A" alt="Pixiv 아카이브 중심">
+  <img src="https://img.shields.io/badge/Workflow-Inbox%20%E2%86%92%20Classified-7A3FF2" alt="분류 작업 흐름">
 </p>
 
-## Preview
+## 화면 미리보기
 
 <p align="center">
-  <img src="docs/icon_1.png" alt="Aru Archive preview" width="900">
+  <img src="docs/icon_1.png" alt="Aru Archive 화면 미리보기" width="900">
 </p>
 
 ## 소개
@@ -123,7 +123,7 @@ python main.py --config path/to/config.json
 - 분류 기준과 태그 사전 관리 기능 정리
 - 설치형 배포와 사용자용 문서 흐름 정리
 
-## Known Limitations
+## 현재 알려진 제한 사항
 
 - 분류 정확도는 현재 메타데이터 품질과 태그 사전 상태에 직접 영향을 받습니다.
 - 일부 캐릭터/시리즈는 alias가 충분하지 않으면 `fallback` 분류가 발생할 수 있습니다.
