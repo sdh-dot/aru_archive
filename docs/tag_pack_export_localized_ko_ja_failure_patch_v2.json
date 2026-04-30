@@ -20,265 +20,57 @@
         "ja": "ブルーアーカイブ",
         "ko": "블루 아카이브"
       }
+    },
+    {
+      "aliases": [
+        "Nikke",
+        "NIKKE",
+        "??",
+        "??? ??: ??",
+        "?????:NIKKE",
+        "??????NIKKE"
+      ],
+      "canonical": "Nikke",
+      "localizations": {
+        "en": "GODDESS OF VICTORY: NIKKE",
+        "ko": "??? ??: ??",
+        "ja": "??????NIKKE"
+      }
+    },
+    {
+      "aliases": [
+        "Trickcal",
+        "???",
+        "??? ????",
+        "?????",
+        "????????????????"
+      ],
+      "canonical": "Trickcal",
+      "localizations": {
+        "en": "Trickcal",
+        "ko": "??? ????",
+        "ja": "?????"
+      }
     }
   ],
   "characters": [
     {
       "aliases": [
-        "Akira (miria)",
-        "akira_(miria)_(blue_archive)"
+        "Sakurako",
+        "サクラコ",
+        "Utasumi Sakurako",
+        "utasumi_sakurako_(blue_archive)",
+        "歌住サクラコ",
+        "사쿠라코",
+        "우타스미 사쿠라코"
       ],
-      "canonical": "Akira (miria)",
+      "canonical": "歌住サクラコ",
       "localizations": {
-        "en": "Akira (miria)"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Alice",
-        "alice_(trickcal)"
-      ],
-      "canonical": "Alice",
-      "localizations": {
-        "en": "Alice"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Aragnia",
-        "aragnia_(trickcal)"
-      ],
-      "canonical": "Aragnia",
-      "localizations": {
-        "en": "Aragnia"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Arco",
-        "arco_(trickcal)"
-      ],
-      "canonical": "Arco",
-      "localizations": {
-        "en": "Arco"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "arona_(blue_archive)",
-        "Arona",
-        "アロナ",
-        "아로나"
-      ],
-      "canonical": "アロナ",
-      "localizations": {
-        "en": "Arona",
-        "ko": "아로나",
-        "ja": "アロナ"
+        "en": "Utasumi Sakurako",
+        "ja": "歌住サクラコ",
+        "ko": "우타스미 사쿠라코"
       },
       "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Ashur",
-        "ashur_(trickcal)"
-      ],
-      "canonical": "Ashur",
-      "localizations": {
-        "en": "Ashur"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Asia",
-        "asia_(trickcal)"
-      ],
-      "canonical": "Asia",
-      "localizations": {
-        "en": "Asia"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Aya",
-        "aya_(trickcal)"
-      ],
-      "canonical": "Aya",
-      "localizations": {
-        "en": "Aya"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "azusa_(blue_archive)",
-        "Azusa",
-        "白洲アズサ",
-        "Shirosuzu Azusa",
-        "アズサ",
-        "시라스 아즈사"
-      ],
-      "canonical": "白洲アズサ",
-      "localizations": {
-        "en": "Shirosuzu Azusa",
-        "ko": "시라스 아즈사",
-        "ja": "白洲アズサ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Barong",
-        "barong_(trickcal)"
-      ],
-      "canonical": "Barong",
-      "localizations": {
-        "en": "Barong"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Belita",
-        "belita_(trickcal)"
-      ],
-      "canonical": "Belita",
-      "localizations": {
-        "en": "Belita"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Belorta",
-        "belorta_(nikke)",
-        "벨로타"
-      ],
-      "canonical": "Belorta",
-      "localizations": {
-        "en": "Belorta",
-        "ko": "벨로타"
-      },
-      "parent_series": "Nikke",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko localization is transliteration candidate",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "black_suit_(blue_archive)",
-        "Black Suit",
-        "黒服",
-        "검은 양복"
-      ],
-      "canonical": "黒服",
-      "localizations": {
-        "en": "Black Suit",
-        "ko": "검은 양복",
-        "ja": "黒服"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Blanchet",
-        "blanchet_(trickcal)"
-      ],
-      "canonical": "Blanchet",
-      "localizations": {
-        "en": "Blanchet"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Blonde Student Council President",
-        "blonde_student_council_president_(blue_archive)"
-      ],
-      "canonical": "Blonde Student Council President",
-      "localizations": {
-        "en": "Blonde Student Council President"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Butter",
-        "butter_(trickcal)"
-      ],
-      "canonical": "Butter",
-      "localizations": {
-        "en": "Butter"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
     },
     {
       "aliases": [
@@ -308,311 +100,37 @@
     },
     {
       "aliases": [
-        "chinatsu_(blue_archive)",
-        "Chinatsu",
-        "火宮チナツ",
-        "히노미야 치나츠"
+        "Yukari",
+        "yukari_(blue_archive)",
+        "勘解由小路ユカリ",
+        "카데노코지 유카리"
       ],
-      "canonical": "火宮チナツ",
+      "canonical": "勘解由小路ユカリ",
       "localizations": {
-        "en": "Chinatsu",
-        "ko": "히노미야 치나츠",
-        "ja": "火宮チナツ"
+        "en": "Yukari",
+        "ja": "勘解由小路ユカリ",
+        "ko": "카데노코지 유카리"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Chloe",
-        "chloe_(trickcal)"
+        "Satsuki",
+        "サツキ",
+        "Kyogoku Satsuki",
+        "kyogoku_satsuki_(blue_archive)",
+        "京極サツキ",
+        "사츠키",
+        "쿄고쿠 사츠키",
+        "サツキ(ブルーアーカイブ)"
       ],
-      "canonical": "Chloe",
+      "canonical": "京極サツキ",
       "localizations": {
-        "en": "Chloe"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Daya",
-        "daya_(trickcal)"
-      ],
-      "canonical": "Daya",
-      "localizations": {
-        "en": "Daya"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Doodle Sensei",
-        "doodle_sensei_(blue_archive)"
-      ],
-      "canonical": "Doodle Sensei",
-      "localizations": {
-        "en": "Doodle Sensei"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Ed",
-        "ed_(trickcal)"
-      ],
-      "canonical": "Ed",
-      "localizations": {
-        "en": "Ed"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Elena",
-        "elena_(trickcal)"
-      ],
-      "canonical": "Elena",
-      "localizations": {
-        "en": "Elena"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Eri",
-        "eri_(blue_archive)"
-      ],
-      "canonical": "Eri",
-      "localizations": {
-        "en": "Eri"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Erpin",
-        "erpin_(trickcal)"
-      ],
-      "canonical": "Erpin",
-      "localizations": {
-        "en": "Erpin"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Espi",
-        "espi_(trickcal)"
-      ],
-      "canonical": "Espi",
-      "localizations": {
-        "en": "Espi"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Fricle",
-        "fricle_(trickcal)"
-      ],
-      "canonical": "Fricle",
-      "localizations": {
-        "en": "Fricle"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "general_student_council_president_(blue_archive)",
-        "General Student Council President"
-      ],
-      "canonical": "General Student Council President",
-      "localizations": {
-        "en": "General Student Council President"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Goldy",
-        "goldy_(trickcal)"
-      ],
-      "canonical": "Goldy",
-      "localizations": {
-        "en": "Goldy"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Gourmet Research Society",
-        "gourmet_research_society_(blue_archive)"
-      ],
-      "canonical": "Gourmet Research Society",
-      "localizations": {
-        "en": "Gourmet Research Society"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "possibly_general_or_group_tag": true,
-        "suggested_tag_type": "group",
-        "reason": "appears to be a group/faction tag rather than an individual character"
-      }
-    },
-    {
-      "aliases": [
-        "Haley",
-        "haley_(trickcal)"
-      ],
-      "canonical": "Haley",
-      "localizations": {
-        "en": "Haley"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "hare_(blue_archive)",
-        "Hare",
-        "小鈎ハレ",
-        "오마가리 하레"
-      ],
-      "canonical": "小鈎ハレ",
-      "localizations": {
-        "en": "Hare",
-        "ko": "오마가리 하레",
-        "ja": "小鈎ハレ"
+        "en": "Kyogoku Satsuki",
+        "ja": "京極サツキ",
+        "ko": "쿄고쿠 사츠키"
       },
       "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "hare_(camp)_(blue_archive)",
-        "Hare (camp)"
-      ],
-      "canonical": "Hare (camp)",
-      "localizations": {
-        "en": "Hare (camp)"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Heidi",
-        "heidi_(trickcal)"
-      ],
-      "canonical": "Heidi",
-      "localizations": {
-        "en": "Heidi"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "hibiki_(blue_archive)",
-        "Hibiki",
-        "Kusakabe Hibiki",
-        "ヒビキ",
-        "日下部ヒビキ",
-        "쿠사카베 히비키"
-      ],
-      "canonical": "日下部ヒビキ",
-      "localizations": {
-        "en": "Kusakabe Hibiki",
-        "ja": "日下部ヒビキ",
-        "ko": "쿠사카베 히비키"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "canonical changed with medium confidence — Abydos High School student council treasurer; medium confidence",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Hikari",
-        "hikari_(blue_archive)"
-      ],
-      "canonical": "Hikari",
-      "localizations": {
-        "en": "Hikari"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
     },
     {
       "aliases": [
@@ -646,18 +164,79 @@
     },
     {
       "aliases": [
-        "hoshino_(blue_archive)",
-        "Hoshino",
-        "小鳥遊ホシノ",
-        "Takanashi Hoshino",
-        "ホシノ",
-        "타카나시 호시노"
+        "saki_(blue_archive)",
+        "Saki",
+        "空井サキ",
+        "소라이 사키"
       ],
-      "canonical": "小鳥遊ホシノ",
+      "canonical": "空井サキ",
       "localizations": {
-        "en": "Takanashi Hoshino",
-        "ko": "타카나시 호시노",
-        "ja": "小鳥遊ホシノ"
+        "en": "Saki",
+        "ko": "소라이 사키",
+        "ja": "空井サキ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "ui_(blue_archive)",
+        "Ui",
+        "古関ウイ",
+        "코제키 우이"
+      ],
+      "canonical": "古関ウイ",
+      "localizations": {
+        "en": "Ui",
+        "ko": "코제키 우이",
+        "ja": "古関ウイ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Izuna",
+        "izuna_(blue_archive)",
+        "久田イズナ",
+        "쿠다 이즈나"
+      ],
+      "canonical": "久田イズナ",
+      "localizations": {
+        "en": "Izuna",
+        "ja": "久田イズナ",
+        "ko": "쿠다 이즈나"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "kayoko_(blue_archive)",
+        "Kayoko",
+        "鬼方カヨコ",
+        "오니카타 카요코"
+      ],
+      "canonical": "鬼方カヨコ",
+      "localizations": {
+        "en": "Kayoko",
+        "ko": "오니카타 카요코",
+        "ja": "鬼方カヨコ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Erika",
+        "エリカ",
+        "Hatami Erika",
+        "hatami_erika_(blue_archive)",
+        "旗見エリカ",
+        "에리카",
+        "하타미 에리카"
+      ],
+      "canonical": "旗見エリカ",
+      "localizations": {
+        "en": "Hatami Erika",
+        "ja": "旗見エリカ",
+        "ko": "하타미 에리카"
       },
       "parent_series": "Blue Archive"
     },
@@ -678,66 +257,148 @@
     },
     {
       "aliases": [
-        "ichika_(blue_archive)",
-        "Ichika"
+        "Nagisa",
+        "ナギサ",
+        "Kiritou Nagisa",
+        "kiritou_nagisa_(blue_archive)",
+        "桐藤ナギサ",
+        "나기사",
+        "키리토 나기사"
       ],
-      "canonical": "Ichika",
+      "canonical": "桐藤ナギサ",
       "localizations": {
-        "en": "Ichika"
+        "en": "Kiritou Nagisa",
+        "ja": "桐藤ナギサ",
+        "ko": "키리토 나기사"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "kikyou_(blue_archive)",
+        "Kikyou",
+        "桐生キキョウ",
+        "키류 키쿄"
+      ],
+      "canonical": "桐生キキョウ",
+      "localizations": {
+        "en": "Kikyou",
+        "ko": "키류 키쿄",
+        "ja": "桐生キキョウ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Aru",
+        "Rikuhachima Aru",
+        "aru_(blue_archive)",
+        "アル",
+        "リクハチマ アル",
+        "リクハチマ・アル",
+        "陸八魔アル",
+        "리쿠하치마 아루",
+        "아루"
+      ],
+      "canonical": "陸八魔アル",
+      "localizations": {
+        "en": "Rikuhachima Aru",
+        "ja": "陸八魔アル",
+        "ko": "리쿠하치마 아루"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Airi",
+        "アイリ",
+        "Kurimura Airi",
+        "kurimura_airi_(blue_archive)",
+        "栗村アイリ",
+        "아이리",
+        "쿠리무라 아이리"
+      ],
+      "canonical": "栗村アイリ",
+      "localizations": {
+        "en": "Kurimura Airi",
+        "ja": "栗村アイリ",
+        "ko": "쿠리무라 아이리"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Himari",
+        "明星ヒマリ",
+        "아케보시 히마리"
+      ],
+      "canonical": "明星ヒマリ",
+      "localizations": {
+        "ja": "明星ヒマリ",
+        "ko": "아케보시 히마리",
+        "en": "Akeboshi Himari"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Nekozuka Hibiki",
+        "nekozuka_hibiki_(blue_archive)",
+        "猫塚ヒビキ",
+        "네코즈카 히비키",
+        "猫塚ヒビキ(応援団)"
+      ],
+      "canonical": "猫塚ヒビキ",
+      "localizations": {
+        "en": "Nekozuka Hibiki",
+        "ja": "猫塚ヒビキ",
+        "ko": "네코즈카 히비키"
       },
       "parent_series": "Blue Archive",
       "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
+        "merged_variants": [
+          {
+            "source_tag": "猫塚ヒビキ(応援団)",
+            "variant": "cheerleader",
+            "reason": "costume/variant tag merged into base character from failure report"
+          }
+        ]
       }
     },
     {
       "aliases": [
-        "Joanne",
-        "joanne_(trickcal)"
+        "azusa_(blue_archive)",
+        "Azusa",
+        "白洲アズサ",
+        "Shirosuzu Azusa",
+        "アズサ",
+        "시라스 아즈사"
       ],
-      "canonical": "Joanne",
+      "canonical": "白洲アズサ",
       "localizations": {
-        "en": "Joanne"
+        "en": "Shirosuzu Azusa",
+        "ko": "시라스 아즈사",
+        "ja": "白洲アズサ"
       },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
+      "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Justice Task Force Member",
-        "justice_task_force_member_(blue_archive)"
+        "白タイツ",
+        "? ???",
+        "White Tights"
       ],
-      "canonical": "Justice Task Force Member",
+      "canonical": "白タイツ",
       "localizations": {
-        "en": "Justice Task Force Member"
+        "ko": "흰 타이츠",
+        "ja": "白タイツ",
+        "en": "White Tights"
       },
       "parent_series": "Blue Archive",
       "_review": {
         "possibly_general_or_group_tag": true,
-        "suggested_tag_type": "group",
-        "reason": "appears to be a group/faction tag rather than an individual character"
-      }
-    },
-    {
-      "aliases": [
-        "Kanoe",
-        "kanoe_(blue_archive)"
-      ],
-      "canonical": "Kanoe",
-      "localizations": {
-        "en": "Kanoe"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
+        "suggested_tag_type": "general",
+        "reason": "appears to be a general attribute tag rather than a character"
       }
     },
     {
@@ -757,1007 +418,18 @@
     },
     {
       "aliases": [
-        "kaya_(prison)_(blue_archive)",
-        "Kaya (prison)"
+        "Renge",
+        "renge_(blue_archive)",
+        "不破レンゲ",
+        "후와 렌게"
       ],
-      "canonical": "Kaya (prison)",
+      "canonical": "不破レンゲ",
       "localizations": {
-        "en": "Kaya (prison)"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "kayoko_(blue_archive)",
-        "Kayoko",
-        "鬼方カヨコ",
-        "오니카타 카요코"
-      ],
-      "canonical": "鬼方カヨコ",
-      "localizations": {
-        "en": "Kayoko",
-        "ko": "오니카타 카요코",
-        "ja": "鬼方カヨコ"
+        "en": "Renge",
+        "ja": "不破レンゲ",
+        "ko": "후와 렌게"
       },
       "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Kei",
-        "kei_(blue_archive)"
-      ],
-      "canonical": "Kei",
-      "localizations": {
-        "en": "Kei"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified"
-      }
-    },
-    {
-      "aliases": [
-        "Kei (new Body)",
-        "kei_(new_body)_(blue_archive)"
-      ],
-      "canonical": "Kei (new Body)",
-      "localizations": {
-        "en": "Kei (new Body)"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "variant_tag": true,
-        "base_character_candidate": "Kei",
-        "reason": "variant tag; base canonical was not normalized automatically",
-        "needs_localization_check": true,
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Kidian",
-        "kidian_(trickcal)"
-      ],
-      "canonical": "Kidian",
-      "localizations": {
-        "en": "Kidian"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "kikyou_(blue_archive)",
-        "Kikyou",
-        "桐生キキョウ",
-        "키류 키쿄"
-      ],
-      "canonical": "桐生キキョウ",
-      "localizations": {
-        "en": "Kikyou",
-        "ko": "키류 키쿄",
-        "ja": "桐生キキョウ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "koharu_(blue_archive)",
-        "Koharu"
-      ],
-      "canonical": "Koharu",
-      "localizations": {
-        "en": "Koharu"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "kokona_(blue_archive)",
-        "Kokona",
-        "春原ココナ",
-        "스노하라 코코나"
-      ],
-      "canonical": "春原ココナ",
-      "localizations": {
-        "en": "Kokona",
-        "ko": "스노하라 코코나",
-        "ja": "春原ココナ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Kommy",
-        "kommy_(trickcal)"
-      ],
-      "canonical": "Kommy",
-      "localizations": {
-        "en": "Kommy"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "konoka_(blue_archive)",
-        "Konoka"
-      ],
-      "canonical": "Konoka",
-      "localizations": {
-        "en": "Konoka"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "kotama_(blue_archive)",
-        "Kotama",
-        "音瀬コタマ",
-        "오토세 코타마"
-      ],
-      "canonical": "音瀬コタマ",
-      "localizations": {
-        "en": "Kotama",
-        "ko": "오토세 코타마",
-        "ja": "音瀬コタマ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Kurumi",
-        "kurumi_(blue_archive)"
-      ],
-      "canonical": "Kurumi",
-      "localizations": {
-        "en": "Kurumi"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Kyuri",
-        "kyuri_(trickcal)"
-      ],
-      "canonical": "Kyuri",
-      "localizations": {
-        "en": "Kyuri"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Leader",
-        "leader_(trickcal)"
-      ],
-      "canonical": "Leader",
-      "localizations": {
-        "en": "Leader"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Leets",
-        "leets_(trickcal)"
-      ],
-      "canonical": "Leets",
-      "localizations": {
-        "en": "Leets"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Levi",
-        "levi_(trickcal)"
-      ],
-      "canonical": "Levi",
-      "localizations": {
-        "en": "Levi"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Liliweiss",
-        "liliweiss_(nikke)",
-        "릴리바이스"
-      ],
-      "canonical": "Liliweiss",
-      "localizations": {
-        "en": "Liliweiss",
-        "ko": "릴리바이스"
-      },
-      "parent_series": "Nikke",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko localization is transliteration candidate",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Mago",
-        "mago_(trickcal)"
-      ],
-      "canonical": "Mago",
-      "localizations": {
-        "en": "Mago"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "maki_(blue_archive)",
-        "Maki",
-        "小塗マキ",
-        "코누리 마키"
-      ],
-      "canonical": "小塗マキ",
-      "localizations": {
-        "en": "Maki",
-        "ko": "코누리 마키",
-        "ja": "小塗マキ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "mari_(blue_archive)",
-        "Mari",
-        "Mari (idol)",
-        "mari_(idol)_(blue_archive)",
-        "伊落マリー",
-        "Iochi Mari",
-        "イオチマリ",
-        "マリー",
-        "伊落マリー(体操服)",
-        "이오치 마리"
-      ],
-      "canonical": "伊落マリー",
-      "localizations": {
-        "en": "Iochi Mari",
-        "ko": "이오치 마리",
-        "ja": "伊落マリー"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "merged_variants": [
-          {
-            "source_canonical": "Mari (idol)",
-            "variant": "idol",
-            "reason": "costume/variant tag merged into base character"
-          }
-        ]
-      }
-    },
-    {
-      "aliases": [
-        "Mayo",
-        "mayo_(trickcal)"
-      ],
-      "canonical": "Mayo",
-      "localizations": {
-        "en": "Mayo"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Mica",
-        "mica_(nikke)"
-      ],
-      "canonical": "Mica",
-      "localizations": {
-        "en": "Mica"
-      },
-      "parent_series": "Nikke",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "midori_(blue_archive)",
-        "Midori",
-        "Midori (maid)",
-        "midori_(maid)_(blue_archive)",
-        "才羽ミドリ",
-        "사이바 미도리"
-      ],
-      "canonical": "才羽ミドリ",
-      "localizations": {
-        "en": "Midori",
-        "ko": "사이바 미도리",
-        "ja": "才羽ミドリ"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "merged_variants": [
-          {
-            "source_canonical": "Midori (maid)",
-            "variant": "maid",
-            "reason": "costume/variant tag merged into base character"
-          }
-        ]
-      }
-    },
-    {
-      "aliases": [
-        "Misaki",
-        "misaki_(blue_archive)"
-      ],
-      "canonical": "Misaki",
-      "localizations": {
-        "en": "Misaki"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "miyu_(blue_archive)",
-        "Miyu",
-        "霞沢ミユ",
-        "카스미자와 미유"
-      ],
-      "canonical": "霞沢ミユ",
-      "localizations": {
-        "en": "Miyu",
-        "ko": "카스미자와 미유",
-        "ja": "霞沢ミユ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "momoi_(blue_archive)",
-        "Momoi",
-        "Momoi (maid)",
-        "momoi_(maid)_(blue_archive)",
-        "才羽モモイ",
-        "사이바 모모이"
-      ],
-      "canonical": "才羽モモイ",
-      "localizations": {
-        "en": "Momoi",
-        "ko": "사이바 모모이",
-        "ja": "才羽モモイ"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "merged_variants": [
-          {
-            "source_canonical": "Momoi (maid)",
-            "variant": "maid",
-            "reason": "costume/variant tag merged into base character"
-          }
-        ]
-      }
-    },
-    {
-      "aliases": [
-        "mutsuki_(blue_archive)",
-        "Mutsuki",
-        "浅黄ムツキ",
-        "아사기 무츠키"
-      ],
-      "canonical": "浅黄ムツキ",
-      "localizations": {
-        "en": "Mutsuki",
-        "ko": "아사기 무츠키",
-        "ja": "浅黄ムツキ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Natsuki",
-        "natsuki_(blue_archive)"
-      ],
-      "canonical": "Natsuki",
-      "localizations": {
-        "en": "Natsuki"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Ner",
-        "ner_(trickcal)"
-      ],
-      "canonical": "Ner",
-      "localizations": {
-        "en": "Ner"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Niko",
-        "niko_(blue_archive)"
-      ],
-      "canonical": "Niko",
-      "localizations": {
-        "en": "Niko"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "noa_(blue_archive)",
-        "Noa",
-        "生塩ノア",
-        "우시오 노아"
-      ],
-      "canonical": "生塩ノア",
-      "localizations": {
-        "en": "Noa",
-        "ko": "우시오 노아",
-        "ja": "生塩ノア"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Nozomi",
-        "nozomi_(blue_archive)"
-      ],
-      "canonical": "Nozomi",
-      "localizations": {
-        "en": "Nozomi"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Occult Studies Club",
-        "occult_studies_club_(blue_archive)"
-      ],
-      "canonical": "Occult Studies Club",
-      "localizations": {
-        "en": "Occult Studies Club"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "possibly_general_or_group_tag": true,
-        "suggested_tag_type": "group",
-        "reason": "appears to be a group/faction tag rather than an individual character"
-      }
-    },
-    {
-      "aliases": [
-        "Opal",
-        "opal_(trickcal)"
-      ],
-      "canonical": "Opal",
-      "localizations": {
-        "en": "Opal"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Otogi",
-        "otogi_(blue_archive)"
-      ],
-      "canonical": "Otogi",
-      "localizations": {
-        "en": "Otogi"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Picora",
-        "picora_(trickcal)"
-      ],
-      "canonical": "Picora",
-      "localizations": {
-        "en": "Picora"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Pira",
-        "pira_(trickcal)"
-      ],
-      "canonical": "Pira",
-      "localizations": {
-        "en": "Pira"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "plana_(blue_archive)",
-        "Plana",
-        "プラナ",
-        "프라나"
-      ],
-      "canonical": "プラナ",
-      "localizations": {
-        "en": "Plana",
-        "ko": "프라나",
-        "ja": "プラナ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Polan",
-        "polan_(trickcal)"
-      ],
-      "canonical": "Polan",
-      "localizations": {
-        "en": "Polan"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Problem Solver 68",
-        "problem_solver_68_(blue_archive)"
-      ],
-      "canonical": "Problem Solver 68",
-      "localizations": {
-        "en": "Problem Solver 68"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "possibly_general_or_group_tag": true,
-        "suggested_tag_type": "group",
-        "reason": "appears to be a group/faction tag rather than an individual character"
-      }
-    },
-    {
-      "aliases": [
-        "Professor Niyaniya",
-        "professor_niyaniya_(blue_archive)"
-      ],
-      "canonical": "Professor Niyaniya",
-      "localizations": {
-        "en": "Professor Niyaniya"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Rabbit Platoon",
-        "rabbit_platoon_(blue_archive)"
-      ],
-      "canonical": "Rabbit Platoon",
-      "localizations": {
-        "en": "Rabbit Platoon"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "possibly_general_or_group_tag": true,
-        "suggested_tag_type": "group",
-        "reason": "appears to be a group/faction tag rather than an individual character"
-      }
-    },
-    {
-      "aliases": [
-        "Rabu",
-        "rabu_(blue_archive)"
-      ],
-      "canonical": "Rabu",
-      "localizations": {
-        "en": "Rabu"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Ran",
-        "ran_(trickcal)"
-      ],
-      "canonical": "Ran",
-      "localizations": {
-        "en": "Ran"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "reisa_(blue_archive)",
-        "Reisa",
-        "宇沢レイサ",
-        "우자와 레이사"
-      ],
-      "canonical": "宇沢レイサ",
-      "localizations": {
-        "en": "Reisa",
-        "ko": "우자와 레이사",
-        "ja": "宇沢レイサ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "rena_(blue_archive)",
-        "Rena"
-      ],
-      "canonical": "Rena",
-      "localizations": {
-        "en": "Rena"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Rim",
-        "rim_(trickcal)"
-      ],
-      "canonical": "Rim",
-      "localizations": {
-        "en": "Rim"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Rohne",
-        "rohne_(trickcal)"
-      ],
-      "canonical": "Rohne",
-      "localizations": {
-        "en": "Rohne"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Rohne (mayor)",
-        "rohne_(mayor)_(trickcal)"
-      ],
-      "canonical": "Rohne (mayor)",
-      "localizations": {
-        "en": "Rohne (mayor)"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "saki_(blue_archive)",
-        "Saki",
-        "空井サキ",
-        "소라이 사키"
-      ],
-      "canonical": "空井サキ",
-      "localizations": {
-        "en": "Saki",
-        "ko": "소라이 사키",
-        "ja": "空井サキ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "saori_(blue_archive)",
-        "Saori",
-        "錠前サオリ",
-        "조마에 사오리"
-      ],
-      "canonical": "錠前サオリ",
-      "localizations": {
-        "en": "Saori",
-        "ko": "조마에 사오리",
-        "ja": "錠前サオリ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Satsuki",
-        "satsuki_(blue_archive)"
-      ],
-      "canonical": "Satsuki",
-      "localizations": {
-        "en": "Satsuki"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "sena_(blue_archive)",
-        "Sena",
-        "氷室セナ",
-        "히무로 세나"
-      ],
-      "canonical": "氷室セナ",
-      "localizations": {
-        "en": "Sena",
-        "ko": "히무로 세나",
-        "ja": "氷室セナ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "sensei_(blue_archive)",
-        "Sensei",
-        "先生",
-        "선생"
-      ],
-      "canonical": "先生",
-      "localizations": {
-        "en": "Sensei",
-        "ko": "선생",
-        "ja": "先生"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "serika_(blue_archive)",
-        "Serika",
-        "Akagi Serika",
-        "セリカ",
-        "赤城セリカ",
-        "아카기 세리카"
-      ],
-      "canonical": "赤城セリカ",
-      "localizations": {
-        "en": "Akagi Serika",
-        "ja": "赤城セリカ",
-        "ko": "아카기 세리카"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "canonical changed with medium confidence — Abydos High School; medium confidence",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "serina_(blue_archive)",
-        "Serina"
-      ],
-      "canonical": "Serina",
-      "localizations": {
-        "en": "Serina"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "serina_(nurse)_(blue_archive)",
-        "Serina (nurse)"
-      ],
-      "canonical": "Serina (nurse)",
-      "localizations": {
-        "en": "Serina (nurse)"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "shiroko_(blue_archive)",
-        "Shiroko",
-        "砂狼シロコ",
-        "스나오카미 시로코"
-      ],
-      "canonical": "砂狼シロコ",
-      "localizations": {
-        "en": "Shiroko",
-        "ko": "스나오카미 시로코",
-        "ja": "砂狼シロコ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "shiroko_terror_(blue_archive)",
-        "Shiroko Terror"
-      ],
-      "canonical": "Shiroko Terror",
-      "localizations": {
-        "en": "Shiroko Terror"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Smol Mari (blue Archive)",
-        "smol_mari_(blue_archive)_(horuhara)"
-      ],
-      "canonical": "Smol Mari (blue Archive)",
-      "localizations": {
-        "en": "Smol Mari (blue Archive)"
-      },
-      "parent_series": "Horuhara",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "fan-work or crossover tag; ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Speaki",
-        "speaki_(trickcal)"
-      ],
-      "canonical": "Speaki",
-      "localizations": {
-        "en": "Speaki"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
     },
     {
       "aliases": [
@@ -1795,6 +467,111 @@
     },
     {
       "aliases": [
+        "sena_(blue_archive)",
+        "Sena",
+        "氷室セナ",
+        "히무로 세나"
+      ],
+      "canonical": "氷室セナ",
+      "localizations": {
+        "en": "Sena",
+        "ko": "히무로 세나",
+        "ja": "氷室セナ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "shiroko_(blue_archive)",
+        "Shiroko",
+        "砂狼シロコ",
+        "스나오카미 시로코"
+      ],
+      "canonical": "砂狼シロコ",
+      "localizations": {
+        "en": "Shiroko",
+        "ko": "스나오카미 시로코",
+        "ja": "砂狼シロコ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Izumi",
+        "izumi_(blue_archive)",
+        "獅子堂イズミ",
+        "시시도우 이즈미"
+      ],
+      "canonical": "獅子堂イズミ",
+      "localizations": {
+        "en": "Izumi",
+        "ja": "獅子堂イズミ",
+        "ko": "시시도우 이즈미"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "noa_(blue_archive)",
+        "Noa",
+        "生塩ノア",
+        "우시오 노아"
+      ],
+      "canonical": "生塩ノア",
+      "localizations": {
+        "en": "Noa",
+        "ko": "우시오 노아",
+        "ja": "生塩ノア"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "sensei_(blue_archive)",
+        "Sensei",
+        "先生",
+        "선생"
+      ],
+      "canonical": "先生",
+      "localizations": {
+        "en": "Sensei",
+        "ko": "선생",
+        "ja": "先生"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Mika",
+        "mika_(blue_archive)",
+        "聖園ミカ",
+        "미소노 미카"
+      ],
+      "canonical": "聖園ミカ",
+      "localizations": {
+        "en": "Mika",
+        "ja": "聖園ミカ",
+        "ko": "미소노 미카"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "maki_(blue_archive)",
+        "Maki",
+        "小塗マキ",
+        "코누리 마키"
+      ],
+      "canonical": "小塗マキ",
+      "localizations": {
+        "en": "Maki",
+        "ko": "코누리 마키",
+        "ja": "小塗マキ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
         "tsubasa_(blue_archive)",
         "Tsubasa",
         "Takanashi Tsubasa",
@@ -1815,396 +592,33 @@
     },
     {
       "aliases": [
-        "ui_(blue_archive)",
-        "Ui",
-        "古関ウイ",
-        "코제키 우이"
+        "hoshino_(blue_archive)",
+        "Hoshino",
+        "小鳥遊ホシノ",
+        "Takanashi Hoshino",
+        "ホシノ",
+        "타카나시 호시노"
       ],
-      "canonical": "古関ウイ",
+      "canonical": "小鳥遊ホシノ",
       "localizations": {
-        "en": "Ui",
-        "ko": "코제키 우이",
-        "ja": "古関ウイ"
+        "en": "Takanashi Hoshino",
+        "ko": "타카나시 호시노",
+        "ja": "小鳥遊ホシノ"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Ui",
-        "ui_(trickcal)"
+        "hare_(blue_archive)",
+        "Hare",
+        "小鈎ハレ",
+        "오마가리 하레"
       ],
-      "canonical": "Ui",
+      "canonical": "小鈎ハレ",
       "localizations": {
-        "en": "Ui"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Veritas",
-        "veritas_(blue_archive)"
-      ],
-      "canonical": "Veritas",
-      "localizations": {
-        "en": "Veritas"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "possibly_general_or_group_tag": true,
-        "suggested_tag_type": "group",
-        "reason": "appears to be a group/faction tag rather than an individual character"
-      }
-    },
-    {
-      "aliases": [
-        "Vivi",
-        "vivi_(trickcal)"
-      ],
-      "canonical": "Vivi",
-      "localizations": {
-        "en": "Vivi"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Xion",
-        "xion_(trickcal)"
-      ],
-      "canonical": "Xion",
-      "localizations": {
-        "en": "Xion"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Yomi",
-        "yomi_(trickcal)"
-      ],
-      "canonical": "Yomi",
-      "localizations": {
-        "en": "Yomi"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Youngchun",
-        "youngchun_(trickcal)"
-      ],
-      "canonical": "Youngchun",
-      "localizations": {
-        "en": "Youngchun"
-      },
-      "parent_series": "Trickcal",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "Yukino",
-        "yukino_(blue_archive)"
-      ],
-      "canonical": "Yukino",
-      "localizations": {
-        "en": "Yukino"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_localization_check": true,
-        "reason": "ko/ja official name not verified",
-        "needs_canonical_check": true
-      }
-    },
-    {
-      "aliases": [
-        "yuuka_(blue_archive)",
-        "Yuuka",
-        "早瀬ユウカ",
-        "하야세 유우카"
-      ],
-      "canonical": "早瀬ユウカ",
-      "localizations": {
-        "en": "Yuuka",
-        "ko": "하야세 유우카",
-        "ja": "早瀬ユウカ"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "タイツ"
-      ],
-      "canonical": "タイツ",
-      "localizations": {},
-      "parent_series": "Blue Archive",
-      "_review": {
-        "possibly_general_or_group_tag": true,
-        "suggested_tag_type": "general",
-        "reason": "appears to be a general attribute tag rather than a character"
-      }
-    },
-    {
-      "aliases": [
-        "メガネ"
-      ],
-      "canonical": "メガネ",
-      "localizations": {},
-      "parent_series": "Blue Archive",
-      "_review": {
-        "possibly_general_or_group_tag": true,
-        "suggested_tag_type": "general",
-        "reason": "appears to be a general attribute tag rather than a character"
-      }
-    },
-    {
-      "aliases": [
-        "Asuna",
-        "asuna_(blue_archive)",
-        "一之瀬アスナ",
-        "이치노세 아스나"
-      ],
-      "canonical": "一之瀬アスナ",
-      "localizations": {
-        "en": "Asuna",
-        "ja": "一之瀬アスナ",
-        "ko": "이치노세 아스나"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Renge",
-        "renge_(blue_archive)",
-        "不破レンゲ",
-        "후와 렌게"
-      ],
-      "canonical": "不破レンゲ",
-      "localizations": {
-        "en": "Renge",
-        "ja": "不破レンゲ",
-        "ko": "후와 렌게"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Kirino",
-        "kirino_(blue_archive)",
-        "中務キリノ",
-        "나카츠카사 키리노"
-      ],
-      "canonical": "中務キリノ",
-      "localizations": {
-        "en": "Kirino",
-        "ja": "中務キリノ",
-        "ko": "나카츠카사 키리노"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Izuna",
-        "izuna_(blue_archive)",
-        "久田イズナ",
-        "쿠다 이즈나"
-      ],
-      "canonical": "久田イズナ",
-      "localizations": {
-        "en": "Izuna",
-        "ja": "久田イズナ",
-        "ko": "쿠다 이즈나"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Haruka",
-        "haruka_(blue_archive)",
-        "伊草ハルカ",
-        "이구사 하루카"
-      ],
-      "canonical": "伊草ハルカ",
-      "localizations": {
-        "en": "Haruka",
-        "ja": "伊草ハルカ",
-        "ko": "이구사 하루카"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Yukari",
-        "yukari_(blue_archive)",
-        "勘解由小路ユカリ",
-        "카데노코지 유카리"
-      ],
-      "canonical": "勘解由小路ユカリ",
-      "localizations": {
-        "en": "Yukari",
-        "ja": "勘解由小路ユカリ",
-        "ko": "카데노코지 유카리"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Alice",
-        "Tendou Alice",
-        "アリス",
-        "天童アリス",
-        "텐도 아리스"
-      ],
-      "canonical": "天童アリス",
-      "localizations": {
-        "en": "Tendou Alice",
-        "ja": "天童アリス",
-        "ko": "텐도 아리스"
-      },
-      "parent_series": "Blue Archive",
-      "_review": {
-        "needs_canonical_check": true,
-        "reason": "official Japanese full-name canonical not verified"
-      }
-    },
-    {
-      "aliases": [
-        "Ayane",
-        "ayane_(blue_archive)",
-        "奥空アヤネ",
-        "오쿠소라 아야네"
-      ],
-      "canonical": "奥空アヤネ",
-      "localizations": {
-        "en": "Ayane",
-        "ja": "奥空アヤネ",
-        "ko": "오쿠소라 아야네"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Suzumi",
-        "suzumi_(blue_archive)",
-        "守月スズミ",
-        "모리츠키 스즈미"
-      ],
-      "canonical": "守月スズミ",
-      "localizations": {
-        "en": "Suzumi",
-        "ja": "守月スズミ",
-        "ko": "모리츠키 스즈미"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Nagusa",
-        "nagusa_(blue_archive)",
-        "御稜ナグサ",
-        "미사사기 나구사"
-      ],
-      "canonical": "御稜ナグサ",
-      "localizations": {
-        "en": "Nagusa",
-        "ja": "御稜ナグサ",
-        "ko": "미사사기 나구사"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "フウカ(正月)",
-        "愛清フウカ(正月)",
-        "愛清フウカ",
-        "아이키요 후우카"
-      ],
-      "canonical": "愛清フウカ",
-      "localizations": {
-        "ja": "愛清フウカ",
-        "ko": "아이키요 후우카"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Himari",
-        "明星ヒマリ",
-        "아케보시 히마리"
-      ],
-      "canonical": "明星ヒマリ",
-      "localizations": {
-        "ja": "明星ヒマリ",
-        "ko": "아케보시 히마리"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Miyako",
-        "miyako_(blue_archive)",
-        "月雪ミヤコ",
-        "츠키유키 미야코"
-      ],
-      "canonical": "月雪ミヤコ",
-      "localizations": {
-        "en": "Miyako",
-        "ja": "月雪ミヤコ",
-        "ko": "츠키유키 미야코"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Hanae",
-        "hanae_(blue_archive)",
-        "朝顔ハナエ",
-        "아사가오 하나에"
-      ],
-      "canonical": "朝顔ハナエ",
-      "localizations": {
-        "en": "Hanae",
-        "ja": "朝顔ハナエ",
-        "ko": "아사가오 하나에"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Kazusa",
-        "kazusa_(blue_archive)",
-        "杏山カズサ",
-        "쿄야마 카즈사"
-      ],
-      "canonical": "杏山カズサ",
-      "localizations": {
-        "en": "Kazusa",
-        "ja": "杏山カズサ",
-        "ko": "쿄야마 카즈사"
+        "en": "Hare",
+        "ko": "오마가리 하레",
+        "ja": "小鈎ハレ"
       },
       "parent_series": "Blue Archive"
     },
@@ -2226,176 +640,53 @@
     },
     {
       "aliases": [
-        "Akira",
-        "akira_(blue_archive)",
-        "清澄アキラ",
-        "키요스미 아키라"
+        "Suzumi",
+        "suzumi_(blue_archive)",
+        "守月スズミ",
+        "모리츠키 스즈미"
       ],
-      "canonical": "清澄アキラ",
+      "canonical": "守月スズミ",
       "localizations": {
-        "en": "Akira",
-        "ja": "清澄アキラ",
-        "ko": "키요스미 아키라"
+        "en": "Suzumi",
+        "ja": "守月スズミ",
+        "ko": "모리츠키 스즈미"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Kosaka Wakamo",
-        "Wakamo",
-        "ワカモ",
-        "ワカモ(正月)",
-        "ワカモ（正月）",
-        "浅黄ワカモ",
-        "浅黄ワカモ(正月)",
-        "浅黄ワカモ（正月）",
-        "狐坂ワカモ",
-        "와카모",
-        "코사카 와카모"
+        "Nonomi",
+        "ノノミ",
+        "Izayoi Nonomi",
+        "izayoi_nonomi_(blue_archive)",
+        "十六夜ノノミ",
+        "노노미",
+        "이자요이 노노미",
+        "ノノミ(ブルーアーカイブ)"
       ],
-      "canonical": "狐坂ワカモ",
+      "canonical": "十六夜ノノミ",
       "localizations": {
-        "en": "Kosaka Wakamo",
-        "ja": "狐坂ワカモ",
-        "ko": "코사카 와카모"
+        "en": "Izayoi Nonomi",
+        "ja": "十六夜ノノミ",
+        "ko": "이자요이 노노미"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Izumi",
-        "izumi_(blue_archive)",
-        "獅子堂イズミ",
-        "시시도우 이즈미"
+        "Hifumi",
+        "ヒフミ",
+        "Azaiya Hifumi",
+        "azaiya_hifumi_(blue_archive)",
+        "阿慈谷ヒフミ",
+        "히후미",
+        "아자이야 히후미"
       ],
-      "canonical": "獅子堂イズミ",
+      "canonical": "阿慈谷ヒフミ",
       "localizations": {
-        "en": "Izumi",
-        "ja": "獅子堂イズミ",
-        "ko": "시시도우 이즈미"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "白タイツ"
-      ],
-      "canonical": "白タイツ",
-      "localizations": {},
-      "parent_series": "Blue Archive",
-      "_review": {
-        "possibly_general_or_group_tag": true,
-        "suggested_tag_type": "general",
-        "reason": "appears to be a general attribute tag rather than a character"
-      }
-    },
-    {
-      "aliases": [
-        "Makoto",
-        "makoto_(blue_archive)",
-        "羽沼マコト",
-        "하누마 마코토"
-      ],
-      "canonical": "羽沼マコト",
-      "localizations": {
-        "en": "Makoto",
-        "ja": "羽沼マコト",
-        "ko": "하누마 마코토"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Mika",
-        "mika_(blue_archive)",
-        "聖園ミカ",
-        "미소노 미카"
-      ],
-      "canonical": "聖園ミカ",
-      "localizations": {
-        "en": "Mika",
-        "ja": "聖園ミカ",
-        "ko": "미소노 미카"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Hinata",
-        "hinata_(blue_archive)",
-        "若葉ヒナタ",
-        "와카바 히나타"
-      ],
-      "canonical": "若葉ヒナタ",
-      "localizations": {
-        "en": "Hinata",
-        "ja": "若葉ヒナタ",
-        "ko": "와카바 히나타"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Mine",
-        "mine_(blue_archive)",
-        "蒼森ミネ",
-        "아오모리 미네"
-      ],
-      "canonical": "蒼森ミネ",
-      "localizations": {
-        "en": "Mine",
-        "ja": "蒼森ミネ",
-        "ko": "아오모리 미네"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Junko",
-        "junko_(blue_archive)",
-        "赤司ジュンコ",
-        "아카시 준코"
-      ],
-      "canonical": "赤司ジュンコ",
-      "localizations": {
-        "en": "Junko",
-        "ja": "赤司ジュンコ",
-        "ko": "아카시 준코"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Aru",
-        "Rikuhachima Aru",
-        "aru_(blue_archive)",
-        "アル",
-        "リクハチマ アル",
-        "リクハチマ・アル",
-        "陸八魔アル",
-        "리쿠하치마 아루",
-        "아루"
-      ],
-      "canonical": "陸八魔アル",
-      "localizations": {
-        "en": "Rikuhachima Aru",
-        "ja": "陸八魔アル",
-        "ko": "리쿠하치마 아루"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Moe",
-        "moe_(blue_archive)",
-        "風倉モエ",
-        "카자쿠라 모에"
-      ],
-      "canonical": "風倉モエ",
-      "localizations": {
-        "en": "Moe",
-        "ja": "風倉モエ",
-        "ko": "카자쿠라 모에"
+        "en": "Azaiya Hifumi",
+        "ja": "阿慈谷ヒフミ",
+        "ko": "아자이야 히후미"
       },
       "parent_series": "Blue Archive"
     },
@@ -2416,16 +707,98 @@
     },
     {
       "aliases": [
-        "Haruna",
-        "haruna_(blue_archive)",
-        "黒舘ハルナ",
-        "쿠로다테 하루나"
+        "フウカ(正月)",
+        "愛清フウカ(正月)",
+        "愛清フウカ",
+        "아이키요 후우카"
       ],
-      "canonical": "黒舘ハルナ",
+      "canonical": "愛清フウカ",
       "localizations": {
-        "en": "Haruna",
-        "ja": "黒舘ハルナ",
-        "ko": "쿠로다테 하루나"
+        "ja": "愛清フウカ",
+        "ko": "아이키요 후우카",
+        "en": "Aikiyo Fuuka"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Hinata",
+        "hinata_(blue_archive)",
+        "若葉ヒナタ",
+        "와카바 히나타"
+      ],
+      "canonical": "若葉ヒナタ",
+      "localizations": {
+        "en": "Hinata",
+        "ja": "若葉ヒナタ",
+        "ko": "와카바 히나타"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kirara",
+        "キララ",
+        "Yozakura Kirara",
+        "yozakura_kirara_(blue_archive)",
+        "夜桜キララ",
+        "키라라",
+        "요자쿠라 키라라",
+        "キララ(ブルーアーカイブ)"
+      ],
+      "canonical": "夜桜キララ",
+      "localizations": {
+        "en": "Yozakura Kirara",
+        "ja": "夜桜キララ",
+        "ko": "요자쿠라 키라라"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Nagusa",
+        "nagusa_(blue_archive)",
+        "御稜ナグサ",
+        "미사사기 나구사"
+      ],
+      "canonical": "御稜ナグサ",
+      "localizations": {
+        "en": "Nagusa",
+        "ja": "御稜ナグサ",
+        "ko": "미사사기 나구사"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Juri",
+        "ジュリ",
+        "Ushimaki Juri",
+        "ushimaki_juri_(blue_archive)",
+        "牛牧ジュリ",
+        "주리",
+        "우시마키 주리"
+      ],
+      "canonical": "牛牧ジュリ",
+      "localizations": {
+        "en": "Ushimaki Juri",
+        "ja": "牛牧ジュリ",
+        "ko": "우시마키 주리"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Makoto",
+        "makoto_(blue_archive)",
+        "羽沼マコト",
+        "하누마 마코토"
+      ],
+      "canonical": "羽沼マコト",
+      "localizations": {
+        "en": "Makoto",
+        "ja": "羽沼マコト",
+        "ko": "하누마 마코토"
       },
       "parent_series": "Blue Archive"
     },
@@ -2459,203 +832,453 @@
     },
     {
       "aliases": [
-        "Koyuki",
-        "コユキ",
-        "Kurosaki Koyuki",
-        "kurosaki_koyuki_(blue_archive)",
-        "黒崎コユキ",
-        "코유키",
-        "쿠로사키 코유키",
-        "黒崎コユキ(バニーガール)"
+        "reisa_(blue_archive)",
+        "Reisa",
+        "宇沢レイサ",
+        "우자와 레이사"
       ],
-      "canonical": "黒崎コユキ",
+      "canonical": "宇沢レイサ",
       "localizations": {
-        "en": "Kurosaki Koyuki",
-        "ja": "黒崎コユキ",
-        "ko": "쿠로사키 코유키"
+        "en": "Reisa",
+        "ko": "우자와 레이사",
+        "ja": "宇沢レイサ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Miyako",
+        "miyako_(blue_archive)",
+        "月雪ミヤコ",
+        "츠키유키 미야코"
+      ],
+      "canonical": "月雪ミヤコ",
+      "localizations": {
+        "en": "Miyako",
+        "ja": "月雪ミヤコ",
+        "ko": "츠키유키 미야코"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Natsu",
+        "ナツ",
+        "Yudori Natsu",
+        "yudori_natsu_(blue_archive)",
+        "柚鳥ナツ",
+        "나츠",
+        "유도리 나츠"
+      ],
+      "canonical": "柚鳥ナツ",
+      "localizations": {
+        "en": "Yudori Natsu",
+        "ja": "柚鳥ナツ",
+        "ko": "유도리 나츠"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "kotama_(blue_archive)",
+        "Kotama",
+        "音瀬コタマ",
+        "오토세 코타마"
+      ],
+      "canonical": "音瀬コタマ",
+      "localizations": {
+        "en": "Kotama",
+        "ko": "오토세 코타마",
+        "ja": "音瀬コタマ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "mari_(blue_archive)",
+        "Mari",
+        "Mari (idol)",
+        "mari_(idol)_(blue_archive)",
+        "伊落マリー",
+        "Iochi Mari",
+        "イオチマリ",
+        "マリー",
+        "伊落マリー(体操服)",
+        "이오치 마리"
+      ],
+      "canonical": "伊落マリー",
+      "localizations": {
+        "en": "Iochi Mari",
+        "ko": "이오치 마리",
+        "ja": "伊落マリー"
       },
       "parent_series": "Blue Archive",
       "_review": {
         "merged_variants": [
           {
-            "source_tag": "黒崎コユキ(バニーガール)",
-            "variant": "bunny_girl",
-            "reason": "costume/variant tag merged into base character from failure report"
+            "source_canonical": "Mari (idol)",
+            "variant": "idol",
+            "reason": "costume/variant tag merged into base character"
           }
         ]
       }
     },
     {
       "aliases": [
-        "Fubuki",
-        "フブキ",
-        "Nekogaki Fubuki",
-        "nekogaki_fubuki_(blue_archive)",
-        "合歓垣フブキ",
-        "후부키",
-        "네코가키 후부키",
-        "ネムガキ"
+        "Yoshimi",
+        "ヨシミ",
+        "Ibaraki Yoshimi",
+        "ibaraki_yoshimi_(blue_archive)",
+        "伊原木ヨシミ",
+        "요시미",
+        "이바라키 요시미"
       ],
-      "canonical": "合歓垣フブキ",
+      "canonical": "伊原木ヨシミ",
       "localizations": {
-        "en": "Nekogaki Fubuki",
-        "ja": "合歓垣フブキ",
-        "ko": "네코가키 후부키"
+        "en": "Ibaraki Yoshimi",
+        "ja": "伊原木ヨシミ",
+        "ko": "이바라키 요시미"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Nekozuka Hibiki",
-        "nekozuka_hibiki_(blue_archive)",
-        "猫塚ヒビキ",
-        "네코즈카 히비키",
-        "猫塚ヒビキ(応援団)"
+        "Haruka",
+        "haruka_(blue_archive)",
+        "伊草ハルカ",
+        "이구사 하루카"
       ],
-      "canonical": "猫塚ヒビキ",
+      "canonical": "伊草ハルカ",
       "localizations": {
-        "en": "Nekozuka Hibiki",
-        "ja": "猫塚ヒビキ",
-        "ko": "네코즈카 히비키"
+        "en": "Haruka",
+        "ja": "伊草ハルカ",
+        "ko": "이구사 하루카"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Asuna",
+        "asuna_(blue_archive)",
+        "一之瀬アスナ",
+        "이치노세 아스나"
+      ],
+      "canonical": "一之瀬アスナ",
+      "localizations": {
+        "en": "Asuna",
+        "ja": "一之瀬アスナ",
+        "ko": "이치노세 아스나"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "hibiki_(blue_archive)",
+        "Hibiki",
+        "Kusakabe Hibiki",
+        "ヒビキ",
+        "日下部ヒビキ",
+        "쿠사카베 히비키"
+      ],
+      "canonical": "日下部ヒビキ",
+      "localizations": {
+        "en": "Kusakabe Hibiki",
+        "ja": "日下部ヒビキ",
+        "ko": "쿠사카베 히비키"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "canonical changed with medium confidence — Abydos High School student council treasurer; medium confidence",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "midori_(blue_archive)",
+        "Midori",
+        "Midori (maid)",
+        "midori_(maid)_(blue_archive)",
+        "才羽ミドリ",
+        "사이바 미도리"
+      ],
+      "canonical": "才羽ミドリ",
+      "localizations": {
+        "en": "Midori",
+        "ko": "사이바 미도리",
+        "ja": "才羽ミドリ"
       },
       "parent_series": "Blue Archive",
       "_review": {
         "merged_variants": [
           {
-            "source_tag": "猫塚ヒビキ(応援団)",
-            "variant": "cheerleader",
-            "reason": "costume/variant tag merged into base character from failure report"
+            "source_canonical": "Midori (maid)",
+            "variant": "maid",
+            "reason": "costume/variant tag merged into base character"
           }
         ]
       }
     },
     {
       "aliases": [
-        "Nonomi",
-        "ノノミ",
-        "Izayoi Nonomi",
-        "izayoi_nonomi_(blue_archive)",
-        "十六夜ノノミ",
-        "노노미",
-        "이자요이 노노미",
-        "ノノミ(ブルーアーカイブ)"
+        "momoi_(blue_archive)",
+        "Momoi",
+        "Momoi (maid)",
+        "momoi_(maid)_(blue_archive)",
+        "才羽モモイ",
+        "사이바 모모이"
       ],
-      "canonical": "十六夜ノノミ",
+      "canonical": "才羽モモイ",
       "localizations": {
-        "en": "Izayoi Nonomi",
-        "ja": "十六夜ノノミ",
-        "ko": "이자요이 노노미"
+        "en": "Momoi",
+        "ko": "사이바 모모이",
+        "ja": "才羽モモイ"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "merged_variants": [
+          {
+            "source_canonical": "Momoi (maid)",
+            "variant": "maid",
+            "reason": "costume/variant tag merged into base character"
+          }
+        ]
+      }
+    },
+    {
+      "aliases": [
+        "Junko",
+        "junko_(blue_archive)",
+        "赤司ジュンコ",
+        "아카시 준코"
+      ],
+      "canonical": "赤司ジュンコ",
+      "localizations": {
+        "en": "Junko",
+        "ja": "赤司ジュンコ",
+        "ko": "아카시 준코"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Rin",
-        "リン",
-        "Nanagami Rin",
-        "nanagami_rin_(blue_archive)",
-        "七神リン",
-        "린",
-        "나나카미 린"
+        "serika_(blue_archive)",
+        "Serika",
+        "Akagi Serika",
+        "セリカ",
+        "赤城セリカ",
+        "아카기 세리카"
       ],
-      "canonical": "七神リン",
+      "canonical": "赤城セリカ",
       "localizations": {
-        "en": "Nanagami Rin",
-        "ja": "七神リン",
-        "ko": "나나카미 린"
+        "en": "Akagi Serika",
+        "ja": "赤城セリカ",
+        "ko": "아카기 세리카"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "canonical changed with medium confidence — Abydos High School; medium confidence",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "saori_(blue_archive)",
+        "Saori",
+        "錠前サオリ",
+        "조마에 사오리"
+      ],
+      "canonical": "錠前サオリ",
+      "localizations": {
+        "en": "Saori",
+        "ko": "조마에 사오리",
+        "ja": "錠前サオリ"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Nagisa",
-        "ナギサ",
-        "Kiritou Nagisa",
-        "kiritou_nagisa_(blue_archive)",
-        "桐藤ナギサ",
-        "나기사",
-        "키리토 나기사"
+        "Hanae",
+        "hanae_(blue_archive)",
+        "朝顔ハナエ",
+        "아사가오 하나에"
       ],
-      "canonical": "桐藤ナギサ",
+      "canonical": "朝顔ハナエ",
       "localizations": {
-        "en": "Kiritou Nagisa",
-        "ja": "桐藤ナギサ",
-        "ko": "키리토 나기사"
+        "en": "Hanae",
+        "ja": "朝顔ハナエ",
+        "ko": "아사가오 하나에"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Satsuki",
-        "サツキ",
-        "Kyogoku Satsuki",
-        "kyogoku_satsuki_(blue_archive)",
-        "京極サツキ",
-        "사츠키",
-        "쿄고쿠 사츠키",
-        "サツキ(ブルーアーカイブ)"
+        "yuuka_(blue_archive)",
+        "Yuuka",
+        "早瀬ユウカ",
+        "하야세 유우카"
       ],
-      "canonical": "京極サツキ",
+      "canonical": "早瀬ユウカ",
       "localizations": {
-        "en": "Kyogoku Satsuki",
-        "ja": "京極サツキ",
-        "ko": "쿄고쿠 사츠키"
+        "en": "Yuuka",
+        "ko": "하야세 유우카",
+        "ja": "早瀬ユウカ"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Kirara",
-        "キララ",
-        "Yozakura Kirara",
-        "yozakura_kirara_(blue_archive)",
-        "夜桜キララ",
-        "키라라",
-        "요자쿠라 키라라",
-        "キララ(ブルーアーカイブ)"
+        "Tomoe",
+        "トモエ",
+        "Sajo Tomoe",
+        "sajo_tomoe_(blue_archive)",
+        "佐城トモエ",
+        "토모에",
+        "사죠 토모에"
       ],
-      "canonical": "夜桜キララ",
+      "canonical": "佐城トモエ",
       "localizations": {
-        "en": "Yozakura Kirara",
-        "ja": "夜桜キララ",
-        "ko": "요자쿠라 키라라"
+        "en": "Sajo Tomoe",
+        "ja": "佐城トモエ",
+        "ko": "사죠 토모에"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Kisaki",
-        "キサキ",
-        "Ryuka Kisaki",
-        "ryuka_kisaki_(blue_archive)",
-        "竜華キサキ",
-        "키사키",
-        "류카 키사키",
-        "キサキ(ブルーアーカイブ)"
+        "Kirino",
+        "kirino_(blue_archive)",
+        "中務キリノ",
+        "나카츠카사 키리노"
       ],
-      "canonical": "竜華キサキ",
+      "canonical": "中務キリノ",
       "localizations": {
-        "en": "Ryuka Kisaki",
-        "ja": "竜華キサキ",
-        "ko": "류카 키사키"
+        "en": "Kirino",
+        "ja": "中務キリノ",
+        "ko": "나카츠카사 키리노"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Koharu",
-        "コハル",
-        "Shimoe Koharu",
-        "shimoe_koharu_(blue_archive)",
-        "下江コハル",
-        "코하루",
-        "시모에 코하루"
+        "Ichika",
+        "イチカ",
+        "Nakasei Ichika",
+        "nakasei_ichika_(blue_archive)",
+        "仲正イチカ",
+        "이치카",
+        "나카세이 이치카"
       ],
-      "canonical": "下江コハル",
+      "canonical": "仲正イチカ",
       "localizations": {
-        "en": "Shimoe Koharu",
-        "ja": "下江コハル",
-        "ko": "시모에 코하루"
+        "en": "Nakasei Ichika",
+        "ja": "仲正イチカ",
+        "ko": "나카세이 이치카"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Mine",
+        "mine_(blue_archive)",
+        "蒼森ミネ",
+        "아오모리 미네"
+      ],
+      "canonical": "蒼森ミネ",
+      "localizations": {
+        "en": "Mine",
+        "ja": "蒼森ミネ",
+        "ko": "아오모리 미네"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Alice",
+        "Tendou Alice",
+        "アリス",
+        "天童アリス",
+        "텐도 아리스"
+      ],
+      "canonical": "天童アリス",
+      "localizations": {
+        "en": "Tendou Alice",
+        "ja": "天童アリス",
+        "ko": "텐도 아리스"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_canonical_check": true,
+        "reason": "official Japanese full-name canonical not verified"
+      }
+    },
+    {
+      "aliases": [
+        "Ako",
+        "アコ",
+        "Amamiya Ako",
+        "amamiya_ako_(blue_archive)",
+        "天雨アコ",
+        "아코",
+        "아마미야 아코"
+      ],
+      "canonical": "天雨アコ",
+      "localizations": {
+        "en": "Amamiya Ako",
+        "ja": "天雨アコ",
+        "ko": "아마미야 아코"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "kokona_(blue_archive)",
+        "Kokona",
+        "春原ココナ",
+        "스노하라 코코나"
+      ],
+      "canonical": "春原ココナ",
+      "localizations": {
+        "en": "Kokona",
+        "ko": "스노하라 코코나",
+        "ja": "春原ココナ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Shun",
+        "シュン",
+        "Haruhara Shun",
+        "haruhara_shun_(blue_archive)",
+        "春原シュン",
+        "슌",
+        "하루하라 슌",
+        "春原シュン(幼女)"
+      ],
+      "canonical": "春原シュン",
+      "localizations": {
+        "en": "Haruhara Shun",
+        "ja": "春原シュン",
+        "ko": "하루하라 슌"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "ツバキ",
+        "Kasuga Tsubaki",
+        "kasuga_tsubaki_(blue_archive)",
+        "春日ツバキ",
+        "츠바키",
+        "카스가 츠바키"
+      ],
+      "canonical": "春日ツバキ",
+      "localizations": {
+        "en": "Kasuga Tsubaki",
+        "ja": "春日ツバキ",
+        "ko": "카스가 츠바키"
       },
       "parent_series": "Blue Archive"
     },
@@ -2695,6 +1318,75 @@
     },
     {
       "aliases": [
+        "Rin",
+        "リン",
+        "Nanagami Rin",
+        "nanagami_rin_(blue_archive)",
+        "七神リン",
+        "린",
+        "나나카미 린"
+      ],
+      "canonical": "七神リン",
+      "localizations": {
+        "en": "Nanagami Rin",
+        "ja": "七神リン",
+        "ko": "나나카미 린"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Hanako",
+        "ハナコ",
+        "Urawa Hanako",
+        "urawa_hanako_(blue_archive)",
+        "浦和ハナコ",
+        "하나코",
+        "우라와 하나코"
+      ],
+      "canonical": "浦和ハナコ",
+      "localizations": {
+        "en": "Urawa Hanako",
+        "ja": "浦和ハナコ",
+        "ko": "우라와 하나코"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Moe",
+        "moe_(blue_archive)",
+        "風倉モエ",
+        "카자쿠라 모에"
+      ],
+      "canonical": "風倉モエ",
+      "localizations": {
+        "en": "Moe",
+        "ja": "風倉モエ",
+        "ko": "카자쿠라 모에"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Koharu",
+        "コハル",
+        "Shimoe Koharu",
+        "shimoe_koharu_(blue_archive)",
+        "下江コハル",
+        "코하루",
+        "시모에 코하루"
+      ],
+      "canonical": "下江コハル",
+      "localizations": {
+        "en": "Shimoe Koharu",
+        "ja": "下江コハル",
+        "ko": "시모에 코하루"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
         "Shizuko",
         "シズコ",
         "Kawawa Shizuko",
@@ -2723,37 +1415,72 @@
     },
     {
       "aliases": [
-        "Ako",
-        "アコ",
-        "Amamiya Ako",
-        "amamiya_ako_(blue_archive)",
-        "天雨アコ",
-        "아코",
-        "아마미야 아코"
+        "Fubuki",
+        "フブキ",
+        "Nekogaki Fubuki",
+        "nekogaki_fubuki_(blue_archive)",
+        "合歓垣フブキ",
+        "후부키",
+        "네코가키 후부키",
+        "ネムガキ"
       ],
-      "canonical": "天雨アコ",
+      "canonical": "合歓垣フブキ",
       "localizations": {
-        "en": "Amamiya Ako",
-        "ja": "天雨アコ",
-        "ko": "아마미야 아코"
+        "en": "Nekogaki Fubuki",
+        "ja": "合歓垣フブキ",
+        "ko": "네코가키 후부키"
       },
       "parent_series": "Blue Archive"
     },
     {
       "aliases": [
-        "Sakurako",
-        "サクラコ",
-        "Utasumi Sakurako",
-        "utasumi_sakurako_(blue_archive)",
-        "歌住サクラコ",
-        "사쿠라코",
-        "우타스미 사쿠라코"
+        "miyu_(blue_archive)",
+        "Miyu",
+        "霞沢ミユ",
+        "카스미자와 미유"
       ],
-      "canonical": "歌住サクラコ",
+      "canonical": "霞沢ミユ",
       "localizations": {
-        "en": "Utasumi Sakurako",
-        "ja": "歌住サクラコ",
-        "ko": "우타스미 사쿠라코"
+        "en": "Miyu",
+        "ko": "카스미자와 미유",
+        "ja": "霞沢ミユ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kazusa",
+        "kazusa_(blue_archive)",
+        "杏山カズサ",
+        "쿄야마 카즈사"
+      ],
+      "canonical": "杏山カズサ",
+      "localizations": {
+        "en": "Kazusa",
+        "ja": "杏山カズサ",
+        "ko": "쿄야마 카즈사"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kosaka Wakamo",
+        "Wakamo",
+        "ワカモ",
+        "ワカモ(正月)",
+        "ワカモ（正月）",
+        "浅黄ワカモ",
+        "浅黄ワカモ(正月)",
+        "浅黄ワカモ（正月）",
+        "狐坂ワカモ",
+        "와카모",
+        "코사카 와카모"
+      ],
+      "canonical": "狐坂ワカモ",
+      "localizations": {
+        "en": "Kosaka Wakamo",
+        "ja": "狐坂ワカモ",
+        "ko": "코사카 와카모"
       },
       "parent_series": "Blue Archive"
     },
@@ -2777,108 +1504,16 @@
     },
     {
       "aliases": [
-        "ツバキ",
-        "Kasuga Tsubaki",
-        "kasuga_tsubaki_(blue_archive)",
-        "春日ツバキ",
-        "츠바키",
-        "카스가 츠바키"
+        "chinatsu_(blue_archive)",
+        "Chinatsu",
+        "火宮チナツ",
+        "히노미야 치나츠"
       ],
-      "canonical": "春日ツバキ",
+      "canonical": "火宮チナツ",
       "localizations": {
-        "en": "Kasuga Tsubaki",
-        "ja": "春日ツバキ",
-        "ko": "카스가 츠바키"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Juri",
-        "ジュリ",
-        "Ushimaki Juri",
-        "ushimaki_juri_(blue_archive)",
-        "牛牧ジュリ",
-        "주리",
-        "우시마키 주리"
-      ],
-      "canonical": "牛牧ジュリ",
-      "localizations": {
-        "en": "Ushimaki Juri",
-        "ja": "牛牧ジュリ",
-        "ko": "우시마키 주리"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Tomoe",
-        "トモエ",
-        "Sajo Tomoe",
-        "sajo_tomoe_(blue_archive)",
-        "佐城トモエ",
-        "토모에",
-        "사죠 토모에"
-      ],
-      "canonical": "佐城トモエ",
-      "localizations": {
-        "en": "Sajo Tomoe",
-        "ja": "佐城トモエ",
-        "ko": "사죠 토모에"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Natsu",
-        "ナツ",
-        "Yudori Natsu",
-        "yudori_natsu_(blue_archive)",
-        "柚鳥ナツ",
-        "나츠",
-        "유도리 나츠"
-      ],
-      "canonical": "柚鳥ナツ",
-      "localizations": {
-        "en": "Yudori Natsu",
-        "ja": "柚鳥ナツ",
-        "ko": "유도리 나츠"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Airi",
-        "アイリ",
-        "Kurimura Airi",
-        "kurimura_airi_(blue_archive)",
-        "栗村アイリ",
-        "아이리",
-        "쿠리무라 아이리"
-      ],
-      "canonical": "栗村アイリ",
-      "localizations": {
-        "en": "Kurimura Airi",
-        "ja": "栗村アイリ",
-        "ko": "쿠리무라 아이리"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Hifumi",
-        "ヒフミ",
-        "Azaiya Hifumi",
-        "azaiya_hifumi_(blue_archive)",
-        "阿慈谷ヒフミ",
-        "히후미",
-        "아자이야 히후미"
-      ],
-      "canonical": "阿慈谷ヒフミ",
-      "localizations": {
-        "en": "Azaiya Hifumi",
-        "ja": "阿慈谷ヒフミ",
-        "ko": "아자이야 히후미"
+        "en": "Chinatsu",
+        "ko": "히노미야 치나츠",
+        "ja": "火宮チナツ"
       },
       "parent_series": "Blue Archive"
     },
@@ -2902,6 +1537,70 @@
     },
     {
       "aliases": [
+        "Ayane",
+        "ayane_(blue_archive)",
+        "奥空アヤネ",
+        "오쿠소라 아야네"
+      ],
+      "canonical": "奥空アヤネ",
+      "localizations": {
+        "en": "Ayane",
+        "ja": "奥空アヤネ",
+        "ko": "오쿠소라 아야네"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "mutsuki_(blue_archive)",
+        "Mutsuki",
+        "浅黄ムツキ",
+        "아사기 무츠키"
+      ],
+      "canonical": "浅黄ムツキ",
+      "localizations": {
+        "en": "Mutsuki",
+        "ko": "아사기 무츠키",
+        "ja": "浅黄ムツキ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Akira",
+        "akira_(blue_archive)",
+        "清澄アキラ",
+        "키요스미 아키라"
+      ],
+      "canonical": "清澄アキラ",
+      "localizations": {
+        "en": "Akira",
+        "ja": "清澄アキラ",
+        "ko": "키요스미 아키라"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kisaki",
+        "キサキ",
+        "Ryuka Kisaki",
+        "ryuka_kisaki_(blue_archive)",
+        "竜華キサキ",
+        "키사키",
+        "류카 키사키",
+        "キサキ(ブルーアーカイブ)"
+      ],
+      "canonical": "竜華キサキ",
+      "localizations": {
+        "en": "Ryuka Kisaki",
+        "ja": "竜華キサキ",
+        "ko": "류카 키사키"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
         "Mashiro",
         "マシロ",
         "Shizuyama Mashiro",
@@ -2920,106 +1619,2253 @@
     },
     {
       "aliases": [
-        "Erika",
-        "エリカ",
-        "Hatami Erika",
-        "hatami_erika_(blue_archive)",
-        "旗見エリカ",
-        "에리카",
-        "하타미 에리카"
+        "Koyuki",
+        "コユキ",
+        "Kurosaki Koyuki",
+        "kurosaki_koyuki_(blue_archive)",
+        "黒崎コユキ",
+        "코유키",
+        "쿠로사키 코유키",
+        "黒崎コユキ(バニーガール)"
       ],
-      "canonical": "旗見エリカ",
+      "canonical": "黒崎コユキ",
       "localizations": {
-        "en": "Hatami Erika",
-        "ja": "旗見エリカ",
-        "ko": "하타미 에리카"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Yoshimi",
-        "ヨシミ",
-        "Ibaraki Yoshimi",
-        "ibaraki_yoshimi_(blue_archive)",
-        "伊原木ヨシミ",
-        "요시미",
-        "이바라키 요시미"
-      ],
-      "canonical": "伊原木ヨシミ",
-      "localizations": {
-        "en": "Ibaraki Yoshimi",
-        "ja": "伊原木ヨシミ",
-        "ko": "이바라키 요시미"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Ichika",
-        "イチカ",
-        "Nakasei Ichika",
-        "nakasei_ichika_(blue_archive)",
-        "仲正イチカ",
-        "이치카",
-        "나카세이 이치카"
-      ],
-      "canonical": "仲正イチカ",
-      "localizations": {
-        "en": "Nakasei Ichika",
-        "ja": "仲正イチカ",
-        "ko": "나카세이 이치카"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Hanako",
-        "ハナコ",
-        "Urawa Hanako",
-        "urawa_hanako_(blue_archive)",
-        "浦和ハナコ",
-        "하나코",
-        "우라와 하나코"
-      ],
-      "canonical": "浦和ハナコ",
-      "localizations": {
-        "en": "Urawa Hanako",
-        "ja": "浦和ハナコ",
-        "ko": "우라와 하나코"
-      },
-      "parent_series": "Blue Archive"
-    },
-    {
-      "aliases": [
-        "Shun",
-        "シュン",
-        "Haruhara Shun",
-        "haruhara_shun_(blue_archive)",
-        "春原シュン",
-        "슌",
-        "하루하라 슌",
-        "春原シュン(幼女)"
-      ],
-      "canonical": "春原シュン",
-      "localizations": {
-        "en": "Haruhara Shun",
-        "ja": "春原シュン",
-        "ko": "하루하라 슌"
+        "en": "Kurosaki Koyuki",
+        "ja": "黒崎コユキ",
+        "ko": "쿠로사키 코유키"
       },
       "parent_series": "Blue Archive",
       "_review": {
         "merged_variants": [
           {
-            "source_tag": "春原シュン(幼女)",
-            "variant": "child_form",
+            "source_tag": "黒崎コユキ(バニーガール)",
+            "variant": "bunny_girl",
             "reason": "costume/variant tag merged into base character from failure report"
           }
         ]
+      }
+    },
+    {
+      "aliases": [
+        "black_suit_(blue_archive)",
+        "Black Suit",
+        "黒服",
+        "검은 양복"
+      ],
+      "canonical": "黒服",
+      "localizations": {
+        "en": "Black Suit",
+        "ko": "검은 양복",
+        "ja": "黒服"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Haruna",
+        "haruna_(blue_archive)",
+        "黒舘ハルナ",
+        "쿠로다테 하루나"
+      ],
+      "canonical": "黒舘ハルナ",
+      "localizations": {
+        "en": "Haruna",
+        "ja": "黒舘ハルナ",
+        "ko": "쿠로다테 하루나"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Akira (miria)",
+        "akira_(miria)_(blue_archive)"
+      ],
+      "canonical": "Akira (miria)",
+      "localizations": {
+        "en": "Akira (miria)",
+        "ko": "???(???)",
+        "ja": "????????"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "arona_(blue_archive)"
+      ],
+      "canonical": "Arona",
+      "localizations": {
+        "en": "Arona"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "azusa_(blue_archive)"
+      ],
+      "canonical": "Azusa",
+      "localizations": {
+        "en": "Azusa"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "black_suit_(blue_archive)"
+      ],
+      "canonical": "Black Suit",
+      "localizations": {
+        "en": "Black Suit"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Blonde Student Council President",
+        "blonde_student_council_president_(blue_archive)"
+      ],
+      "canonical": "Blonde Student Council President",
+      "localizations": {
+        "en": "Blonde Student Council President",
+        "ko": "?? ????",
+        "ja": "??????"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "chihiro_(blue_archive)"
+      ],
+      "canonical": "Chihiro",
+      "localizations": {
+        "en": "Chihiro"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "chihiro_(pajamas)_(blue_archive)"
+      ],
+      "canonical": "Chihiro (pajamas)",
+      "localizations": {
+        "en": "Chihiro (pajamas)"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "chinatsu_(blue_archive)"
+      ],
+      "canonical": "Chinatsu",
+      "localizations": {
+        "en": "Chinatsu"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Doodle Sensei",
+        "doodle_sensei_(blue_archive)"
+      ],
+      "canonical": "Doodle Sensei",
+      "localizations": {
+        "en": "Doodle Sensei",
+        "ko": "?? ???",
+        "ja": "?????"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Eri",
+        "eri_(blue_archive)"
+      ],
+      "canonical": "Eri",
+      "localizations": {
+        "en": "Eri",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "general_student_council_president_(blue_archive)",
+        "General Student Council President",
+        "Student Council President",
+        "총학생회장",
+        "連邦生徒会長"
+      ],
+      "canonical": "General Student Council President",
+      "localizations": {
+        "en": "General Student Council President",
+        "ko": "총학생회장",
+        "ja": "連邦生徒会長"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Gourmet Research Society",
+        "gourmet_research_society_(blue_archive)",
+        "미식연구회",
+        "美食研究会"
+      ],
+      "canonical": "Gourmet Research Society",
+      "localizations": {
+        "en": "Gourmet Research Society",
+        "ko": "미식연구회",
+        "ja": "美食研究会"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "possibly_general_or_group_tag": true,
+        "suggested_tag_type": "group",
+        "reason": "appears to be a group/faction tag rather than an individual character"
+      }
+    },
+    {
+      "aliases": [
+        "hare_(blue_archive)"
+      ],
+      "canonical": "Hare",
+      "localizations": {
+        "en": "Hare"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "hare_(camp)_(blue_archive)",
+        "Hare (camp)",
+        "??(??)",
+        "??(????)"
+      ],
+      "canonical": "Hare (camp)",
+      "localizations": {
+        "en": "Hare (camp)",
+        "ko": "??(??)",
+        "ja": "????????"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "hibiki_(blue_archive)",
+        "Hibiki"
+      ],
+      "canonical": "Hibiki",
+      "localizations": {
+        "en": "Hibiki"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Hikari",
+        "hikari_(blue_archive)"
+      ],
+      "canonical": "Hikari",
+      "localizations": {
+        "en": "Hikari",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "hina_(blue_archive)"
+      ],
+      "canonical": "Hina",
+      "localizations": {
+        "en": "Hina"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "hina_(swimsuit)_(blue_archive)"
+      ],
+      "canonical": "Hina (swimsuit)",
+      "localizations": {
+        "en": "Hina (swimsuit)"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "hoshino_(blue_archive)"
+      ],
+      "canonical": "Hoshino",
+      "localizations": {
+        "en": "Hoshino"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "ibuki_(blue_archive)"
+      ],
+      "canonical": "Ibuki",
+      "localizations": {
+        "en": "Ibuki"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "ichika_(blue_archive)",
+        "Ichika"
+      ],
+      "canonical": "Ichika",
+      "localizations": {
+        "en": "Ichika",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Justice Task Force Member",
+        "justice_task_force_member_(blue_archive)",
+        "?????",
+        "???????",
+        "정의실현부",
+        "正義実現委員会"
+      ],
+      "canonical": "Justice Task Force Member",
+      "localizations": {
+        "en": "Justice Task Force Member",
+        "ko": "??????",
+        "ja": "????????"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "possibly_general_or_group_tag": true,
+        "suggested_tag_type": "group",
+        "reason": "appears to be a group/faction tag rather than an individual character"
+      }
+    },
+    {
+      "aliases": [
+        "Kanoe",
+        "kanoe_(blue_archive)"
+      ],
+      "canonical": "Kanoe",
+      "localizations": {
+        "en": "Kanoe",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "kaya_(blue_archive)"
+      ],
+      "canonical": "Kaya",
+      "localizations": {
+        "en": "Kaya"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "kaya_(prison)_(blue_archive)",
+        "Kaya (prison)",
+        "??(???)",
+        "??(????)"
+      ],
+      "canonical": "Kaya (prison)",
+      "localizations": {
+        "en": "Kaya (prison)",
+        "ko": "??(???)",
+        "ja": "????????"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "kayoko_(blue_archive)"
+      ],
+      "canonical": "Kayoko",
+      "localizations": {
+        "en": "Kayoko"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kei",
+        "kei_(blue_archive)",
+        "??"
+      ],
+      "canonical": "Kei",
+      "localizations": {
+        "en": "Kei",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified"
+      }
+    },
+    {
+      "aliases": [
+        "Kei (new Body)",
+        "kei_(new_body)_(blue_archive)",
+        "??(?? ??)",
+        "??(????)"
+      ],
+      "canonical": "Kei (new Body)",
+      "localizations": {
+        "en": "Kei (new Body)",
+        "ko": "??(? ?)",
+        "ja": "????????"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "variant_tag": true,
+        "base_character_candidate": "Kei",
+        "reason": "variant tag; base canonical was not normalized automatically",
+        "needs_localization_check": true,
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "kikyou_(blue_archive)"
+      ],
+      "canonical": "Kikyou",
+      "localizations": {
+        "en": "Kikyou"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "koharu_(blue_archive)",
+        "Koharu"
+      ],
+      "canonical": "Koharu",
+      "localizations": {
+        "en": "Koharu",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "kokona_(blue_archive)"
+      ],
+      "canonical": "Kokona",
+      "localizations": {
+        "en": "Kokona"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "konoka_(blue_archive)",
+        "Konoka"
+      ],
+      "canonical": "Konoka",
+      "localizations": {
+        "en": "Konoka",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "kotama_(blue_archive)"
+      ],
+      "canonical": "Kotama",
+      "localizations": {
+        "en": "Kotama"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Kurumi",
+        "kurumi_(blue_archive)"
+      ],
+      "canonical": "Kurumi",
+      "localizations": {
+        "en": "Kurumi",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "maki_(blue_archive)"
+      ],
+      "canonical": "Maki",
+      "localizations": {
+        "en": "Maki"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "mari_(blue_archive)"
+      ],
+      "canonical": "Mari",
+      "localizations": {
+        "en": "Mari"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "mari_(idol)_(blue_archive)"
+      ],
+      "canonical": "Mari (idol)",
+      "localizations": {
+        "en": "Mari (idol)"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "midori_(blue_archive)"
+      ],
+      "canonical": "Midori",
+      "localizations": {
+        "en": "Midori"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "midori_(maid)_(blue_archive)"
+      ],
+      "canonical": "Midori (maid)",
+      "localizations": {
+        "en": "Midori (maid)"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Misaki",
+        "misaki_(blue_archive)"
+      ],
+      "canonical": "Misaki",
+      "localizations": {
+        "en": "Misaki",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "miyu_(blue_archive)"
+      ],
+      "canonical": "Miyu",
+      "localizations": {
+        "en": "Miyu"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "momoi_(blue_archive)"
+      ],
+      "canonical": "Momoi",
+      "localizations": {
+        "en": "Momoi"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "momoi_(maid)_(blue_archive)"
+      ],
+      "canonical": "Momoi (maid)",
+      "localizations": {
+        "en": "Momoi (maid)"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "mutsuki_(blue_archive)"
+      ],
+      "canonical": "Mutsuki",
+      "localizations": {
+        "en": "Mutsuki"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Natsuki",
+        "natsuki_(blue_archive)"
+      ],
+      "canonical": "Natsuki",
+      "localizations": {
+        "en": "Natsuki",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Niko",
+        "niko_(blue_archive)"
+      ],
+      "canonical": "Niko",
+      "localizations": {
+        "en": "Niko",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "noa_(blue_archive)"
+      ],
+      "canonical": "Noa",
+      "localizations": {
+        "en": "Noa"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Nozomi",
+        "nozomi_(blue_archive)"
+      ],
+      "canonical": "Nozomi",
+      "localizations": {
+        "en": "Nozomi",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Occult Studies Club",
+        "occult_studies_club_(blue_archive)",
+        "오컬트 연구부",
+        "オカルト研究部"
+      ],
+      "canonical": "Occult Studies Club",
+      "localizations": {
+        "en": "Occult Studies Club",
+        "ko": "오컬트 연구부",
+        "ja": "オカルト研究部"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "possibly_general_or_group_tag": true,
+        "suggested_tag_type": "group",
+        "reason": "appears to be a group/faction tag rather than an individual character"
+      }
+    },
+    {
+      "aliases": [
+        "Otogi",
+        "otogi_(blue_archive)"
+      ],
+      "canonical": "Otogi",
+      "localizations": {
+        "en": "Otogi",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "plana_(blue_archive)"
+      ],
+      "canonical": "Plana",
+      "localizations": {
+        "en": "Plana"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Problem Solver 68",
+        "problem_solver_68_(blue_archive)",
+        "흥신소 68",
+        "便利屋68",
+        "PS68"
+      ],
+      "canonical": "Problem Solver 68",
+      "localizations": {
+        "en": "Problem Solver 68",
+        "ko": "흥신소 68",
+        "ja": "便利屋68"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "possibly_general_or_group_tag": true,
+        "suggested_tag_type": "group",
+        "reason": "appears to be a group/faction tag rather than an individual character"
+      }
+    },
+    {
+      "aliases": [
+        "Professor Niyaniya",
+        "professor_niyaniya_(blue_archive)"
+      ],
+      "canonical": "Professor Niyaniya",
+      "localizations": {
+        "en": "Professor Niyaniya",
+        "ko": "???? ??",
+        "ja": "??????"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Rabbit Platoon",
+        "rabbit_platoon_(blue_archive)",
+        "RABBIT 소대",
+        "RABBIT小隊"
+      ],
+      "canonical": "Rabbit Platoon",
+      "localizations": {
+        "en": "Rabbit Platoon",
+        "ko": "RABBIT 소대",
+        "ja": "RABBIT小隊"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "possibly_general_or_group_tag": true,
+        "suggested_tag_type": "group",
+        "reason": "appears to be a group/faction tag rather than an individual character"
+      }
+    },
+    {
+      "aliases": [
+        "Rabu",
+        "rabu_(blue_archive)"
+      ],
+      "canonical": "Rabu",
+      "localizations": {
+        "en": "Rabu",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "reisa_(blue_archive)"
+      ],
+      "canonical": "Reisa",
+      "localizations": {
+        "en": "Reisa"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "rena_(blue_archive)",
+        "Rena"
+      ],
+      "canonical": "Rena",
+      "localizations": {
+        "en": "Rena",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "saki_(blue_archive)"
+      ],
+      "canonical": "Saki",
+      "localizations": {
+        "en": "Saki"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "saori_(blue_archive)"
+      ],
+      "canonical": "Saori",
+      "localizations": {
+        "en": "Saori"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Satsuki",
+        "satsuki_(blue_archive)"
+      ],
+      "canonical": "Satsuki",
+      "localizations": {
+        "en": "Satsuki",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "sena_(blue_archive)"
+      ],
+      "canonical": "Sena",
+      "localizations": {
+        "en": "Sena"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "sensei_(blue_archive)"
+      ],
+      "canonical": "Sensei",
+      "localizations": {
+        "en": "Sensei"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "serika_(blue_archive)",
+        "Serika"
+      ],
+      "canonical": "Serika",
+      "localizations": {
+        "en": "Serika"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "serina_(blue_archive)",
+        "Serina"
+      ],
+      "canonical": "Serina",
+      "localizations": {
+        "en": "Serina",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "serina_(nurse)_(blue_archive)",
+        "Serina (nurse)",
+        "???(???)"
+      ],
+      "canonical": "Serina (nurse)",
+      "localizations": {
+        "en": "Serina (nurse)",
+        "ko": "???(???)",
+        "ja": "????????"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "shiroko_(blue_archive)"
+      ],
+      "canonical": "Shiroko",
+      "localizations": {
+        "en": "Shiroko"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "shiroko_terror_(blue_archive)",
+        "Shiroko Terror",
+        "??? ??",
+        "??????"
+      ],
+      "canonical": "Shiroko Terror",
+      "localizations": {
+        "en": "Shiroko Terror",
+        "ko": "??? ??",
+        "ja": "???????"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "toki_(blue_archive)",
+        "Toki"
+      ],
+      "canonical": "Toki",
+      "localizations": {
+        "en": "Toki"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "toki_(school_uniform)_(blue_archive)",
+        "Toki (school Uniform)"
+      ],
+      "canonical": "Toki (school Uniform)",
+      "localizations": {
+        "en": "Toki (school Uniform)"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "tsubasa_(blue_archive)",
+        "Tsubasa"
+      ],
+      "canonical": "Tsubasa",
+      "localizations": {
+        "en": "Tsubasa"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "ui_(blue_archive)"
+      ],
+      "canonical": "Ui",
+      "localizations": {
+        "en": "Ui"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "Veritas",
+        "veritas_(blue_archive)",
+        "베리타스",
+        "ヴェリタス"
+      ],
+      "canonical": "Veritas",
+      "localizations": {
+        "en": "Veritas",
+        "ko": "베리타스",
+        "ja": "ヴェリタス"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "possibly_general_or_group_tag": true,
+        "suggested_tag_type": "group",
+        "reason": "appears to be a group/faction tag rather than an individual character"
+      }
+    },
+    {
+      "aliases": [
+        "Yukino",
+        "yukino_(blue_archive)"
+      ],
+      "canonical": "Yukino",
+      "localizations": {
+        "en": "Yukino",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "yuuka_(blue_archive)"
+      ],
+      "canonical": "Yuuka",
+      "localizations": {
+        "en": "Yuuka"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "arona_(blue_archive)",
+        "Arona",
+        "アロナ",
+        "아로나"
+      ],
+      "canonical": "アロナ",
+      "localizations": {
+        "en": "Arona",
+        "ko": "아로나",
+        "ja": "アロナ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "タイツ",
+        "???",
+        "Tights"
+      ],
+      "canonical": "タイツ",
+      "localizations": {
+        "ko": "타이츠",
+        "ja": "タイツ",
+        "en": "Tights"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "possibly_general_or_group_tag": true,
+        "suggested_tag_type": "general",
+        "reason": "appears to be a general attribute tag rather than a character"
+      }
+    },
+    {
+      "aliases": [
+        "plana_(blue_archive)",
+        "Plana",
+        "プラナ",
+        "프라나"
+      ],
+      "canonical": "プラナ",
+      "localizations": {
+        "en": "Plana",
+        "ko": "프라나",
+        "ja": "プラナ"
+      },
+      "parent_series": "Blue Archive"
+    },
+    {
+      "aliases": [
+        "メガネ",
+        "??",
+        "Glasses"
+      ],
+      "canonical": "メガネ",
+      "localizations": {
+        "ko": "안경",
+        "ja": "メガネ",
+        "en": "Glasses"
+      },
+      "parent_series": "Blue Archive",
+      "_review": {
+        "possibly_general_or_group_tag": true,
+        "suggested_tag_type": "general",
+        "reason": "appears to be a general attribute tag rather than a character"
+      }
+    },
+    {
+      "aliases": [
+        "Smol Mari (blue Archive)",
+        "smol_mari_(blue_archive)_(horuhara)"
+      ],
+      "canonical": "Smol Mari (blue Archive)",
+      "localizations": {
+        "en": "Smol Mari (blue Archive)",
+        "ko": "?? ??(?? ????)",
+        "ja": "??????????????"
+      },
+      "parent_series": "Horuhara",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "fan-work or crossover tag; ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Belorta",
+        "belorta_(nikke)",
+        "벨로타",
+        "ベロータ"
+      ],
+      "canonical": "Belorta",
+      "localizations": {
+        "en": "Belorta",
+        "ko": "벨로타",
+        "ja": "ベロータ"
+      },
+      "parent_series": "Nikke",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "KR name 벨로타 is confirmed, but JP official spelling is still based on transliteration rather than a directly cited official listing."
+      }
+    },
+    {
+      "aliases": [
+        "Liliweiss",
+        "liliweiss_(nikke)",
+        "릴리바이스",
+        "リリーバイス",
+        "Lilith",
+        "릴리스",
+        "リリース"
+      ],
+      "canonical": "Liliweiss",
+      "localizations": {
+        "en": "Liliweiss",
+        "ko": "릴리바이스",
+        "ja": "リリーバイス"
+      },
+      "parent_series": "Nikke",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko localization is transliteration candidate",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Mica",
+        "mica_(nikke)",
+        "미카",
+        "ミカ"
+      ],
+      "canonical": "Mica",
+      "localizations": {
+        "en": "Mica",
+        "ko": "미카",
+        "ja": "ミカ"
+      },
+      "parent_series": "Nikke",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Alice",
+        "alice_(trickcal)",
+        "???"
+      ],
+      "canonical": "Alice",
+      "localizations": {
+        "en": "Alice",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Amelia",
+        "amelia_(trickcal)",
+        "????"
+      ],
+      "canonical": "Amelia",
+      "localizations": {
+        "en": "Amelia",
+        "ko": "????",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal"
+    },
+    {
+      "aliases": [
+        "Aragnia",
+        "aragnia_(trickcal)",
+        "?????"
+      ],
+      "canonical": "Aragnia",
+      "localizations": {
+        "en": "Aragnia",
+        "ko": "?????",
+        "ja": "?????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Arco",
+        "arco_(trickcal)",
+        "???"
+      ],
+      "canonical": "Arco",
+      "localizations": {
+        "en": "Arco",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Ashur",
+        "ashur_(trickcal)",
+        "???",
+        "?????"
+      ],
+      "canonical": "Ashur",
+      "localizations": {
+        "en": "Ashur",
+        "ko": "???",
+        "ja": "?????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Asia",
+        "asia_(trickcal)",
+        "???"
+      ],
+      "canonical": "Asia",
+      "localizations": {
+        "en": "Asia",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Aya",
+        "aya_(trickcal)",
+        "??"
+      ],
+      "canonical": "Aya",
+      "localizations": {
+        "en": "Aya",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Barong",
+        "barong_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Barong",
+      "localizations": {
+        "en": "Barong",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Belita",
+        "belita_(trickcal)",
+        "???",
+        "????"
+      ],
+      "canonical": "Belita",
+      "localizations": {
+        "en": "Belita",
+        "ko": "???",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Bigwood",
+        "bigwood_(trickcal)",
+        "???",
+        "??????"
+      ],
+      "canonical": "Bigwood",
+      "localizations": {
+        "en": "Bigwood",
+        "ko": "???",
+        "ja": "??????"
+      },
+      "parent_series": "Trickcal"
+    },
+    {
+      "aliases": [
+        "Blanchet",
+        "blanchet_(trickcal)",
+        "???",
+        "?????"
+      ],
+      "canonical": "Blanchet",
+      "localizations": {
+        "en": "Blanchet",
+        "ko": "???",
+        "ja": "?????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Butter",
+        "butter_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Butter",
+      "localizations": {
+        "en": "Butter",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Carren",
+        "carren_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Carren",
+      "localizations": {
+        "en": "Carren",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal"
+    },
+    {
+      "aliases": [
+        "Chloe",
+        "chloe_(trickcal)",
+        "???"
+      ],
+      "canonical": "Chloe",
+      "localizations": {
+        "en": "Chloe",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Daya",
+        "daya_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Daya",
+      "localizations": {
+        "en": "Daya",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Ed",
+        "ed_(trickcal)",
+        "??"
+      ],
+      "canonical": "Ed",
+      "localizations": {
+        "en": "Ed",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Elena",
+        "elena_(trickcal)",
+        "???"
+      ],
+      "canonical": "Elena",
+      "localizations": {
+        "en": "Elena",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Erpin",
+        "erpin_(trickcal)",
+        "???",
+        "????"
+      ],
+      "canonical": "Erpin",
+      "localizations": {
+        "en": "Erpin",
+        "ko": "???",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Espi",
+        "espi_(trickcal)",
+        "???"
+      ],
+      "canonical": "Espi",
+      "localizations": {
+        "en": "Espi",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Fricle",
+        "fricle_(trickcal)",
+        "???",
+        "?????"
+      ],
+      "canonical": "Fricle",
+      "localizations": {
+        "en": "Fricle",
+        "ko": "???",
+        "ja": "?????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Goldy",
+        "goldy_(trickcal)",
+        "??",
+        "????"
+      ],
+      "canonical": "Goldy",
+      "localizations": {
+        "en": "Goldy",
+        "ko": "??",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Haley",
+        "haley_(trickcal)",
+        "???",
+        "????"
+      ],
+      "canonical": "Haley",
+      "localizations": {
+        "en": "Haley",
+        "ko": "???",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Heidi",
+        "heidi_(trickcal)",
+        "???",
+        "????"
+      ],
+      "canonical": "Heidi",
+      "localizations": {
+        "en": "Heidi",
+        "ko": "???",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Joanne",
+        "joanne_(trickcal)",
+        "??",
+        "????"
+      ],
+      "canonical": "Joanne",
+      "localizations": {
+        "en": "Joanne",
+        "ko": "??",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Kidian",
+        "kidian_(trickcal)",
+        "???",
+        "????"
+      ],
+      "canonical": "Kidian",
+      "localizations": {
+        "en": "Kidian",
+        "ko": "???",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Kommy",
+        "kommy_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Kommy",
+      "localizations": {
+        "en": "Kommy",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Kyuri",
+        "kyuri_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Kyuri",
+      "localizations": {
+        "en": "Kyuri",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Leader",
+        "leader_(trickcal)",
+        "??",
+        "????"
+      ],
+      "canonical": "Leader",
+      "localizations": {
+        "en": "Leader",
+        "ko": "??",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Leets",
+        "leets_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Leets",
+      "localizations": {
+        "en": "Leets",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Levi",
+        "levi_(trickcal)",
+        "??"
+      ],
+      "canonical": "Levi",
+      "localizations": {
+        "en": "Levi",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Mago",
+        "mago_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Mago",
+      "localizations": {
+        "en": "Mago",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Mayo",
+        "mayo_(trickcal)",
+        "??"
+      ],
+      "canonical": "Mayo",
+      "localizations": {
+        "en": "Mayo",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Ner",
+        "ner_(trickcal)",
+        "??"
+      ],
+      "canonical": "Ner",
+      "localizations": {
+        "en": "Ner",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Opal",
+        "opal_(trickcal)",
+        "??",
+        "????"
+      ],
+      "canonical": "Opal",
+      "localizations": {
+        "en": "Opal",
+        "ko": "??",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Patula",
+        "patula_(trickcal)",
+        "파트라",
+        "パトラ",
+        "Patra"
+      ],
+      "canonical": "Patula",
+      "localizations": {
+        "en": "Patula",
+        "ko": "파트라",
+        "ja": "パトラ"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_canonical_check": true,
+        "reason": "Safebooru staged alias uses Patula, while KR/JP usage matches 파트라/パトラ. Canonical kept for backward compatibility; pronunciation aliases added."
+      }
+    },
+    {
+      "aliases": [
+        "Picora",
+        "picora_(trickcal)",
+        "???"
+      ],
+      "canonical": "Picora",
+      "localizations": {
+        "en": "Picora",
+        "ko": "???",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Pira",
+        "pira_(trickcal)",
+        "??"
+      ],
+      "canonical": "Pira",
+      "localizations": {
+        "en": "Pira",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Polan",
+        "polan_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Polan",
+      "localizations": {
+        "en": "Polan",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Ran",
+        "ran_(trickcal)",
+        "?",
+        "??"
+      ],
+      "canonical": "Ran",
+      "localizations": {
+        "en": "Ran",
+        "ko": "?",
+        "ja": "??"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Renewa",
+        "renewa_(trickcal)",
+        "리뉴아",
+        "リニューア"
+      ],
+      "canonical": "Renewa",
+      "localizations": {
+        "en": "Renewa",
+        "ko": "리뉴아",
+        "ja": "リニューア"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_canonical_check": true,
+        "reason": "KR usage 리뉴아 is confirmed from merchandise/search results, and JA alias リニューア is added as a pronunciation bridge. English canonical is still kept from staged data for compatibility."
+      }
+    },
+    {
+      "aliases": [
+        "Rim",
+        "rim_(trickcal)",
+        "?",
+        "??"
+      ],
+      "canonical": "Rim",
+      "localizations": {
+        "en": "Rim",
+        "ko": "?",
+        "ja": "??"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Rohne",
+        "rohne_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Rohne",
+      "localizations": {
+        "en": "Rohne",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Rohne (mayor)",
+        "rohne_(mayor)_(trickcal)",
+        "??(??)",
+        "???????"
+      ],
+      "canonical": "Rohne (mayor)",
+      "localizations": {
+        "en": "Rohne (mayor)",
+        "ko": "??(??)",
+        "ja": "???????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Silphir",
+        "silphir_(trickcal)",
+        "???",
+        "??????"
+      ],
+      "canonical": "Silphir",
+      "localizations": {
+        "en": "Silphir",
+        "ko": "???",
+        "ja": "??????"
+      },
+      "parent_series": "Trickcal"
+    },
+    {
+      "aliases": [
+        "Speaki",
+        "speaki_(trickcal)",
+        "???",
+        "?????"
+      ],
+      "canonical": "Speaki",
+      "localizations": {
+        "en": "Speaki",
+        "ko": "???",
+        "ja": "?????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Ui",
+        "ui_(trickcal)",
+        "??"
+      ],
+      "canonical": "Ui",
+      "localizations": {
+        "en": "Ui",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Vivi",
+        "vivi_(trickcal)",
+        "??",
+        "????"
+      ],
+      "canonical": "Vivi",
+      "localizations": {
+        "en": "Vivi",
+        "ko": "??",
+        "ja": "????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Xion",
+        "xion_(trickcal)",
+        "??",
+        "???"
+      ],
+      "canonical": "Xion",
+      "localizations": {
+        "en": "Xion",
+        "ko": "??",
+        "ja": "???"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Yomi",
+        "yomi_(trickcal)",
+        "??"
+      ],
+      "canonical": "Yomi",
+      "localizations": {
+        "en": "Yomi",
+        "ko": "??",
+        "ja": "??"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
+      }
+    },
+    {
+      "aliases": [
+        "Youngchun",
+        "youngchun_(trickcal)",
+        "??",
+        "?????"
+      ],
+      "canonical": "Youngchun",
+      "localizations": {
+        "en": "Youngchun",
+        "ko": "??",
+        "ja": "?????"
+      },
+      "parent_series": "Trickcal",
+      "_review": {
+        "needs_localization_check": true,
+        "reason": "ko/ja official name not verified",
+        "needs_canonical_check": true
       }
     }
   ],
   "exported_at": "2026-04-27T09:02:56.037397+00:00",
   "enriched_at": "2026-04-27T09:42:35.259258+00:00",
-  "patched_at": "2026-04-27T12:07:31.817190+00:00"
+  "patched_at": "2026-04-27T12:07:31.817190+00:00",
+  "merged_at": "2026-04-30T06:41:31.759Z",
+  "merged_from": [
+    "tag_pack_export.json",
+    "tag_pack_export_localized_ko_ja.json",
+    "tag_pack_export_localized_ko_ja_enriched.json",
+    "tag_pack_export_localized_ko_ja_failure_patch.json",
+    "tag_pack_export_localized_ko_ja_failure_patch_v2.json"
+  ]
 }

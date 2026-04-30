@@ -33,6 +33,7 @@
         "https://bbs.ruliweb.com/community/board/300143/*"
       ],
       "js": [
+        "lib/exifr.full.umd.js",
         "content.js"
       ],
       "css": [
