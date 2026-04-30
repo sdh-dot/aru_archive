@@ -636,7 +636,7 @@ class _Step2Scan(_StepPanel):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        layout.addWidget(_label("Inbox 스캔 / 파일 로드", bold=True))
+        layout.addWidget(_label("이미지 스캔 / 파일 로드", bold=True))
         layout.addWidget(_h_sep())
 
         self._tbl = _kv_table([])
@@ -646,7 +646,7 @@ class _Step2Scan(_StepPanel):
         layout.addWidget(self._last_result_lbl)
 
         btn_row = QHBoxLayout()
-        self._btn_scan = QPushButton("🔍 Inbox 스캔 실행")
+        self._btn_scan = QPushButton("🔍 이미지 스캔 실행")
         self._btn_scan.clicked.connect(self._on_scan)
         btn_row.addWidget(self._btn_scan)
         btn_row.addStretch()
@@ -717,7 +717,7 @@ class _Step2Scan(_StepPanel):
 
     def _on_scan_done(self, result: dict) -> None:
         self._btn_scan.setEnabled(True)
-        self._btn_scan.setText("🔍 Inbox 스캔 실행")
+        self._btn_scan.setText("🔍 이미지 스캔 실행")
         self._last_result_lbl.setText(
             f"완료 — 신규: {result['new']}, 스킵: {result['skipped']}, 실패: {result['failed']}"
         )
