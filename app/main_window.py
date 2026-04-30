@@ -450,7 +450,7 @@ class MainWindow(QMainWindow):
 
         # ── 스캔 ▼ ───────────────────────────────────────────────────────
         scan_menu = QMenu(self)
-        self._act_inbox_scan  = scan_menu.addAction("🔍 Inbox 스캔")
+        self._act_inbox_scan  = scan_menu.addAction("🔍 이미지 스캔")
         self._act_refresh     = scan_menu.addAction("🔄 갱신")
         scan_menu.addSeparator()
         self._act_integrity   = scan_menu.addAction("🛡 파일 무결성 검사")
@@ -592,6 +592,7 @@ class MainWindow(QMainWindow):
         self._gallery.delete_requested.connect(self._on_gallery_delete_requested)
         self._gallery.open_location_requested.connect(self._on_open_file_location)
         self._gallery.read_meta_requested.connect(self._on_read_meta)
+        self._gallery.refresh_requested.connect(self._on_refresh)
 
         # 상세 패널
         self._detail.read_meta_requested  .connect(self._on_read_meta)
@@ -845,7 +846,7 @@ class MainWindow(QMainWindow):
                 self._log.append(f"[ERROR] Cannot create Inbox folder: {exc}")
                 return
 
-        self._log.append(f"[INFO] Inbox 스캔 시작: {inbox}")
+        self._log.append(f"[INFO] 이미지 스캔 시작: {inbox}")
         self._btn_scan.setEnabled(False)
 
         self._scan_thread = ScanThread(
@@ -1848,7 +1849,7 @@ class MainWindow(QMainWindow):
             info_lines.append(f"  DB 등록 Inbox/Managed 파일: {summary['db_file_count']}개")
             if summary["unindexed_count"] > 0:
                 info_lines.append(f"  DB 미등록 Inbox 파일: {summary['unindexed_count']}개")
-                info_lines.append("  ⚠ 미등록 파일까지 검사하려면 먼저 Inbox 스캔을 실행하세요.")
+                info_lines.append("  ⚠ 미등록 파일까지 검사하려면 먼저 이미지 스캔을 실행하세요.")
             for line in info_lines:
                 self._log.append(f"[INFO] {line}")
 
@@ -1943,7 +1944,7 @@ class MainWindow(QMainWindow):
                 if unindexed > 0:
                     warn_lines.append(
                         f"\n⚠ DB 미등록 Inbox 파일 {unindexed}개는 검사 대상에서 제외됩니다.\n"
-                        "  미등록 파일까지 검사하려면 먼저 Inbox 스캔을 실행하세요."
+                        "  미등록 파일까지 검사하려면 먼저 이미지 스캔을 실행하세요."
                     )
                 if db_count > max_files:
                     warn_lines.insert(0,

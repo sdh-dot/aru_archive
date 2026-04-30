@@ -106,7 +106,7 @@ class InboxScanner:
             self.log_fn(f"[WARN] Inbox 폴더 없음: {inbox_dir}")
             return result
 
-        self.log_fn(f"[INFO] Inbox 스캔 시작: {inbox_dir}")
+        self.log_fn(f"[INFO] 이미지 스캔 시작: {inbox_dir}")
 
         files = sorted(
             f for f in inbox_path.iterdir()

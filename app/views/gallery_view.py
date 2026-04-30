@@ -102,6 +102,7 @@ class GalleryView(QWidget):
     delete_requested        = Signal(list)
     open_location_requested = Signal(str)
     read_meta_requested     = Signal(str)
+    refresh_requested       = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -142,7 +143,7 @@ class GalleryView(QWidget):
         layout.addWidget(self._list)
 
         self._empty = QLabel(
-            "파일이 없습니다.\n[Inbox 스캔] 버튼을 눌러 시작하세요."
+            "파일이 없습니다.\n[이미지 스캔] 버튼을 눌러 시작하세요."
         )
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty.setStyleSheet("color: #8F6874; font-size: 13px;")
@@ -259,6 +260,10 @@ class GalleryView(QWidget):
 
         if n >= 1:
             act_del.triggered.connect(lambda: self.delete_requested.emit(list(selected_ids)))
+
+        menu.addSeparator()
+        act_refresh = menu.addAction("🔄 새로고침")
+        act_refresh.triggered.connect(lambda: self.refresh_requested.emit())
 
         if not menu.isEmpty():
             menu.exec(self._list.mapToGlobal(pos))
