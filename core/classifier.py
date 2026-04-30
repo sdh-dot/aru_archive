@@ -397,6 +397,7 @@ def build_classify_preview(
 
     return {
         "group_id":                  group_id,
+        "artwork_title":             group["artwork_title"] or "",
         "source_file_id":            source["file_id"],
         "source_path":               source["file_path"],
         "destinations":              dests,

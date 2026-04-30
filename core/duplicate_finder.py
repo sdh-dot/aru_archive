@@ -16,6 +16,9 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 
+# Inbox 스캔 대상 확장자 (inbox_scanner와 동일)
+_SCAN_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".zip"})
+
 logger = logging.getLogger(__name__)
 
 # Pixiv ID 파일명 패턴 — {artwork_id}_p{page}.ext
@@ -231,4 +234,69 @@ def build_exact_duplicate_cleanup_preview(
         "total_keep": total_keep,
         "total_delete_candidates": total_delete,
         "groups": result_groups,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Inbox 미등록 파일 감지
+# ---------------------------------------------------------------------------
+
+def find_unindexed_inbox_files(
+    conn: sqlite3.Connection,
+    inbox_dir: str,
+) -> list[Path]:
+    """
+    Inbox 폴더에 실제 존재하지만 DB에 등록되지 않은 파일 목록을 반환한다.
+
+    Inbox scan이 hash 기준으로 중복 파일을 skip하면 해당 파일이 DB에 없어
+    duplicate_finder 대상에서 빠지는 문제를 감지하기 위해 사용한다.
+
+    반환: 정렬된 Path 리스트 (inbox_dir 내 미등록 파일)
+    """
+    inbox = Path(inbox_dir)
+    if not inbox.exists():
+        return []
+
+    inbox_files = {
+        f
+        for f in inbox.iterdir()
+        if f.is_file() and f.suffix.lower() in _SCAN_EXTENSIONS
+    }
+    if not inbox_files:
+        return []
+
+    registered_paths: set[Path] = {
+        Path(row[0])
+        for row in conn.execute(
+            "SELECT file_path FROM artwork_files WHERE file_status != 'deleted'"
+        ).fetchall()
+    }
+
+    return sorted(f for f in inbox_files if f not in registered_paths)
+
+
+def get_duplicate_check_summary(
+    conn: sqlite3.Connection,
+    inbox_dir: str,
+    scope: str = _DEFAULT_SCOPE,
+    group_ids: list[str] | None = None,
+) -> dict:
+    """
+    중복 검사 대상 파일 수 및 미등록 Inbox 파일 수를 반환한다.
+
+    반환:
+    {
+        "db_file_count": N,        # DB 등록 파일 수 (scope 기준)
+        "unindexed_count": N,      # Inbox 미등록 파일 수
+        "unindexed_files": [...],  # Path 목록
+        "scope": str,
+    }
+    """
+    rows = select_duplicate_candidate_files(conn, scope=scope, group_ids=group_ids)
+    unindexed = find_unindexed_inbox_files(conn, inbox_dir) if inbox_dir else []
+    return {
+        "db_file_count": len(rows),
+        "unindexed_count": len(unindexed),
+        "unindexed_files": unindexed,
+        "scope": scope,
     }
