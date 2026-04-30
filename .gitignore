@@ -42,6 +42,7 @@ build/*.zip
 build/*.gif
 build/pytest_tmp*/
 build/runtime_probe*/
+build/manual_warning_check/
 
 # 설계 문서 (이진 파일 — 개인용)
 docs/*.docx
