@@ -422,7 +422,29 @@ CREATE INDEX IF NOT EXISTS idx_ext_dict_alias    ON external_dictionary_entries(
 
 
 -- ============================================================
--- 12. operation_locks: SQLite 동시 쓰기 잠금
+-- 12. classification_overrides: 수동 분류 보정
+--     사용자가 preview에서 수동으로 series/character를 지정한 경우 저장한다.
+--     enabled=0 이면 비활성 (soft delete).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS classification_overrides (
+    override_id        TEXT PRIMARY KEY,           -- UUID v4
+    group_id           TEXT NOT NULL,
+    series_canonical   TEXT,
+    character_canonical TEXT,
+    folder_locale      TEXT,
+    reason             TEXT,
+    source             TEXT NOT NULL DEFAULT 'manual',
+    enabled            INTEGER NOT NULL DEFAULT 1,
+    created_at         TEXT NOT NULL,
+    updated_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_classification_overrides_group
+ON classification_overrides(group_id, enabled);
+
+
+-- ============================================================
+-- 13. operation_locks: SQLite 동시 쓰기 잠금
 --     키 패턴:
 --       save:{source_site}:{artwork_id}  → 120초 (중복 저장 방지)
 --       classify:{group_id}              → 60초

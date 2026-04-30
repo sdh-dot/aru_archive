@@ -36,6 +36,16 @@ from core.batch_classifier import (
     execute_classify_batch,
 )
 
+# rule_type 값 중 수동 보정 버튼을 활성화할 대상
+_OVERRIDE_ELIGIBLE_RULES = frozenset({
+    "author_fallback",
+    "series_uncategorized",
+    "series_detected_but_character_missing",
+    "character_alias_missing",
+    "title_only_candidate",
+    "manual_override",  # 이미 지정된 항목도 재지정 가능
+})
+
 _LOCALE_OPTIONS = [
     ("canonical", "canonical (변경 없음)"),
     ("ko", "한국어"),
@@ -236,7 +246,28 @@ class BatchClassifyDialog(QDialog):
             "QTableWidget { background: #1A0F14; color: #D8AEBB; "
             "alternate-background-color: #211018; border: 1px solid #4A2030; }"
         )
+        self._table.itemSelectionChanged.connect(self._on_selection_changed)
         layout.addWidget(self._table, 1)
+
+        # ── 수동 보정 버튼 행 ────────────────────────────────────────
+        override_row = QHBoxLayout()
+        self._btn_manual_override = QPushButton("수동 분류 지정")
+        self._btn_manual_override.setEnabled(False)
+        self._btn_manual_override.setToolTip(
+            "선택한 실패 항목에 series/character를 수동으로 지정합니다."
+        )
+        self._btn_manual_override.clicked.connect(self._on_manual_override)
+        override_row.addWidget(self._btn_manual_override)
+
+        self._btn_clear_override = QPushButton("수동 지정 해제")
+        self._btn_clear_override.setEnabled(False)
+        self._btn_clear_override.setToolTip(
+            "선택한 항목의 수동 분류 지정을 해제합니다."
+        )
+        self._btn_clear_override.clicked.connect(self._on_clear_override)
+        override_row.addWidget(self._btn_clear_override)
+        override_row.addStretch()
+        layout.addLayout(override_row)
 
         # ── 진행 바 ──────────────────────────────────────────────────
         self._progress = QProgressBar()
@@ -352,8 +383,9 @@ class BatchClassifyDialog(QDialog):
     def _populate_table(self, previews: list[dict]) -> None:
         self._table.setRowCount(0)
         for p in previews:
-            title = p.get("source_path", "").split("/")[-1].split("\\")[-1]
-            ci = p.get("classification_info")
+            title  = p.get("source_path", "").split("/")[-1].split("\\")[-1]
+            gid    = p.get("group_id", "")
+            ci     = p.get("classification_info")
             ci_warn = ""
             if ci:
                 reason = ci.get("classification_reason", "")
@@ -364,13 +396,23 @@ class BatchClassifyDialog(QDialog):
             for dest in p.get("destinations", []):
                 row = self._table.rowCount()
                 self._table.insertRow(row)
-                self._table.setItem(row, 0, QTableWidgetItem(title))
+
+                title_item = QTableWidgetItem(title)
+                # group_id와 source_path를 행 데이터로 저장
+                title_item.setData(Qt.ItemDataRole.UserRole, gid)
+                title_item.setData(Qt.ItemDataRole.UserRole + 1, p.get("source_path", ""))
+                self._table.setItem(row, 0, title_item)
+
                 self._table.setItem(row, 1, QTableWidgetItem(
                     "✓" if dest.get("will_copy") else "✗"
                 ))
-                self._table.setItem(row, 2, QTableWidgetItem(dest.get("rule_type", "")))
+                rule = dest.get("rule_type", "")
+                self._table.setItem(row, 2, QTableWidgetItem(rule))
                 self._table.setItem(row, 3, QTableWidgetItem(dest.get("dest_path", "")))
+
                 warn_parts = []
+                if dest.get("override_note"):
+                    warn_parts.append("manual_override")
                 if dest.get("used_fallback"):
                     warn_parts.append("fallback")
                 if dest.get("conflict") not in (None, "none", ""):
@@ -378,6 +420,136 @@ class BatchClassifyDialog(QDialog):
                 if ci_warn:
                     warn_parts.append(ci_warn)
                 self._table.setItem(row, 4, QTableWidgetItem(", ".join(warn_parts)))
+
+    # ------------------------------------------------------------------
+    # 수동 보정 관련
+    # ------------------------------------------------------------------
+
+    def _on_selection_changed(self) -> None:
+        """선택된 행의 rule_type에 따라 수동 보정 버튼 활성화."""
+        rows = self._table.selectedItems()
+        if not rows:
+            self._btn_manual_override.setEnabled(False)
+            self._btn_clear_override.setEnabled(False)
+            return
+        row = self._table.currentRow()
+        rule = self._table.item(row, 2).text() if self._table.item(row, 2) else ""
+        eligible = rule in _OVERRIDE_ELIGIBLE_RULES or not rule  # 미분류도 허용
+        self._btn_manual_override.setEnabled(bool(self._batch_preview) and eligible)
+        self._btn_clear_override.setEnabled(bool(self._batch_preview) and rule == "manual_override")
+
+    def _selected_group_id(self) -> Optional[str]:
+        row = self._table.currentRow()
+        item = self._table.item(row, 0)
+        if item is None:
+            return None
+        return item.data(Qt.ItemDataRole.UserRole)
+
+    def _selected_source_path(self) -> str:
+        row = self._table.currentRow()
+        item = self._table.item(row, 0)
+        if item is None:
+            return ""
+        return item.data(Qt.ItemDataRole.UserRole + 1) or ""
+
+    def _find_preview(self, group_id: str) -> Optional[dict]:
+        if not self._batch_preview:
+            return None
+        for p in self._batch_preview.get("previews", []):
+            if p.get("group_id") == group_id:
+                return p
+        return None
+
+    def _on_manual_override(self) -> None:
+        group_id = self._selected_group_id()
+        if not group_id:
+            return
+        preview = self._find_preview(group_id)
+        if preview is None:
+            return
+
+        conn = self._conn_factory()
+        try:
+            row = conn.execute(
+                "SELECT artwork_title, artist_name FROM artwork_groups WHERE group_id=?",
+                (group_id,),
+            ).fetchone()
+            title_text  = row["artwork_title"] if row else ""
+            artist_text = row["artist_name"]   if row else ""
+
+            cur_row  = self._table.currentRow()
+            cur_rule = self._table.item(cur_row, 2).text() if self._table.item(cur_row, 2) else ""
+            cur_dest = self._table.item(cur_row, 3).text() if self._table.item(cur_row, 3) else ""
+
+            from app.views.manual_classify_override_dialog import ManualClassifyOverrideDialog
+            dlg = ManualClassifyOverrideDialog(
+                group_info={
+                    "filename":    self._selected_source_path().split("/")[-1].split("\\")[-1],
+                    "title":       title_text,
+                    "artist_name": artist_text,
+                    "raw_tags":    [],
+                    "rule_type":   cur_rule,
+                    "dest_path":   cur_dest,
+                },
+                conn=conn,
+                current_locale=self._batch_preview.get("folder_locale", "canonical"),
+                parent=self,
+            )
+            if dlg.exec() != ManualClassifyOverrideDialog.DialogCode.Accepted:
+                return
+
+            override_params = dlg.result()
+            if not override_params:
+                return
+
+            from core.classification_overrides import (
+                apply_override_to_preview_item,
+                set_override_for_group,
+            )
+            set_override_for_group(conn, group_id=group_id, **override_params)
+
+            override = {"group_id": group_id, **override_params}
+            updated  = apply_override_to_preview_item(
+                conn, preview, override,
+                config=self._build_config_snapshot(),
+            )
+            # batch_preview 내 해당 preview 교체
+            previews = self._batch_preview.get("previews", [])
+            for i, p in enumerate(previews):
+                if p.get("group_id") == group_id:
+                    previews[i] = updated
+                    break
+
+            self.log_msg.emit(
+                f"[INFO] 수동 분류 지정: {group_id[:8]}… "
+                f"series={override_params.get('series_canonical')} "
+                f"character={override_params.get('character_canonical')}"
+            )
+        finally:
+            conn.close()
+
+        self._populate_table(self._batch_preview.get("previews", []))
+        self._btn_execute.setEnabled(
+            self._batch_preview.get("estimated_copies", 0) > 0
+            or any(
+                any(d.get("will_copy") for d in p.get("destinations", []))
+                for p in self._batch_preview.get("previews", [])
+            )
+        )
+
+    def _on_clear_override(self) -> None:
+        group_id = self._selected_group_id()
+        if not group_id:
+            return
+        conn = self._conn_factory()
+        try:
+            from core.classification_overrides import clear_override_for_group
+            clear_override_for_group(conn, group_id)
+        finally:
+            conn.close()
+
+        self.log_msg.emit(f"[INFO] 수동 분류 지정 해제: {group_id[:8]}…")
+        self._on_preview()
 
     # ------------------------------------------------------------------
     # 실행
