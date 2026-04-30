@@ -156,7 +156,7 @@ class _EnrichThread(QThread):
 
     def run(self) -> None:
         from db.database import initialize_database
-        from core.metadata_enricher import enrich_file_from_pixiv
+        from core.metadata_enricher import enrich_file_from_pixiv, _is_timing_enabled
         conn = initialize_database(self._db_path)
         try:
             # metadata_missing AND artwork_id not empty
@@ -169,6 +169,17 @@ class _EnrichThread(QThread):
                 "ORDER BY ag.indexed_at DESC"
             ).fetchall()
             total   = len(rows)
+
+            # ---- queue-level summary (timing 활성 시에만 출력) ----
+            _timing_on = _is_timing_enabled()
+            if _timing_on:
+                self._emit_queue_summary(conn)
+
+            # per-file timings 누적 (timing 활성 시에만)
+            _agg_sum: dict[str, float] = {}
+            _agg_max: dict[str, float] = {}
+            _n_with_timing = 0
+
             success = failed = skipped = 0
             for idx, row in enumerate(rows):
                 self.progress.emit(idx + 1, total)
@@ -180,16 +191,98 @@ class _EnrichThread(QThread):
                         skipped += 1
                     else:
                         failed += 1
+
+                    # timings 집계
+                    _t = r.get("timings") or {}
+                    if _t:
+                        _n_with_timing += 1
+                        for k, v in _t.items():
+                            _agg_sum[k] = _agg_sum.get(k, 0.0) + float(v)
+                            _agg_max[k] = max(_agg_max.get(k, 0.0), float(v))
                 except Exception as exc:
                     self.log_msg.emit(f"[ERROR] 보강 실패 ({row['file_id'][:8]}): {exc}")
                     failed += 1
             conn.commit()
+
+            # ---- aggregate timing summary (timings를 받은 파일이 1건 이상일 때만) ----
+            if _n_with_timing > 0:
+                self._emit_timing_aggregate(_n_with_timing, _agg_sum, _agg_max)
+
             self.done.emit({"success": success, "failed": failed, "skipped": skipped})
         except Exception as exc:
             self.log_msg.emit(f"[ERROR] 보강 스레드 예외: {exc}")
             self.done.emit({"success": 0, "failed": 0, "skipped": 0})
         finally:
             conn.close()
+
+    def _emit_queue_summary(self, conn) -> None:
+        """enrich queue의 total/unique/multi-page/savings_potential을 UI + logger에 보고한다."""
+        try:
+            counts = conn.execute(
+                "SELECT COUNT(*) AS total_files, "
+                "       COUNT(DISTINCT ag.artwork_id) AS unique_artworks "
+                "FROM artwork_files af "
+                "JOIN artwork_groups ag ON ag.group_id = af.group_id "
+                "WHERE ag.metadata_sync_status = 'metadata_missing' "
+                "  AND ag.artwork_id IS NOT NULL AND ag.artwork_id != '' "
+                "  AND af.file_role = 'original'"
+            ).fetchone()
+            multi_rows = conn.execute(
+                "SELECT ag.artwork_id, COUNT(*) AS cnt "
+                "FROM artwork_files af "
+                "JOIN artwork_groups ag ON ag.group_id = af.group_id "
+                "WHERE ag.metadata_sync_status = 'metadata_missing' "
+                "  AND ag.artwork_id IS NOT NULL AND ag.artwork_id != '' "
+                "  AND af.file_role = 'original' "
+                "GROUP BY ag.artwork_id"
+            ).fetchall()
+        except Exception as exc:
+            logger.debug("enrich queue summary 계산 실패 (무시): %s", exc)
+            return
+
+        total_files     = int(counts["total_files"] or 0) if counts else 0
+        unique_artworks = int(counts["unique_artworks"] or 0) if counts else 0
+        multi_page_files  = sum(int(r["cnt"]) for r in multi_rows if int(r["cnt"]) > 1)
+        single_page_files = total_files - multi_page_files
+        savings_potential = max(0, total_files - unique_artworks)
+
+        self.log_msg.emit(
+            f"[INFO] enrich queue: {total_files} files / "
+            f"{unique_artworks} unique artworks "
+            f"(multi-page: {multi_page_files} files, single-page: {single_page_files}). "
+            f"이론상 fetch 절약 가능: {savings_potential}건."
+        )
+        logger.info(
+            "enrich_queue_summary total=%d unique=%d multi=%d single=%d savings_potential=%d",
+            total_files, unique_artworks, multi_page_files, single_page_files,
+            savings_potential,
+        )
+
+    def _emit_timing_aggregate(
+        self,
+        n_with_timing: int,
+        agg_sum: dict,
+        agg_max: dict,
+    ) -> None:
+        """per-file timing 누적치를 평균/최대로 변환해 UI + logger에 1회 출력한다."""
+        avg_fetch    = agg_sum.get("pixiv_fetch", 0.0) / n_with_timing
+        avg_xmp      = agg_sum.get("write_xmp", 0.0) / n_with_timing
+        avg_total    = agg_sum.get("total", 0.0) / n_with_timing
+        max_fetch    = agg_max.get("pixiv_fetch", 0.0)
+        max_xmp      = agg_max.get("write_xmp", 0.0)
+        max_total    = agg_max.get("total", 0.0)
+
+        self.log_msg.emit(
+            f"[INFO] enrich timing summary (n={n_with_timing}): "
+            f"평균 fetch={avg_fetch:.2f}s write_xmp={avg_xmp:.2f}s total={avg_total:.2f}s "
+            f"(최대 fetch={max_fetch:.2f}s, write_xmp={max_xmp:.2f}s, total={max_total:.2f}s)"
+        )
+        logger.info(
+            "enrich_summary n=%d avg_fetch=%.3fs avg_xmp=%.3fs avg_total=%.3fs "
+            "max_fetch=%.3fs max_xmp=%.3fs max_total=%.3fs",
+            n_with_timing, avg_fetch, avg_xmp, avg_total,
+            max_fetch, max_xmp, max_total,
+        )
 
 
 class _RetagThread(QThread):

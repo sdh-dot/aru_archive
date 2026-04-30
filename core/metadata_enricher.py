@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sqlite3
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -30,6 +32,22 @@ from core.pixiv_filename import parse_pixiv_filename
 from core.metadata_writer import XmpWriteError, write_aru_metadata, write_xmp_metadata_with_exiftool
 
 logger = logging.getLogger(__name__)
+
+
+_TRUTHY_ENV = {"1", "true", "yes", "on"}
+
+
+def _is_timing_enabled(config: Optional[dict] = None) -> bool:
+    """ARU_ENRICH_TIMING / ARU_ARCHIVE_DEV_MODE / config.developer.enrich_timing 중 하나라도 truthy면 True."""
+    if os.environ.get("ARU_ENRICH_TIMING", "").strip().lower() in _TRUTHY_ENV:
+        return True
+    if os.environ.get("ARU_ARCHIVE_DEV_MODE", "").strip().lower() in _TRUTHY_ENV:
+        return True
+    if config:
+        dev = config.get("developer", {}) or {}
+        if dev.get("enabled") and dev.get("enrich_timing"):
+            return True
+    return False
 
 
 def enrich_file_from_pixiv(
@@ -49,6 +67,38 @@ def enrich_file_from_pixiv(
         sync_status : "json_only" | "metadata_write_failed" | None
         message     : 사람이 읽을 수 있는 결과 설명
     """
+    # ---- timing instrumentation (env/config 게이트, 비활성 시 모두 no-op) ----
+    _timing_on = _is_timing_enabled()
+    _t0 = time.perf_counter() if _timing_on else 0.0
+    _t_step = _t0
+    _timings: dict[str, float] = {}
+    _file_basename = file_id[:8]  # row 조회 후 실제 basename으로 갱신
+
+    def _mark(stage: str) -> None:
+        nonlocal _t_step
+        if _timing_on:
+            now = time.perf_counter()
+            _timings[stage] = now - _t_step
+            _t_step = now
+
+    def _finish(status: str, sync_status: Optional[str], message: str) -> dict:
+        result: dict = {"status": status, "sync_status": sync_status, "message": message}
+        if _timing_on:
+            _timings["total"] = time.perf_counter() - _t0
+            logger.info(
+                "enrich_timing file=%s status=%s "
+                "db_lookup=%.3fs parse=%.3fs fetch=%.3fs aru_meta=%.3fs "
+                "write_aru=%.3fs write_xmp=%.3fs db_update=%.3fs tag_post=%.3fs total=%.3fs",
+                _file_basename, status,
+                _timings.get("db_lookup", 0.0), _timings.get("parse_filename", 0.0),
+                _timings.get("pixiv_fetch", 0.0), _timings.get("to_aru_meta", 0.0),
+                _timings.get("write_aru", 0.0), _timings.get("write_xmp", 0.0),
+                _timings.get("db_update", 0.0), _timings.get("tag_observe_candidate", 0.0),
+                _timings["total"],
+            )
+            result["timings"] = dict(_timings)
+        return result
+
     if adapter is None:
         adapter = PixivAdapter()
 
@@ -58,26 +108,24 @@ def enrich_file_from_pixiv(
         "FROM artwork_files WHERE file_id = ?",
         (file_id,),
     ).fetchone()
+    _mark("db_lookup")
     if not row:
-        return {
-            "status": "not_found",
-            "sync_status": None,
-            "message": f"file_id 없음: {file_id}",
-        }
+        return _finish("not_found", None, f"file_id 없음: {file_id}")
 
     file_path   = row["file_path"]
     file_format = row["file_format"]
     group_id    = row["group_id"]
     page_index  = row["page_index"] or 0
+    _file_basename = Path(file_path).name
 
     # 2. 파일명에서 artwork_id 추출
     parsed = parse_pixiv_filename(file_path)
+    _mark("parse_filename")
     if parsed is None:
-        return {
-            "status": "no_artwork_id",
-            "sync_status": None,
-            "message": f"파일명에서 artwork_id 추출 불가: {Path(file_path).name}",
-        }
+        return _finish(
+            "no_artwork_id", None,
+            f"파일명에서 artwork_id 추출 불가: {_file_basename}",
+        )
     artwork_id = parsed.artwork_id
 
     # 3. Pixiv AJAX API fetch
@@ -85,45 +133,44 @@ def enrich_file_from_pixiv(
         raw = adapter.fetch_metadata(artwork_id)
     except PixivRestrictedError as exc:
         _set_sync_status(conn, group_id, "metadata_write_failed")
-        return {
-            "status": "restricted",
-            "sync_status": "metadata_write_failed",
-            "message": str(exc),
-        }
+        _mark("pixiv_fetch")
+        return _finish("restricted", "metadata_write_failed", str(exc))
     except PixivNetworkError as exc:
-        return {"status": "network_error", "sync_status": None, "message": str(exc)}
+        _mark("pixiv_fetch")
+        return _finish("network_error", None, str(exc))
     except (PixivParseError, PixivFetchError) as exc:
-        return {"status": "parse_error", "sync_status": None, "message": str(exc)}
+        _mark("pixiv_fetch")
+        return _finish("parse_error", None, str(exc))
+    _mark("pixiv_fetch")
 
     # 4. AruMetadata 변환
     try:
         meta = adapter.to_aru_metadata(
             raw,
             page_index=page_index,
-            original_filename=Path(file_path).name,
+            original_filename=_file_basename,
         )
     except Exception as exc:
         logger.error("AruMetadata 변환 실패: %s", exc)
-        return {
-            "status": "parse_error",
-            "sync_status": None,
-            "message": f"메타데이터 변환 오류: {exc}",
-        }
+        _mark("to_aru_meta")
+        return _finish("parse_error", None, f"메타데이터 변환 오류: {exc}")
+    _mark("to_aru_meta")
 
     # 5. 파일에 메타데이터 쓰기 (AruArchive JSON)
     try:
         write_aru_metadata(file_path, meta.to_dict(), file_format)
         sync_status: Optional[str] = "json_only"
-        logger.info("메타데이터 기록 완료: %s → %s", Path(file_path).name, sync_status)
+        logger.info("메타데이터 기록 완료: %s → %s", _file_basename, sync_status)
     except Exception as exc:
-        logger.error("메타데이터 쓰기 실패: %s → %s", Path(file_path).name, exc)
+        logger.error("메타데이터 쓰기 실패: %s → %s", _file_basename, exc)
         _set_sync_status(conn, group_id, "metadata_write_failed")
         _set_file_embedded(conn, file_id, 0)
-        return {
-            "status": "embed_failed",
-            "sync_status": "metadata_write_failed",
-            "message": f"파일 메타데이터 쓰기 실패: {exc}",
-        }
+        _mark("write_aru")
+        return _finish(
+            "embed_failed", "metadata_write_failed",
+            f"파일 메타데이터 쓰기 실패: {exc}",
+        )
+    _mark("write_aru")
 
     # 5-b. XMP 기록 시도 (ExifTool이 설정된 경우)
     if exiftool_path and sync_status == "json_only":
@@ -132,14 +179,16 @@ def enrich_file_from_pixiv(
             if ok:
                 sync_status = "full"
         except XmpWriteError as exc:
-            logger.warning("XMP 기록 실패: %s → %s", Path(file_path).name, exc)
+            logger.warning("XMP 기록 실패: %s → %s", _file_basename, exc)
             sync_status = "xmp_write_failed"
+    _mark("write_xmp")
 
     # 6. DB 갱신
     now = datetime.now(timezone.utc).isoformat()
     _update_group_from_meta(conn, group_id, meta, sync_status, now)
     _set_file_embedded(conn, file_id, 1)
     conn.commit()
+    _mark("db_update")
 
     # 7. 태그 관측 기록 + 후보 생성 (실패해도 보강 결과에는 영향 없음)
     try:
@@ -165,16 +214,14 @@ def enrich_file_from_pixiv(
         generate_tag_candidates_for_group(conn, group_id)
     except Exception as exc:
         logger.debug("태그 관측 기록 실패 (무시): %s", exc)
+    _mark("tag_observe_candidate")
 
-    return {
-        "status": "success",
-        "sync_status": sync_status,
-        "message": (
-            f"보강 완료: {meta.artwork_title or artwork_id}"
-            f" / {meta.artist_name or meta.artist_id}"
-            f" (sync={sync_status})"
-        ),
-    }
+    return _finish(
+        "success", sync_status,
+        f"보강 완료: {meta.artwork_title or artwork_id}"
+        f" / {meta.artist_name or meta.artist_id}"
+        f" (sync={sync_status})",
+    )
 
 
 # ---------------------------------------------------------------------------
