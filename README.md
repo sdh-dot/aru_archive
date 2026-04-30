@@ -1,7 +1,7 @@
 # Aru Archive
 
 <p align="center">
-  <img src="docs/icon.png" alt="Aru Archive 배너" width="160">
+  <img src="docs/icon_01.png" alt="Aru Archive 배너" width="160">
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 ## 화면 미리보기
 
 <p align="center">
-  <img src="docs/icon_1.png" alt="Aru Archive 화면 미리보기" width="900">
+  <img src="docs/icon_01.png" alt="Aru Archive 화면 미리보기" width="900">
 </p>
 
 ## 소개
