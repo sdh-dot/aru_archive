@@ -168,13 +168,68 @@ def _write_sidecar(file_path: str, metadata: dict) -> None:
     sidecar_path.write_text(json_text, encoding="utf-8")
 
 
-def write_xmp_metadata_with_exiftool(
+def write_windows_exif_fields(
     file_path: str,
     metadata: dict,
     exiftool_path: Optional[str] = None,
 ) -> bool:
     """
+    Windows Explorer 호환 EXIF XP 필드를 ExifTool로 기록한다.
+
+    XPTitle (탐색기 제목), XPKeywords (탐색기 태그), XPAuthor (만든 이)를
+    UTF-16LE로 기록한다. ExifTool 없으면 False 반환.
+
+    권장 호출 순서: write_aru_metadata → write_xmp_metadata_with_exiftool
+    (include_xp_fields=True, 기본값). ExifTool이 XMP와 XP 필드를 한 번에 기록.
+    이 함수는 XP 필드만 독립적으로 재기록할 때 사용한다.
+
+    반환값:
+      True  : 기록 성공
+      False : ExifTool 없음
+    예외:
+      XmpWriteError : ExifTool 실행 실패
+    """
+    if not exiftool_path:
+        return False
+
+    from core.exiftool import build_exiftool_xp_args, validate_exiftool_path
+
+    if not validate_exiftool_path(exiftool_path):
+        logger.warning("ExifTool 실행 불가 (XP 필드 기록 건너뜀): %s", exiftool_path)
+        return False
+
+    args = [exiftool_path] + build_exiftool_xp_args(file_path, metadata)
+    try:
+        result = subprocess.run(args, capture_output=True, timeout=60)
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8", errors="replace")
+            stdout = result.stdout.decode("utf-8", errors="replace")
+            raise XmpWriteError(
+                f"XP 필드 기록 실패 (rc={result.returncode}): "
+                f"{stderr.strip() or stdout.strip()}"
+            )
+        logger.info("Windows EXIF XP 필드 기록 완료: %s", file_path)
+        return True
+    except subprocess.TimeoutExpired:
+        raise XmpWriteError(f"ExifTool 타임아웃 (XP 필드): {file_path}")
+    except XmpWriteError:
+        raise
+    except Exception as exc:
+        raise XmpWriteError(f"ExifTool 실행 오류 (XP 필드): {exc}") from exc
+
+
+def write_xmp_metadata_with_exiftool(
+    file_path: str,
+    metadata: dict,
+    exiftool_path: Optional[str] = None,
+    include_xp_fields: bool = True,
+) -> bool:
+    """
     ExifTool을 사용하여 XMP 표준 필드를 기록한다.
+
+    include_xp_fields=True (기본값)이면 XMP-dc 필드와 함께
+    Windows Explorer 호환 EXIF XP 필드(XPTitle/XPKeywords/XPAuthor)도
+    한 번의 ExifTool 호출로 같이 기록한다.
 
     반환값:
       True   : XMP 기록 성공 → metadata_sync_status = 'full'
@@ -182,7 +237,6 @@ def write_xmp_metadata_with_exiftool(
 
     예외:
       XmpWriteError : ExifTool 실행 실패 → metadata_sync_status = 'xmp_write_failed'
-                      (no_metadata_queue에 INSERT하지 않음)
 
     exiftool_path=None이면 항상 False 반환.
     shell=True 사용 금지 — subprocess.run([...]) 인자 리스트 사용.
@@ -190,19 +244,32 @@ def write_xmp_metadata_with_exiftool(
     if not exiftool_path:
         return False
 
-    from core.exiftool import build_exiftool_xmp_args, validate_exiftool_path
+    from core.exiftool import (
+        build_exiftool_xmp_args,
+        build_exiftool_xp_args,
+        validate_exiftool_path,
+    )
 
     if not validate_exiftool_path(exiftool_path):
         logger.warning("ExifTool 실행 불가: %s", exiftool_path)
         return False
 
-    args = [exiftool_path] + build_exiftool_xmp_args(file_path, metadata)
+    # XMP 인자 (-overwrite_original과 file_path 제외)
+    xmp_args = build_exiftool_xmp_args(file_path, metadata)
+
+    if include_xp_fields:
+        # XP 인자에서 중복되는 -overwrite_original / file_path 제거 후 합침
+        xp_args = build_exiftool_xp_args(file_path, metadata)
+        xp_tag_args = [
+            a for a in xp_args
+            if a not in ("-overwrite_original", file_path)
+        ]
+        # XMP 인자의 마지막 두 항목(-overwrite_original, file_path) 앞에 삽입
+        xmp_args = xmp_args[:-2] + xp_tag_args + xmp_args[-2:]
+
+    args = [exiftool_path] + xmp_args
     try:
-        result = subprocess.run(
-            args,
-            capture_output=True,
-            timeout=60,
-        )
+        result = subprocess.run(args, capture_output=True, timeout=60)
         if result.returncode != 0:
             stderr = result.stderr.decode("utf-8", errors="replace")
             stdout = result.stdout.decode("utf-8", errors="replace")
@@ -210,7 +277,8 @@ def write_xmp_metadata_with_exiftool(
                 f"ExifTool 실패 (returncode={result.returncode}): "
                 f"{stderr.strip() or stdout.strip()}"
             )
-        logger.info("XMP 기록 완료: %s", file_path)
+        logger.info("XMP%s 기록 완료: %s",
+                    "+XP" if include_xp_fields else "", file_path)
         return True
     except subprocess.TimeoutExpired:
         raise XmpWriteError(f"ExifTool 타임아웃 (60s): {file_path}")
