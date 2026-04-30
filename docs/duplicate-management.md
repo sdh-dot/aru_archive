@@ -100,16 +100,62 @@ Classified/BySeries/.../original.jpg  ← 분류 결과 복사본 (classified_co
 
 ## 시각적 중복 검토 흐름
 
-```
+```text
 [👁 시각적 중복 검사]
+  → confirm_visual_scan 다이얼로그
   → find_visual_duplicates(conn, threshold=6, scope="inbox_managed")
-  → VisualDuplicateReviewDialog 표시
-    - 이미지 미리보기 비교
-    - [이 파일 유지] / [이 파일 삭제] / [그룹에서 제외]
+  → decide_visual_duplicate_groups(dup_groups)
+    - 그룹별 keep / delete 후보 자동 산출 (pure function)
+    - 실패 시 WARN 로그 후 빈 dict로 fallback
+  → dict[file_id, decision] 평탄화
+  → VisualDuplicateReviewDialog(initial_decisions=...)
+    - 자동 후보가 초기 라벨로 표시됨
+    - 사용자가 keep / delete / exclude를 자유롭게 변경 가능
     - [다음 그룹] / [삭제 미리보기로 이동]
-  → DeletePreviewDialog 표시 (재확인)
+  → DeletePreviewDialog (재확인)
   → execute_delete_preview(confirmed=True)
 ```
+
+### 자동 keep/delete 후보 정책
+
+자동 선택은 **초기 후보 표시**일 뿐 삭제 실행이 아닙니다. 사용자는 review dialog에서 언제든 keep / delete / exclude를 변경할 수 있으며, 실제 삭제는 multi-stage gate를 모두 통과해야만 발생합니다.
+
+#### 선택 기준 (우선순위 순)
+
+| 순위 | 기준 | 설명 |
+|------|------|------|
+| 1 | 해상도 | `width × height`가 큰 파일이 keep |
+| 2 | 파일 형식 | 동일 해상도면 `webp` 우선 |
+| 3 | 복제 suffix | 파일명 stem 끝의 `(N)` 패턴이 없는 쪽 우선 |
+| 4 | 파일 크기 | 동률이면 `file_size`가 큰 쪽 우선 |
+| 5 | 파일명 | 완전 동률이면 filename 오름차순 첫 번째 |
+
+해상도가 DB에 없으면 Pillow로 on-demand 측정하며, 측정 실패 시 `(0, 0)`로 안전 fallback합니다. PIL 예외는 외부로 던지지 않습니다.
+
+#### 로깅
+
+- **자동 후보 적용 성공**: INFO 로그
+
+    ```
+    [INFO] 시각적 중복 검사: 자동 유지/삭제 후보를 적용했습니다. 검토 후 변경할 수 있습니다.
+    ```
+
+- **자동 후보 계산 실패**: WARN 로그 후 빈 `initial_decisions`로 fallback (수동 검토 흐름 그대로 유지)
+
+    ```
+    [WARN] 자동 keep/delete 계산 실패 (수동 검토 필요): {exc}
+    ```
+
+#### 다단계 안전 게이트
+
+자동 선택 → 사용자 검토 → 삭제 실행은 항상 별개의 단계입니다.
+
+1. `decide_visual_duplicate_groups()` — pure function, file system 변경 0건
+2. `VisualDuplicateReviewDialog` — 사용자 결정 가능, dialog 생성만으로는 삭제 안 함
+3. `DeletePreviewDialog` — 최종 확인
+4. `execute_delete_preview(confirmed=True)` — 실제 삭제 수행
+
+자동 선택만으로 파일은 절대 삭제되지 않습니다.
 
 ### pHash 알고리즘
 

@@ -48,7 +48,7 @@
 - 파일 메타데이터 읽기와 누락 상태 점검
 - Pixiv 메타데이터 보강 및 태그 기반 재분류
 - 분류 실행 전 미리보기 제공
-- 시각적 중복 탐지와 검토 다이얼로그 지원
+- 시각적 중복 탐지 + 자동 유지/삭제 후보 추천 + 검토 다이얼로그 지원
 - XMP 재처리, 썸네일 재생성, DB 재색인 같은 유지보수 기능 제공
 
 ## 작업 구조
@@ -146,3 +146,4 @@ QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 - [docs/duplicate-management.md](docs/duplicate-management.md)
 - [docs/file-deletion.md](docs/file-deletion.md)
 - [docs/troubleshooting.md](docs/troubleshooting.md)
+- [docs/tag_packs/drafts/README.md](docs/tag_packs/drafts/README.md) — Tag Pack v3 raw draft 격리 정책
