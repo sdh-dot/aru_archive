@@ -21,8 +21,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import struct
 import subprocess
+import time
 import zlib
 from pathlib import Path
 from typing import Optional
@@ -34,6 +36,36 @@ class XmpWriteError(Exception):
     """XMP 기록 실패 예외 — no_metadata_queue에 넣지 않음."""
 
 ARU_KEYWORD = "AruArchive"
+
+
+_TRUTHY_ENV = {"1", "true", "yes", "on"}
+
+
+def _is_exiftool_timing_enabled() -> bool:
+    """ARU_ENRICH_TIMING 또는 ARU_ARCHIVE_DEV_MODE 환경변수가 truthy면 True. config는 미참조."""
+    if os.environ.get("ARU_ENRICH_TIMING", "").strip().lower() in _TRUTHY_ENV:
+        return True
+    if os.environ.get("ARU_ARCHIVE_DEV_MODE", "").strip().lower() in _TRUTHY_ENV:
+        return True
+    return False
+
+
+def _log_exiftool_call(
+    file_path: str,
+    elapsed: float,
+    args_count: int,
+    timeout: bool,
+    success: bool,
+) -> None:
+    """exiftool subprocess 1회 호출 timing을 logger.info에 기록한다 (timing 활성 시)."""
+    if not _is_exiftool_timing_enabled():
+        return
+    logger.info(
+        "exiftool_call file=%s elapsed=%.3fs args=%d timeout=%s success=%s",
+        Path(file_path).name, elapsed, args_count,
+        "true" if timeout else "false",
+        "true" if success else "false",
+    )
 
 
 def write_aru_metadata(file_path: str, metadata: dict, file_format: str) -> None:
@@ -199,6 +231,9 @@ def write_windows_exif_fields(
         return False
 
     args = [exiftool_path] + build_exiftool_xp_args(file_path, metadata)
+    _t0 = time.perf_counter()
+    _timeout = False
+    _success = False
     try:
         result = subprocess.run(args, capture_output=True, timeout=60)
         if result.returncode != 0:
@@ -209,13 +244,20 @@ def write_windows_exif_fields(
                 f"{stderr.strip() or stdout.strip()}"
             )
         logger.info("Windows EXIF XP 필드 기록 완료: %s", file_path)
+        _success = True
         return True
     except subprocess.TimeoutExpired:
+        _timeout = True
         raise XmpWriteError(f"ExifTool 타임아웃 (XP 필드): {file_path}")
     except XmpWriteError:
         raise
     except Exception as exc:
         raise XmpWriteError(f"ExifTool 실행 오류 (XP 필드): {exc}") from exc
+    finally:
+        _log_exiftool_call(
+            file_path, time.perf_counter() - _t0, len(args),
+            timeout=_timeout, success=_success,
+        )
 
 
 def write_xmp_metadata_with_exiftool(
@@ -268,6 +310,9 @@ def write_xmp_metadata_with_exiftool(
         xmp_args = xmp_args[:-2] + xp_tag_args + xmp_args[-2:]
 
     args = [exiftool_path] + xmp_args
+    _t0 = time.perf_counter()
+    _timeout = False
+    _success = False
     try:
         result = subprocess.run(args, capture_output=True, timeout=60)
         if result.returncode != 0:
@@ -279,10 +324,17 @@ def write_xmp_metadata_with_exiftool(
             )
         logger.info("XMP%s 기록 완료: %s",
                     "+XP" if include_xp_fields else "", file_path)
+        _success = True
         return True
     except subprocess.TimeoutExpired:
+        _timeout = True
         raise XmpWriteError(f"ExifTool 타임아웃 (60s): {file_path}")
     except XmpWriteError:
         raise
     except Exception as exc:
         raise XmpWriteError(f"ExifTool 실행 오류: {exc}") from exc
+    finally:
+        _log_exiftool_call(
+            file_path, time.perf_counter() - _t0, len(args),
+            timeout=_timeout, success=_success,
+        )
