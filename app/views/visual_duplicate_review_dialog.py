@@ -20,24 +20,47 @@ from PyQt6.QtWidgets import (
 )
 
 
+_VALID_DECISIONS = frozenset({"keep", "delete", "exclude"})
+
+
 class VisualDuplicateReviewDialog(QDialog):
     """
     시각적 중복 후보 그룹을 비교하고 삭제할 파일을 선택하는 다이얼로그.
 
     사용자가 [삭제 미리보기로 이동]을 클릭하면 selected_for_delete() 로
     선택된 file_id 목록을 반환한다.
+
+    initial_decisions로 자동 keep/delete/exclude 후보를 초기 UI 상태로
+    주입할 수 있다. 사용자가 이후 수동으로 결정을 변경할 수 있으며,
+    실제 파일 삭제는 [삭제 미리보기로 이동] → DeletePreviewDialog →
+    execute_delete_preview 단계를 거쳐야만 발생한다.
     """
 
     def __init__(
         self,
         visual_dup_groups: list[dict],
         parent: Optional[QWidget] = None,
+        *,
+        initial_decisions: Optional[dict[str, str]] = None,
     ) -> None:
         super().__init__(parent)
         self._groups = visual_dup_groups
         self._current_idx = 0
-        self._decisions: dict[str, str] = {}  # file_id → 'keep'|'delete'|'exclude'
-        self._to_delete: list[str] = []
+
+        # initial_decisions를 안전하게 필터링 — invalid key/value는 silent 무시.
+        # decision은 "keep" / "delete" / "exclude" 중 하나만 허용.
+        filtered: dict[str, str] = {
+            fid: decision
+            for fid, decision in (initial_decisions or {}).items()
+            if isinstance(fid, str)
+            and isinstance(decision, str)
+            and decision in _VALID_DECISIONS
+        }
+        self._decisions: dict[str, str] = filtered  # file_id → 'keep'|'delete'|'exclude'
+        # _to_delete는 selected_for_delete()의 백엔드 — initial delete와 동기화.
+        self._to_delete: list[str] = [
+            fid for fid, decision in filtered.items() if decision == "delete"
+        ]
         self._decision_labels: dict[str, QLabel] = {}
 
         self.setWindowTitle("시각적 중복 검토")
