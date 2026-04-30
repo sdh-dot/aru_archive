@@ -26,7 +26,7 @@ from core.adapters.pixiv import (
     PixivParseError,
     PixivRestrictedError,
 )
-from core.filename_parser import parse_pixiv_filename
+from core.pixiv_filename import parse_pixiv_filename
 from core.metadata_writer import XmpWriteError, write_aru_metadata, write_xmp_metadata_with_exiftool
 
 logger = logging.getLogger(__name__)
