@@ -1,0 +1,14 @@
+/*
+ * Aru Source Captioner — styles
+ *
+ * Phase 1: placeholder.
+ *
+ * Phase 1의 캡션 형식은 inline `style="text-align: center;"`로 삽입되도록
+ * 정의되어 있으므로(docs/phase1-design.md 정책 4번), 본 stylesheet는 현재 비어 있습니다.
+ *
+ * Phase 2 이후 클래스 기반 스타일을 도입하게 되면 다음 클래스를 예약합니다.
+ *   .aru-source-caption
+ *
+ * 사용자 본문과의 시각적 충돌을 막기 위해 모든 셀렉터는 위 클래스에 한정합니다.
+ * 전역 셀렉터(예: p, a 등 단독)는 사용하지 않습니다.
+ */
