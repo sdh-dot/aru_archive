@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS artwork_groups (
                           -- pending | full | json_only | out_of_sync |
                           -- file_write_failed | convert_failed | metadata_write_failed |
                           -- xmp_write_failed | db_update_failed |
-                          -- needs_reindex | metadata_missing
+                          -- needs_reindex | metadata_missing | source_unavailable
                           --
                           -- [다중 페이지 집계 규칙]
                           -- 그룹 내 모든 파일의 metadata_sync_status 중
