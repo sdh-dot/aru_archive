@@ -43,9 +43,13 @@ build/*.gif
 build/pytest_tmp*/
 build/runtime_probe*/
 build/manual_warning_check/
+# README 작업 보존용 로컬 patch 백업
+build/readme-workingtree-before-main-sync.patch
 
 # 설계 문서 (이진 파일 — 개인용)
 docs/*.docx
+# Notion 동기화용 로컬 feature spec
+docs/feature_spec_notion.json
 
 # Native Host 로컬 오버라이드
 native_host/*.local.json
