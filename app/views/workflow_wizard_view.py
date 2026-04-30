@@ -746,7 +746,11 @@ class _Step3Meta(_StepPanel):
         # ── Optional: 중복 검사 섹션 ──
         layout.addWidget(_h_sep())
         layout.addWidget(_label("중복 검사 (선택 사항)", bold=True))
-        self._dup_status_lbl = QLabel("마지막 검사: 미실행")
+        self._dup_status_lbl = QLabel(
+            "중복 검사는 메인 화면의 기존 중복 검사 흐름으로 실행됩니다. "
+            "범위 선택, 확인, 결과 검토는 동일한 창에서 진행됩니다."
+        )
+        self._dup_status_lbl.setWordWrap(True)
         self._dup_status_lbl.setStyleSheet("color: #8F6874; font-size: 11px;")
         layout.addWidget(self._dup_status_lbl)
 
@@ -820,92 +824,22 @@ class _Step3Meta(_StepPanel):
             self._warnings_lbl.setText("✅ 상태 이상 없음")
 
     def _on_exact_dup(self) -> None:
-        try:
-            from core.duplicate_finder import find_exact_duplicates, build_exact_duplicate_cleanup_preview
-            from core.delete_manager import build_delete_preview, execute_delete_preview
-            from app.views.delete_preview_dialog import DeletePreviewDialog
-            from PyQt6.QtWidgets import QMessageBox
-            conn = self._conn_factory()
-            # 기본 범위: Inbox / Managed (Classified 제외)
-            dup_groups = find_exact_duplicates(conn, scope="inbox_managed")
-            if not dup_groups:
-                QMessageBox.information(self, "완전 중복", "완전 중복 파일이 없습니다. (검사 범위: Inbox / Managed)")
-                self._dup_status_lbl.setText("완전 중복: 없음 (Inbox / Managed)")
-                conn.close()
-                return
-            cleanup = build_exact_duplicate_cleanup_preview(conn, dup_groups)
-            total_del = cleanup["total_delete_candidates"]
-            self._dup_status_lbl.setText(
-                f"완전 중복 그룹: {cleanup['total_groups']}개 / 삭제 후보: {total_del}개 (Inbox / Managed)"
-            )
-            delete_file_ids = [
-                f.get("file_id")
-                for g in cleanup["groups"]
-                for f in g.get("delete_candidates", [])
-                if f.get("file_id")
-            ]
-            if not delete_file_ids:
-                conn.close()
-                return
-            msg = (
-                f"완전 중복 그룹: {cleanup['total_groups']}개\n"
-                f"삭제 후보: {total_del}개\n"
-                f"검사 범위: Inbox / Managed\n\n삭제 미리보기로 이동하시겠습니까?"
-            )
-            if QMessageBox.question(
-                self, "완전 중복 검사", msg,
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            ) == QMessageBox.StandardButton.Yes:
-                preview = build_delete_preview(
-                    conn, file_ids=delete_file_ids, reason="exact_duplicate_cleanup"
-                )
-                dlg = DeletePreviewDialog(preview, parent=self)
-                if dlg.exec() == DeletePreviewDialog.DialogCode.Accepted and dlg.is_confirmed():
-                    result = execute_delete_preview(conn, preview, confirmed=True)
-                    self.log_msg.emit(
-                        f"[INFO] 완전 중복 정리: deleted={result['deleted']} "
-                        f"failed={result['failed']}"
-                    )
-                    self.refresh_main.emit()
-            conn.close()
-        except Exception as exc:
-            self.log_msg.emit(f"[ERROR] 완전 중복 검사 실패: {exc}")
+        """완전 중복 검사를 MainWindow handler에 위임한다.
+
+        Step 3 자체 로직(scope/confirm/dialog)은 보유하지 않고, 상위 wizard의
+        signal만 emit해 Top Menu와 동일한 흐름(scope 선택 + summary +
+        DeletePreviewDialog)으로 진행하게 한다.
+        """
+        self._wizard.exact_duplicate_scan_requested.emit()
 
     def _on_visual_dup(self) -> None:
-        try:
-            from core.visual_duplicate_finder import find_visual_duplicates
-            from core.delete_manager import build_delete_preview, execute_delete_preview
-            from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
-            from app.views.delete_preview_dialog import DeletePreviewDialog
-            from PyQt6.QtWidgets import QMessageBox
-            conn = self._conn_factory()
-            self.log_msg.emit("[INFO] 시각적 중복 검사 중… (범위: Inbox / Managed)")
-            # 기본 범위: Inbox / Managed (Classified 제외)
-            dup_groups = find_visual_duplicates(conn, scope="inbox_managed")
-            if not dup_groups:
-                QMessageBox.information(self, "시각적 중복", "유사 이미지 그룹이 없습니다. (검사 범위: Inbox / Managed)")
-                self._dup_status_lbl.setText("시각적 중복: 없음 (Inbox / Managed)")
-                conn.close()
-                return
-            self._dup_status_lbl.setText(f"시각적 중복 후보 그룹: {len(dup_groups)}개 (Inbox / Managed)")
-            review_dlg = VisualDuplicateReviewDialog(dup_groups, parent=self)
-            if review_dlg.exec() == VisualDuplicateReviewDialog.DialogCode.Accepted:
-                delete_file_ids = review_dlg.selected_for_delete()
-                if delete_file_ids:
-                    preview = build_delete_preview(
-                        conn, file_ids=delete_file_ids, reason="visual_duplicate_cleanup"
-                    )
-                    dlg = DeletePreviewDialog(preview, parent=self)
-                    if dlg.exec() == DeletePreviewDialog.DialogCode.Accepted and dlg.is_confirmed():
-                        result = execute_delete_preview(conn, preview, confirmed=True)
-                        self.log_msg.emit(
-                            f"[INFO] 시각적 중복 정리: deleted={result['deleted']} "
-                            f"failed={result['failed']}"
-                        )
-                        self.refresh_main.emit()
-            conn.close()
-        except Exception as exc:
-            self.log_msg.emit(f"[ERROR] 시각적 중복 검사 실패: {exc}")
+        """시각적 중복 검사를 MainWindow handler에 위임한다.
+
+        Step 3 자체 로직(confirm_visual_scan/threshold/dialog)은 보유하지
+        않고, 상위 wizard의 signal만 emit해 Top Menu와 동일한 흐름으로
+        진행하게 한다.
+        """
+        self._wizard.visual_duplicate_scan_requested.emit()
 
 
 # ── Step 4: Metadata Enrichment ─────────────────────────────────────────────
@@ -1682,7 +1616,9 @@ class WorkflowWizardView(QDialog):
         wizard.exec()
     """
 
-    refresh_main = Signal()   # MainWindow가 갤러리/카운트를 갱신해야 할 때
+    refresh_main                    = Signal()   # MainWindow가 갤러리/카운트를 갱신해야 할 때
+    exact_duplicate_scan_requested  = Signal()   # Step 3에서 완전 중복 검사를 MainWindow handler에 위임
+    visual_duplicate_scan_requested = Signal()   # Step 3에서 시각 중복 검사를 MainWindow handler에 위임
 
     def __init__(
         self,

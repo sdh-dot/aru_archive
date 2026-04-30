@@ -1592,6 +1592,9 @@ class MainWindow(QMainWindow):
             )
             dlg.refresh_main.connect(self._refresh_gallery)
             dlg.refresh_main.connect(self._refresh_counts)
+            # Step 3 중복 검사 버튼 → Top Menu와 동일한 MainWindow handler 재사용
+            dlg.exact_duplicate_scan_requested.connect(self._on_exact_duplicate_check)
+            dlg.visual_duplicate_scan_requested.connect(self._on_visual_duplicate_check)
             dlg.exec()
         except Exception as exc:
             self._log.append(f"[ERROR] 작업 마법사 오류: {exc}")
