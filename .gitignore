@@ -48,3 +48,9 @@ docs/*.docx
 
 # Native Host 로컬 오버라이드
 native_host/*.local.json
+
+# Browser extension artifacts
+browser-extension/**/node_modules/
+browser-extension/**/dist/
+browser-extension/**/*.crx
+browser-extension/**/*.zip
