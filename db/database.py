@@ -78,6 +78,7 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     _migrate_external_dictionary_entries(conn)
     _migrate_delete_batches(conn)
     _migrate_delete_records(conn)
+    _migrate_classification_overrides(conn)
 
 
 def _add_column_if_missing(
@@ -364,6 +365,31 @@ def _migrate_delete_records(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_delete_records_file "
         "ON delete_records(file_id)"
+    )
+    conn.commit()
+
+
+def _migrate_classification_overrides(conn: sqlite3.Connection) -> None:
+    """classification_overrides 테이블이 없으면 생성한다."""
+    if _table_exists(conn, "classification_overrides"):
+        return
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS classification_overrides (
+            override_id         TEXT PRIMARY KEY,
+            group_id            TEXT NOT NULL,
+            series_canonical    TEXT,
+            character_canonical TEXT,
+            folder_locale       TEXT,
+            reason              TEXT,
+            source              TEXT NOT NULL DEFAULT 'manual',
+            enabled             INTEGER NOT NULL DEFAULT 1,
+            created_at          TEXT NOT NULL,
+            updated_at          TEXT NOT NULL
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_classification_overrides_group "
+        "ON classification_overrides(group_id, enabled)"
     )
     conn.commit()
 

@@ -323,3 +323,46 @@ raw tags: ["ワカモ(正月)"]
 > `tag_aliases`에 새 항목을 추가하거나 기존 alias를 변경한 후에는  
 > Step 6 "태그 재분류"를 실행해야 `series_tags_json` / `character_tags_json`이 갱신됩니다.  
 > 재분류 없이 분류를 실행하면 이전 alias 상태로 폴더가 생성됩니다.
+
+---
+
+## Manual Classification Overrides
+
+When metadata tags are incomplete, Aru Archive does **not** infer character identity from the artwork title alone by default.
+
+### Title-only candidate policy
+
+```
+title: マリーちゃん
+raw_tags: ブルーアーカイブ10000users入り, チャイナドレス
+```
+
+- `マリーちゃん` is a title hint, not a tag — automatic character confirmation is **prohibited**.
+- The preview shows the item as `author_fallback` or `series_uncategorized`.
+- The user can manually assign a character in the preview.
+
+### How to use manual overrides
+
+1. Open **일괄 분류** (BatchClassifyDialog) and generate a preview.
+2. Select a failure row (`author_fallback` / `series_uncategorized` / `series_detected_character_missing`).
+3. Click **[수동 분류 지정]**.
+4. Enter series canonical and/or character canonical in the dialog.
+5. The preview row is immediately updated with `rule_type = manual_override`.
+6. Click **[▶ 실행]** — the override destination is used for the actual file copy.
+
+### Storage
+
+Manual overrides are stored per artwork group in the `classification_overrides` table:
+
+```sql
+classification_overrides(
+    override_id, group_id,
+    series_canonical, character_canonical,
+    folder_locale, reason, source, enabled,
+    created_at, updated_at
+)
+```
+
+- Override takes precedence over automatic classification at preview-generation time.
+- Removing an override (via **[수동 지정 해제]**) re-runs automatic classification.
+- User dictionary alias registration from an override is **not** automatic — it is a separate action (TODO).

@@ -138,6 +138,17 @@ def build_classify_batch_preview(
         if p is None:
             excluded_count += 1
         else:
+            # 수동 override가 있으면 preview destinations에 반영
+            try:
+                from core.classification_overrides import (
+                    apply_override_to_preview_item,
+                    get_override_for_group,
+                )
+                override = get_override_for_group(conn, gid)
+                if override:
+                    p = apply_override_to_preview_item(conn, p, override, config=config)
+            except Exception:
+                pass
             previews.append(p)
             for ft in p.get("fallback_tags", []):
                 if ft:
