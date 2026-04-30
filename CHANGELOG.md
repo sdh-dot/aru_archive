@@ -5,6 +5,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.0] — 2026-05-01
+
+### Added
+
+**Visual Duplicate Auto Decision**
+- `core/visual_duplicate_decision.py`: pure decision policy module that ranks candidates by resolution → format (webp first) → copy suffix → file size → filename, with safe fallback to `(0, 0)` dimensions when Pillow cannot read the file.
+- `VisualDuplicateReviewDialog(initial_decisions=...)`: keyword-only argument that pre-populates user-facing keep/delete/exclude state; invalid keys/values silently dropped.
+- `MainWindow._on_visual_duplicate_check`: calls `decide_visual_duplicate_groups`, flattens to `dict[file_id, decision]`, and passes as `initial_decisions` to the review dialog. INFO log notifies the user; `try/except` falls back to empty dict + WARN log on failure.
+
+**Tag Pack v3 Raw Draft**
+- `docs/tag_packs/drafts/` directory introduced as isolated holding area for raw exports that have not passed strict validation.
+- `docs/tag_packs/drafts/README.md`: documents drafts policy (not active dataset, loader must not read it, 8-step v3 pipeline, sign-off required for active swap).
+- `tests/test_tag_pack_v3_draft_isolation.py`: 5 regression tests verifying draft path, raw suffix, active v2 path preservation, and loader source isolation.
+
+### Changed
+
+**Workflow Wizard Step 3 Signal Delegation**
+- `_Step3Meta._on_exact_dup` and `_on_visual_dup` no longer compute scope or call duplicate finders directly. They emit `exact_duplicate_scan_requested` / `visual_duplicate_scan_requested` signals; MainWindow handlers own scope selection (`inbox_managed`), confirm dialog, finder call, review dialog, and delete preview gate.
+
+**Visual Duplicate Review Flow**
+- The flow now includes an automatic candidate selection step before the review dialog opens. The user can change any decision before final confirmation. The multi-stage delete gate (`DeletePreviewDialog` → `execute_delete_preview`) is preserved unchanged.
+
+### Tests
+
+- `tests/test_duplicate_scope.py`: stale `inbox_managed` source-inspection assertions replaced with signal-delegation assertions (`signal_emit` present, `find_*duplicates` absent, dialogs not constructed in Step 3).
+- `tests/test_tag_pack_failure_patch_v2_localizations.py`: localization regression aligned with `_review` / missing-locale policy.
+- `tests/test_visual_duplicate_decision.py`, `tests/test_visual_duplicate_initial_decisions.py`, `tests/test_main_window_visual_duplicate_decision_integration.py`: new regression coverage for the auto-decision pipeline (pure function + dialog integration + MainWindow source-inspection).
+
+### Internal
+
+- Visual Duplicate auto selection is decoupled from UI: pure decision module → MainWindow flatten → dialog injection. The dialog itself does not import the decision module.
+- v3 raw export is segregated under `docs/tag_packs/drafts/` so that the loader cannot accidentally treat it as active data; the active dataset remains `docs/tag_pack_export_localized_ko_ja_failure_patch_v2.json`.
+
+---
+
 ## [0.3.0] — 2026-04-26
 
 ### Added
