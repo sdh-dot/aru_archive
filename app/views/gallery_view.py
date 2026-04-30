@@ -9,13 +9,14 @@
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Optional
 
 from PyQt6.QtCore import Qt, QSize, pyqtSignal as Signal
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
 from PyQt6.QtWidgets import (
-    QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget,
+    QLabel, QListWidget, QListWidgetItem, QMenu, QVBoxLayout, QWidget,
 )
 
 THUMB_W = 120
@@ -91,10 +92,16 @@ class GalleryView(QWidget):
     artwork_groups 썸네일 그리드.
 
     Signals:
-        item_selected(str): 클릭된 group_id.
+        item_selected(str):         클릭된 group_id.
+        delete_requested(list):     선택 삭제 요청 — [group_id, ...]
+        open_location_requested(str): 파일 위치 열기 요청 — group_id
+        read_meta_requested(str):   메타데이터 읽기 요청 — group_id
     """
 
-    item_selected = Signal(str)
+    item_selected           = Signal(str)
+    delete_requested        = Signal(list)
+    open_location_requested = Signal(str)
+    read_meta_requested     = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -130,6 +137,8 @@ class GalleryView(QWidget):
         )
         self._list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self._list.currentItemChanged.connect(self._on_changed)
+        self._list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._list.customContextMenuRequested.connect(self._on_context_menu)
         layout.addWidget(self._list)
 
         self._empty = QLabel(
@@ -222,3 +231,34 @@ class GalleryView(QWidget):
     ) -> None:
         if current:
             self.item_selected.emit(current.data(Qt.ItemDataRole.UserRole))
+
+    def _on_context_menu(self, pos) -> None:
+        """우클릭 컨텍스트 메뉴를 표시한다."""
+        selected_ids = self.get_selected_group_ids()
+        current_id   = self.get_selected_group_id()
+
+        menu = QMenu(self)
+
+        if current_id:
+            act_open = menu.addAction("📂 파일 위치 열기")
+            act_open.triggered.connect(lambda: self.open_location_requested.emit(current_id))
+
+            act_meta = menu.addAction("📋 파일 내 메타데이터 읽기")
+            act_meta.triggered.connect(lambda: self.read_meta_requested.emit(current_id))
+
+            menu.addSeparator()
+
+        n = len(selected_ids)
+        if n > 1:
+            act_del = menu.addAction(f"🗑 선택 파일 {n}개 삭제")
+        elif n == 1:
+            act_del = menu.addAction("🗑 선택 파일 삭제")
+        else:
+            act_del = menu.addAction("🗑 선택 파일 삭제")
+            act_del.setEnabled(False)
+
+        if n >= 1:
+            act_del.triggered.connect(lambda: self.delete_requested.emit(list(selected_ids)))
+
+        if not menu.isEmpty():
+            menu.exec(self._list.mapToGlobal(pos))

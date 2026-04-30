@@ -38,6 +38,8 @@ _DEFAULTS: dict[str, Any] = {
         "show_progress_every":       25,
         # True로 변경하면 전체 Archive 검사 허용 (경고 표시 후 실행)
         "allow_all_archive_scan":    False,
+        # 시각적 중복 검사 실행 전 확인 다이얼로그 표시 여부
+        "confirm_visual_scan":       True,
     },
     "developer": {
         # 개발자 전용 기능. 기본값은 모두 False — 일반 사용자에게 노출되지 않음.

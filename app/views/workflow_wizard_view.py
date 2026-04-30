@@ -25,9 +25,10 @@ from pathlib import Path
 from typing import Optional
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal as Signal
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QFileDialog,
-    QFrame, QHBoxLayout, QLabel, QMessageBox,
+    QFrame, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
     QProgressBar, QPushButton, QScrollArea, QSizePolicy, QSplitter,
     QStackedWidget, QTableWidget, QTableWidgetItem,
     QTextEdit, QVBoxLayout, QWidget,
@@ -36,6 +37,44 @@ from PyQt6.QtWidgets import (
 from app.views.path_setup_dialog import PathSetupDialog
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# 썸네일 캐시
+# ---------------------------------------------------------------------------
+
+class PreviewThumbnailCache:
+    """160×160 QPixmap LRU 캐시."""
+
+    _THUMB_SIZE = 160
+
+    def __init__(self, max_items: int = 200) -> None:
+        from collections import OrderedDict
+        self._cache: "OrderedDict[str, Optional[QPixmap]]" = OrderedDict()
+        self._max = max_items
+
+    def load(self, path: str) -> Optional[QPixmap]:
+        if path in self._cache:
+            self._cache.move_to_end(path)
+            return self._cache[path]
+        px = self._read(path)
+        self._cache[path] = px
+        self._cache.move_to_end(path)
+        if len(self._cache) > self._max:
+            self._cache.popitem(last=False)
+        return px
+
+    def _read(self, path: str) -> Optional[QPixmap]:
+        if not path or not Path(path).is_file():
+            return None
+        px = QPixmap(path)
+        if px.isNull():
+            return None
+        return px.scaled(
+            self._THUMB_SIZE, self._THUMB_SIZE,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
 
 # ---------------------------------------------------------------------------
 # 상수
@@ -155,7 +194,7 @@ class _EnrichThread(QThread):
 
 class _RetagThread(QThread):
     log_msg = Signal(str)
-    done    = Signal(int)   # retagged count
+    done    = Signal(list)   # list of per-group result dicts
 
     def __init__(self, db_path: str, parent=None):
         super().__init__(parent)
@@ -167,14 +206,78 @@ class _RetagThread(QThread):
         conn = initialize_database(self._db_path)
         try:
             rows = conn.execute(
-                "SELECT group_id FROM artwork_groups ORDER BY indexed_at DESC"
+                "SELECT g.group_id, g.artwork_title, "
+                "       g.series_tags_json, g.character_tags_json, "
+                "       (SELECT f.file_path FROM artwork_files f "
+                "        WHERE f.group_id = g.group_id AND f.file_role = 'original' "
+                "        LIMIT 1) AS file_path "
+                "FROM artwork_groups g ORDER BY g.indexed_at DESC"
             ).fetchall()
+
+            before: dict[str, dict] = {}
+            for r in rows:
+                before[r["group_id"]] = {
+                    "title":     r["artwork_title"] or "",
+                    "filename":  Path(r["file_path"] or "").name,
+                    "series":    json.loads(r["series_tags_json"] or "[]"),
+                    "character": json.loads(r["character_tags_json"] or "[]"),
+                }
+
             group_ids = [r["group_id"] for r in rows]
-            retag_groups_from_existing_tags(conn, group_ids)
-            self.done.emit(len(group_ids))
+            summary = retag_groups_from_existing_tags(conn, group_ids)
+
+            after: dict[str, dict] = {}
+            if group_ids:
+                placeholders = ",".join("?" * len(group_ids))
+                for r in conn.execute(
+                    f"SELECT group_id, series_tags_json, character_tags_json "
+                    f"FROM artwork_groups WHERE group_id IN ({placeholders})",
+                    group_ids,
+                ).fetchall():
+                    after[r["group_id"]] = {
+                        "series":    json.loads(r["series_tags_json"] or "[]"),
+                        "character": json.loads(r["character_tags_json"] or "[]"),
+                    }
+
+            error_ids: set[str] = set()
+            for err_str in summary.get("errors", []):
+                prefix = err_str.split(":")[0].strip()
+                for gid in group_ids:
+                    if gid.startswith(prefix):
+                        error_ids.add(gid)
+
+            results: list[dict] = []
+            for gid in group_ids:
+                b = before.get(gid, {})
+                a = after.get(gid, {})
+                b_s = b.get("series", [])
+                b_c = b.get("character", [])
+                a_s = a.get("series", [])
+                a_c = a.get("character", [])
+                is_error = gid in error_ids
+                changed  = not is_error and (b_s != a_s or b_c != a_c)
+                status   = "오류" if is_error else ("변경됨" if changed else "변경 없음")
+                note     = next(
+                    (e.split(":", 1)[1].strip() for e in summary.get("errors", []) if e.startswith(gid[:8])),
+                    "",
+                )
+                results.append({
+                    "group_id":         gid,
+                    "filename":         b.get("filename", ""),
+                    "title":            b.get("title", ""),
+                    "before_series":    ", ".join(b_s),
+                    "before_character": ", ".join(b_c),
+                    "after_series":     ", ".join(a_s),
+                    "after_character":  ", ".join(a_c),
+                    "changed":          changed,
+                    "status":           status,
+                    "note":             note,
+                })
+
+            self.done.emit(results)
         except Exception as exc:
             self.log_msg.emit(f"[ERROR] 태그 재분류 실패: {exc}")
-            self.done.emit(0)
+            self.done.emit([])
         finally:
             conn.close()
 
@@ -900,24 +1003,51 @@ class _Step6Retag(_StepPanel):
         layout.addWidget(_label("태그 재분류", bold=True))
         layout.addWidget(_h_sep())
 
-        self._tbl = _kv_table([])
-        layout.addWidget(self._tbl)
-
         layout.addWidget(QLabel(
             "⚠ 사전(aliases) 변경 후 태그 재분류를 하지 않으면\n"
             "  분류 결과(series_tags / character_tags)가 갱신되지 않습니다."
         ))
 
-        self._result_lbl = QLabel("")
-        layout.addWidget(self._result_lbl)
-
         btn_row = QHBoxLayout()
         self._btn_retag = QPushButton("🏷 전체 태그 재분류")
         self._btn_retag.clicked.connect(self._on_retag_all)
         btn_row.addWidget(self._btn_retag)
+        self._btn_refresh = QPushButton("🔄 새로고침")
+        self._btn_refresh.clicked.connect(self.refresh)
+        btn_row.addWidget(self._btn_refresh)
         btn_row.addStretch()
         layout.addLayout(btn_row)
-        layout.addStretch()
+
+        summary_row = QHBoxLayout()
+        self._lbl_total    = QLabel("전체: -")
+        self._lbl_done     = QLabel("완료: -")
+        self._lbl_failed   = QLabel("실패: -")
+        self._lbl_changed  = QLabel("변경 있음: -")
+        self._lbl_nochange = QLabel("변경 없음: -")
+        for lbl in (self._lbl_total, self._lbl_done, self._lbl_failed,
+                    self._lbl_changed, self._lbl_nochange):
+            summary_row.addWidget(lbl)
+        summary_row.addStretch()
+        layout.addLayout(summary_row)
+
+        self._result_grid = QTableWidget(0, 8)
+        self._result_grid.setHorizontalHeaderLabels([
+            "파일명", "제목", "이전 시리즈", "이전 캐릭터",
+            "새 시리즈", "새 캐릭터", "상태", "비고",
+        ])
+        self._result_grid.horizontalHeader().setStretchLastSection(True)
+        self._result_grid.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._result_grid.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._result_grid.setAlternatingRowColors(True)
+        self._result_grid.setStyleSheet(
+            "QTableWidget { background: #1A0F14; color: #D8AEBB; "
+            "alternate-background-color: #211018; border: 1px solid #4A2030; }"
+        )
+        layout.addWidget(self._result_grid, 1)
+
+        self._empty_lbl = QLabel("재분류 결과가 없습니다. [전체 태그 재분류]를 실행하세요.")
+        self._empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._empty_lbl)
 
         self._retag_thread: Optional[_RetagThread] = None
 
@@ -925,28 +1055,10 @@ class _Step6Retag(_StepPanel):
         try:
             conn = self._conn_factory()
             total = conn.execute("SELECT COUNT(*) FROM artwork_groups").fetchone()[0]
-            classifiable = conn.execute(
-                "SELECT COUNT(*) FROM artwork_groups "
-                "WHERE metadata_sync_status IN ('full','json_only','xmp_write_failed')"
-            ).fetchone()[0]
-            has_char = conn.execute(
-                "SELECT COUNT(*) FROM artwork_groups "
-                "WHERE character_tags_json IS NOT NULL AND character_tags_json != '[]'"
-            ).fetchone()[0]
             conn.close()
+            self._lbl_total.setText(f"전체: {total}")
         except Exception:
-            return
-
-        rows = [
-            ("총 작품 수",           str(total)),
-            ("분류 가능",            str(classifiable)),
-            ("character_tags 있음",  str(has_char)),
-            ("character_tags 없음",  str(classifiable - has_char)),
-        ]
-        self._tbl.setRowCount(len(rows))
-        for r, (k, v) in enumerate(rows):
-            self._tbl.setItem(r, 0, QTableWidgetItem(k))
-            self._tbl.setItem(r, 1, QTableWidgetItem(v))
+            pass
 
     def _on_retag_all(self) -> None:
         if self._retag_thread and self._retag_thread.isRunning():
@@ -958,12 +1070,43 @@ class _Step6Retag(_StepPanel):
         self._retag_thread.done.connect(self._on_retag_done)
         self._retag_thread.start()
 
-    def _on_retag_done(self, count: int) -> None:
+    def _on_retag_done(self, results: list) -> None:
         self._btn_retag.setEnabled(True)
         self._btn_retag.setText("🏷 전체 태그 재분류")
-        self._result_lbl.setText(f"완료 — {count}개 그룹 재분류됨")
+        self._populate_result_grid(results)
         self.refresh()
         self.refresh_main.emit()
+
+    def _populate_result_grid(self, results: list) -> None:
+        total   = len(results)
+        errors  = sum(1 for r in results if r.get("status") == "오류")
+        changed = sum(1 for r in results if r.get("changed"))
+
+        self._lbl_total.setText(f"전체: {total}")
+        self._lbl_done.setText(f"완료: {total - errors}")
+        self._lbl_failed.setText(f"실패: {errors}")
+        self._lbl_changed.setText(f"변경 있음: {changed}")
+        self._lbl_nochange.setText(f"변경 없음: {total - errors - changed}")
+
+        self._result_grid.setRowCount(0)
+        has_rows = total > 0
+        self._empty_lbl.setVisible(not has_rows)
+        self._result_grid.setVisible(has_rows)
+
+        for r in results:
+            row = self._result_grid.rowCount()
+            self._result_grid.insertRow(row)
+            for col, val in enumerate([
+                r.get("filename", ""),
+                r.get("title", ""),
+                r.get("before_series", ""),
+                r.get("before_character", ""),
+                r.get("after_series", ""),
+                r.get("after_character", ""),
+                r.get("status", ""),
+                r.get("note", ""),
+            ]):
+                self._result_grid.setItem(row, col, QTableWidgetItem(val))
 
 
 # ── Step 7: Classification Preview ──────────────────────────────────────────
@@ -974,6 +1117,8 @@ class _Step7Preview(_StepPanel):
     def __init__(self, wizard, parent=None):
         super().__init__(wizard, parent)
         self._batch_preview: Optional[dict] = None
+        self._preview_rows: list[dict] = []   # source_path per table row
+        self._thumb_cache = PreviewThumbnailCache(max_items=200)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
@@ -1002,25 +1147,22 @@ class _Step7Preview(_StepPanel):
         opt_row.addStretch()
         layout.addLayout(opt_row)
 
-        self._tbl = _kv_table([])
-        layout.addWidget(self._tbl)
-
-        self._risk_lbl = QLabel("")
-        layout.addWidget(self._risk_lbl)
-
-        self._preview_table = QTableWidget(0, 5)
-        self._preview_table.setHorizontalHeaderLabels(
-            ["파일", "복사", "규칙", "목적지 경로", "주의"]
-        )
-        self._preview_table.horizontalHeader().setStretchLastSection(True)
-        self._preview_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self._preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self._preview_table.setAlternatingRowColors(True)
-        self._preview_table.setStyleSheet(
-            "QTableWidget { background: #1A0F14; color: #D8AEBB; "
-            "alternate-background-color: #211018; border: 1px solid #4A2030; }"
-        )
-        layout.addWidget(self._preview_table, 1)
+        # 컴팩트 요약 레이블
+        summary_frame = QFrame()
+        summary_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        sf = QHBoxLayout(summary_frame)
+        sf.setContentsMargins(6, 4, 6, 4)
+        self._s_total     = QLabel("대상 작품: -")
+        self._s_copies    = QLabel("예상 복사본: -")
+        self._s_bytes     = QLabel("예상 용량: -")
+        self._s_conflicts = QLabel("충돌: -")
+        self._s_fallbacks = QLabel("폴백: -")
+        self._risk_lbl    = QLabel("위험도: -")
+        for lbl in (self._s_total, self._s_copies, self._s_bytes,
+                    self._s_conflicts, self._s_fallbacks, self._risk_lbl):
+            sf.addWidget(lbl)
+        sf.addStretch()
+        layout.addWidget(summary_frame)
 
         btn_row = QHBoxLayout()
         self._btn_preview = QPushButton("📋 미리보기 생성")
@@ -1028,7 +1170,55 @@ class _Step7Preview(_StepPanel):
         btn_row.addWidget(self._btn_preview)
         btn_row.addStretch()
         layout.addLayout(btn_row)
-        layout.addStretch()
+
+        # 미리보기 테이블 + 썸네일 패널
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        layout.addWidget(splitter, 1)
+
+        self._preview_table = QTableWidget(0, 6)
+        self._preview_table.setHorizontalHeaderLabels(
+            ["파일", "제목", "분류대상", "분류규칙", "분류사유·비고", "분류 경로"]
+        )
+        hdr = self._preview_table.horizontalHeader()
+        hdr.setStretchLastSection(False)
+        hdr.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        self._preview_table.setColumnWidth(0, 130)
+        self._preview_table.setColumnWidth(1, 160)
+        self._preview_table.setColumnWidth(2, 70)
+        self._preview_table.setColumnWidth(3, 110)
+        self._preview_table.setColumnWidth(4, 130)
+        self._preview_table.setMinimumWidth(760)
+        self._preview_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._preview_table.setAlternatingRowColors(True)
+        self._preview_table.setStyleSheet(
+            "QTableWidget { background: #1A0F14; color: #D8AEBB; "
+            "alternate-background-color: #211018; border: 1px solid #4A2030; }"
+        )
+        self._preview_table.currentItemChanged.connect(
+            lambda cur, _prev: self._on_preview_row_changed(
+                self._preview_table.row(cur) if cur else -1
+            )
+        )
+        splitter.addWidget(self._preview_table)
+
+        thumb_frame = QFrame()
+        thumb_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        thumb_frame.setMinimumWidth(180)
+        tf = QVBoxLayout(thumb_frame)
+        tf.setContentsMargins(6, 6, 6, 6)
+        self._thumb_lbl = QLabel("썸네일")
+        self._thumb_lbl.setFixedSize(160, 160)
+        self._thumb_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._thumb_lbl.setStyleSheet("border: 1px solid #4A2030; background: #120A0E;")
+        tf.addWidget(self._thumb_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self._thumb_name_lbl = QLabel("")
+        self._thumb_name_lbl.setWordWrap(True)
+        self._thumb_name_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        tf.addWidget(self._thumb_name_lbl)
+        tf.addStretch()
+        splitter.addWidget(thumb_frame)
+        splitter.setSizes([800, 200])
 
         self._preview_thread: Optional[_PreviewThread] = None
 
@@ -1090,30 +1280,21 @@ class _Step7Preview(_StepPanel):
     def _show_preview_summary(self, result: dict) -> None:
         from core.workflow_summary import compute_preview_risk_level
         summary = self._build_preview_summary(result)
-        rows = [
-            ("대상 작품 수",        str(result.get("total_groups", 0))),
-            ("분류 가능",           str(result.get("classifiable_groups", result.get("total_groups", 0)))),
-            ("제외",                str(result.get("excluded_groups", 0))),
-            ("예상 복사본 수",      str(result.get("estimated_copies", 0))),
-            ("예상 용량",           _fmt_size(result.get("estimated_bytes", 0))),
-            ("series_uncategorized",str(result.get("series_uncategorized_count", 0))),
-            ("author_fallback",     str(result.get("author_fallback_count", 0))),
-            ("후보 생성",           str(result.get("candidate_count", 0))),
-            ("충돌",                str(summary.get("conflict_count", 0))),
-            ("목적지",              str(summary.get("destination_count", 0))),
-        ]
-        self._tbl.setRowCount(len(rows))
-        for r, (k, v) in enumerate(rows):
-            self._tbl.setItem(r, 0, QTableWidgetItem(k))
-            self._tbl.setItem(r, 1, QTableWidgetItem(v))
+
+        total   = result.get("total_groups", 0)
+        copies  = result.get("estimated_copies", 0)
+        fbcount = result.get("author_fallback_count", 0) + result.get("series_uncategorized_count", 0)
+        self._s_total.setText(f"대상 작품: {total}")
+        self._s_copies.setText(f"예상 복사본: {copies}")
+        self._s_bytes.setText(f"예상 용량: {_fmt_size(result.get('estimated_bytes', 0))}")
+        self._s_conflicts.setText(f"충돌: {summary.get('conflict_count', 0)}")
+        self._s_fallbacks.setText(f"폴백: {fbcount}")
 
         self._populate_preview_table(result.get("previews", []))
 
         risk = compute_preview_risk_level(summary)
-        _risk_label = {"low": "낮음", "medium": "보통", "high": "높음"}.get(risk, risk)
-        self._risk_lbl.setText(
-            f"위험도: {_risk_label}"
-        )
+        risk_label = {"low": "낮음", "medium": "보통", "high": "높음"}.get(risk, risk)
+        self._risk_lbl.setText(f"위험도: {risk_label}")
         self._risk_lbl.setStyleSheet(_RISK_STYLE.get(risk, ""))
 
     def _build_preview_summary(self, result: dict) -> dict:
@@ -1133,36 +1314,69 @@ class _Step7Preview(_StepPanel):
             "destination_count":     destination_count,
         }
 
+    def _on_preview_row_changed(self, row: int) -> None:
+        if row < 0 or row >= len(self._preview_rows):
+            self._thumb_lbl.clear()
+            self._thumb_lbl.setText("썸네일")
+            self._thumb_name_lbl.setText("")
+            return
+        path = self._preview_rows[row].get("source_path", "")
+        px = self._thumb_cache.load(path) if path else None
+        if px:
+            self._thumb_lbl.setPixmap(px)
+        else:
+            self._thumb_lbl.clear()
+            self._thumb_lbl.setText("미리보기 없음")
+        self._thumb_name_lbl.setText(Path(path).name if path else "")
+
     def _populate_preview_table(self, previews: list[dict]) -> None:
         self._preview_table.setRowCount(0)
+        self._preview_rows.clear()
         for preview in previews:
-            filename = Path(preview.get("source_path", "")).name
+            source_path = preview.get("source_path", "")
+            filename    = Path(source_path).name
+            title       = preview.get("artwork_title", "")
             ci = preview.get("classification_info") or {}
-            ci_warn = ""
             reason = ci.get("classification_reason", "")
-            if reason == "series_detected_but_character_missing":
-                ci_warn = "series_uncategorized"
-            elif reason == "series_and_character_missing":
-                ci_warn = "author_fallback"
+            ci_warn = (
+                "series_uncategorized" if reason == "series_detected_but_character_missing"
+                else "author_fallback"  if reason == "series_and_character_missing"
+                else ""
+            )
 
             for dest in preview.get("destinations", []):
-                row = self._preview_table.rowCount()
-                self._preview_table.insertRow(row)
-                self._preview_table.setItem(row, 0, QTableWidgetItem(filename))
-                self._preview_table.setItem(
-                    row, 1, QTableWidgetItem("예" if dest.get("will_copy") else "아니오")
-                )
-                self._preview_table.setItem(row, 2, QTableWidgetItem(dest.get("rule_type", "")))
-                self._preview_table.setItem(row, 3, QTableWidgetItem(dest.get("dest_path", "")))
+                dest_path = dest.get("dest_path", "")
+                rule_type = dest.get("rule_type", "")
+                will_copy = dest.get("will_copy", False)
 
-                warn_parts = []
+                warn_parts: list[str] = []
                 if dest.get("used_fallback"):
                     warn_parts.append("fallback")
                 if dest.get("conflict") not in (None, "", "none"):
                     warn_parts.append(str(dest.get("conflict")))
                 if ci_warn:
                     warn_parts.append(ci_warn)
-                self._preview_table.setItem(row, 4, QTableWidgetItem(", ".join(warn_parts)))
+                warn_str = ", ".join(warn_parts)
+
+                row = self._preview_table.rowCount()
+                self._preview_table.insertRow(row)
+                self._preview_rows.append({"source_path": source_path})
+
+                for col, val in enumerate([
+                    filename,
+                    title,
+                    "분류됨" if will_copy else "제외",
+                    rule_type,
+                    warn_str,
+                    dest_path,
+                ]):
+                    item = QTableWidgetItem(val)
+                    item.setToolTip(
+                        f"파일: {filename}\n제목: {title}\n"
+                        f"규칙: {rule_type}\n분류사유·비고: {warn_str}\n"
+                        f"분류 경로: {dest_path}"
+                    )
+                    self._preview_table.setItem(row, col, item)
 
 
 # ── Step 8: Execute Classification ──────────────────────────────────────────

@@ -28,11 +28,11 @@ from pathlib import Path
 from typing import Optional
 
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal as Signal
-from PyQt6.QtGui import QColor, QPalette
+from PyQt6.QtGui import QAction, QColor, QPalette
 from PyQt6.QtWidgets import (
     QApplication, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
-    QMessageBox, QPushButton, QSizePolicy, QSplitter, QStackedWidget,
-    QToolBar, QVBoxLayout, QWidget,
+    QMenu, QMessageBox, QPushButton, QSizePolicy, QSplitter, QStackedWidget,
+    QToolBar, QToolButton, QVBoxLayout, QWidget,
 )
 
 from app.views.detail_view import DetailView
@@ -426,33 +426,81 @@ class MainWindow(QMainWindow):
             "  background: #2B1720; border-bottom: 1px solid #4A2030;"
             "  spacing: 4px; padding: 2px 6px;"
             "}"
+            "QToolButton {"
+            "  background: #3A202B; color: #F7E8EC;"
+            "  border: 1px solid #B5526C; border-radius: 4px;"
+            "  padding: 4px 10px; font-size: 12px;"
+            "}"
+            "QToolButton:hover { background: #5C2A3A; border-color: #E69AAA; }"
+            "QToolButton:disabled { color: #8F6874; border-color: #4A2030; }"
+            "QToolButton::menu-indicator { image: none; width: 0; }"
         )
         self.addToolBar(tb)
 
-        self._btn_wizard  = _tb_btn("🧭 작업 마법사", tb)
+        # ── 작업 마법사 (단독 버튼) ──────────────────────────────────────
+        self._btn_wizard = _tb_btn("🧭 작업 마법사", tb)
         tb.addSeparator()
-        self._btn_root    = _tb_btn("📁 작업 폴더 설정", tb)
-        tb.addSeparator()
-        self._btn_scan    = _tb_btn("🔍 Inbox 스캔", tb)
-        self._btn_db_init = _tb_btn("🗄 DB 초기화",  tb)
-        tb.addSeparator()
-        self._btn_classify_preview = _tb_btn("📋 분류 미리보기", tb)
-        self._btn_classify_run     = _tb_btn("▶ 분류 실행",     tb)
-        self._btn_batch_classify   = _tb_btn("📋 일괄 분류",    tb)
-        self._btn_xmp_selected     = _tb_btn("🔄 선택 XMP 재처리", tb)
-        self._btn_xmp_all          = _tb_btn("🔄 전체 XMP 재처리", tb)
-        self._btn_retag            = _tb_btn("🏷 태그 재분류",   tb)
-        self._btn_candidates       = _tb_btn("🏷 후보 태그",     tb)
-        self._btn_dict_import      = _tb_btn("🌐 사전 가져오기",  tb)
-        self._btn_dict_export      = _tb_btn("📤 사전 내보내기", tb)
-        self._btn_dict_backup      = _tb_btn("💾 백업 내보내기", tb)
-        tb.addSeparator()
-        self._btn_work_log         = _tb_btn("🕘 작업 로그",     tb)
-        self._btn_save_jobs        = _tb_btn("💾 저장 작업",     tb)
-        tb.addSeparator()
-        self._btn_delete_selected  = _tb_btn("🗑 선택 삭제",     tb)
-        self._btn_exact_dup        = _tb_btn("🧬 완전 중복 검사", tb)
-        self._btn_visual_dup       = _tb_btn("👁 시각적 중복 검사", tb)
+
+        # ── 폴더 ▼ ───────────────────────────────────────────────────────
+        folder_menu = QMenu(self)
+        self._act_select_root   = folder_menu.addAction("📁 작업 폴더 설정")
+        self._act_archive_root  = folder_menu.addAction("🗂 Archive Root 선택")
+        self._act_archive_root.triggered.connect(self._on_select_root)
+        _add_tb_menu(tb, "폴더 ▼", folder_menu)
+
+        # ── 스캔 ▼ ───────────────────────────────────────────────────────
+        scan_menu = QMenu(self)
+        self._act_inbox_scan  = scan_menu.addAction("🔍 Inbox 스캔")
+        self._act_refresh     = scan_menu.addAction("🔄 갱신")
+        scan_menu.addSeparator()
+        self._act_integrity   = scan_menu.addAction("🛡 파일 무결성 검사")
+        self._act_integrity.setEnabled(False)   # 미구현 — TODO
+        _add_tb_menu(tb, "스캔 ▼", scan_menu)
+
+        # ── 중복 검사 ▼ ──────────────────────────────────────────────────
+        dup_menu = QMenu(self)
+        self._act_exact_dup   = dup_menu.addAction("🧬 완전 중복 검사")
+        self._act_visual_dup  = dup_menu.addAction("👁 시각적 중복 검사")
+        _add_tb_menu(tb, "중복 검사 ▼", dup_menu)
+
+        # ── 메타데이터 ▼ ─────────────────────────────────────────────────
+        meta_menu = QMenu(self)
+        self._act_read_meta   = meta_menu.addAction("📄 파일 내 메타데이터 읽기")
+        self._act_pixiv_meta  = meta_menu.addAction("🖼 Pixiv 메타데이터 가져오기")
+        meta_menu.addSeparator()
+        self._act_xmp_sel     = meta_menu.addAction("🔄 선택 XMP 재처리")
+        self._act_xmp_all     = meta_menu.addAction("🔄 전체 XMP 재처리")
+        _add_tb_menu(tb, "메타데이터 ▼", meta_menu)
+
+        # ── 정규화 ▼ ─────────────────────────────────────────────────────
+        norm_menu = QMenu(self)
+        self._act_retag       = norm_menu.addAction("🏷 태그 재분류")
+        self._act_candidates  = norm_menu.addAction("🏷 후보 태그")
+        self._act_dict_import = norm_menu.addAction("🌐 웹 사전")
+        self._act_tag_pack    = norm_menu.addAction("📦 Localized Tag Pack 가져오기")
+        self._act_tag_pack.triggered.connect(self._on_show_dict_import)
+        norm_menu.addSeparator()
+        self._act_dict_export = norm_menu.addAction("📤 사전 내보내기")
+        _add_tb_menu(tb, "정규화 ▼", norm_menu)
+
+        # ── 분류 ▼ ───────────────────────────────────────────────────────
+        cls_menu = QMenu(self)
+        self._act_cls_preview    = cls_menu.addAction("📋 분류 미리보기")
+        self._act_cls_sel_prev   = cls_menu.addAction("📋 선택 분류 미리보기")
+        cls_menu.addSeparator()
+        self._act_batch_classify = cls_menu.addAction("📋 일괄 분류")
+        self._act_cls_run        = cls_menu.addAction("▶ 분류 실행")
+        _add_tb_menu(tb, "분류 ▼", cls_menu)
+
+        # ── 도구 ▼ ───────────────────────────────────────────────────────
+        tool_menu = QMenu(self)
+        self._act_work_log   = tool_menu.addAction("🕘 작업 로그")
+        self._act_save_jobs  = tool_menu.addAction("💾 저장 작업")
+        self._act_dict_backup = tool_menu.addAction("💾 백업 내보내기")
+        tool_menu.addSeparator()
+        self._act_db_init    = tool_menu.addAction("🗄 DB 초기화")
+        _add_tb_menu(tb, "도구 ▼", tool_menu)
+
         tb.addSeparator()
 
         self._lbl_root = QLabel("분류 대상 폴더 미설정")
@@ -500,29 +548,52 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _connect_signals(self) -> None:
-        self._btn_wizard .clicked.connect(self._on_show_wizard)
-        self._btn_root   .clicked.connect(self._on_select_root)
-        self._btn_scan   .clicked.connect(self._on_inbox_scan)
-        self._btn_db_init.clicked.connect(self._on_db_init)
-        self._btn_classify_preview.clicked.connect(self._on_classify_preview)
-        self._btn_classify_run    .clicked.connect(self._on_classify_run)
-        self._btn_batch_classify  .clicked.connect(self._on_batch_classify)
-        self._btn_xmp_selected    .clicked.connect(self._on_xmp_retry_selected)
-        self._btn_xmp_all         .clicked.connect(self._on_xmp_retry_all)
-        self._btn_retag           .clicked.connect(self._on_retag)
-        self._btn_candidates      .clicked.connect(self._on_show_candidates)
-        self._btn_dict_import     .clicked.connect(self._on_show_dict_import)
-        self._btn_dict_export     .clicked.connect(self._on_dict_export)
-        self._btn_dict_backup     .clicked.connect(self._on_dict_backup)
-        self._btn_work_log        .clicked.connect(self._on_show_work_log)
-        self._btn_save_jobs       .clicked.connect(self._on_show_save_jobs)
-        self._btn_delete_selected .clicked.connect(self._on_delete_selected)
-        self._btn_exact_dup       .clicked.connect(self._on_exact_duplicate_check)
-        self._btn_visual_dup      .clicked.connect(self._on_visual_duplicate_check)
+        # 툴바 — 마법사 (단독 버튼)
+        self._btn_wizard.clicked.connect(self._on_show_wizard)
 
+        # 툴바 — 폴더 메뉴
+        self._act_select_root.triggered.connect(self._on_select_root)
+
+        # 툴바 — 스캔 메뉴
+        self._act_inbox_scan.triggered.connect(self._on_inbox_scan)
+        self._act_refresh.triggered.connect(self._on_refresh)
+
+        # 툴바 — 중복 검사 메뉴
+        self._act_exact_dup.triggered.connect(self._on_exact_duplicate_check)
+        self._act_visual_dup.triggered.connect(self._on_visual_duplicate_check)
+
+        # 툴바 — 메타데이터 메뉴
+        self._act_read_meta.triggered.connect(self._on_read_meta_selected)
+        self._act_pixiv_meta.triggered.connect(self._on_pixiv_meta_selected)
+        self._act_xmp_sel.triggered.connect(self._on_xmp_retry_selected)
+        self._act_xmp_all.triggered.connect(self._on_xmp_retry_all)
+
+        # 툴바 — 정규화 메뉴
+        self._act_retag.triggered.connect(self._on_retag)
+        self._act_candidates.triggered.connect(self._on_show_candidates)
+        self._act_dict_import.triggered.connect(self._on_show_dict_import)
+        self._act_dict_export.triggered.connect(self._on_dict_export)
+
+        # 툴바 — 분류 메뉴
+        self._act_cls_preview.triggered.connect(self._on_classify_preview)
+        self._act_cls_sel_prev.triggered.connect(self._on_classify_preview)
+        self._act_batch_classify.triggered.connect(self._on_batch_classify)
+        self._act_cls_run.triggered.connect(self._on_classify_run)
+
+        # 툴바 — 도구 메뉴
+        self._act_work_log.triggered.connect(self._on_show_work_log)
+        self._act_save_jobs.triggered.connect(self._on_show_save_jobs)
+        self._act_dict_backup.triggered.connect(self._on_dict_backup)
+        self._act_db_init.triggered.connect(self._on_db_init)
+
+        # 사이드바 / 갤러리
         self._sidebar.category_selected.connect(self._on_category_changed)
         self._gallery.item_selected.connect(self._on_item_selected)
+        self._gallery.delete_requested.connect(self._on_gallery_delete_requested)
+        self._gallery.open_location_requested.connect(self._on_open_file_location)
+        self._gallery.read_meta_requested.connect(self._on_read_meta)
 
+        # 상세 패널
         self._detail.read_meta_requested  .connect(self._on_read_meta)
         self._detail.pixiv_meta_requested .connect(self._on_pixiv_meta)
         self._detail.xmp_retry_requested  .connect(self._on_xmp_retry)
@@ -705,6 +776,11 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # 툴바 핸들러
     # ------------------------------------------------------------------
+
+    def _on_refresh(self) -> None:
+        """갤러리와 카운트를 수동으로 갱신한다."""
+        self._refresh_gallery()
+        self._refresh_counts()
 
     def _on_select_root(self) -> None:
         self._open_path_setup_dialog(first_run=False)
@@ -1637,13 +1713,55 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self._log.append(f"[ERROR] 무시 처리 실패: {exc}")
 
+    def _on_read_meta_selected(self) -> None:
+        """툴바에서 호출 — 현재 선택된 group의 메타데이터 읽기."""
+        gid = self._gallery.get_selected_group_id()
+        if not gid:
+            self._log.append("[WARN] 선택된 파일 없음")
+            return
+        self._on_read_meta(gid)
+
+    def _on_pixiv_meta_selected(self) -> None:
+        """툴바에서 호출 — 현재 선택된 group의 Pixiv 메타데이터 가져오기."""
+        gid = self._gallery.get_selected_group_id()
+        if not gid:
+            self._log.append("[WARN] 선택된 파일 없음")
+            return
+        self._on_pixiv_meta(gid)
+
+    def _on_open_file_location(self, group_id: str) -> None:
+        """선택된 group의 original 파일이 있는 폴더를 파일 탐색기로 연다."""
+        import subprocess
+        try:
+            conn = self._get_conn()
+            row = conn.execute(
+                "SELECT file_path FROM artwork_files "
+                "WHERE group_id = ? AND file_role = 'original' LIMIT 1",
+                (group_id,),
+            ).fetchone()
+            conn.close()
+            if not row:
+                self._log.append("[WARN] 원본 파일 없음")
+                return
+            fp = Path(row["file_path"])
+            if not fp.exists():
+                self._log.append(f"[WARN] 파일 없음: {fp.name}")
+                return
+            # Windows: explorer /select,{path}
+            subprocess.Popen(["explorer", "/select,", str(fp)])
+        except Exception as exc:
+            self._log.append(f"[ERROR] 파일 위치 열기 실패: {exc}")
+
+    def _on_gallery_delete_requested(self, group_ids: list) -> None:
+        """Gallery 컨텍스트 메뉴 삭제 요청을 처리한다."""
+        self._delete_groups(group_ids)
+
     # ------------------------------------------------------------------
-    # 삭제 / 중복 핸들러
+    # 삭제 핸들러
     # ------------------------------------------------------------------
 
-    def _on_delete_selected(self) -> None:
-        """다중 선택된 group_id를 대상으로 삭제 미리보기 → 영구 삭제를 실행한다."""
-        group_ids = self._gallery.get_selected_group_ids()
+    def _delete_groups(self, group_ids: list[str]) -> None:
+        """group_ids 목록의 파일을 DeletePreviewDialog를 거쳐 삭제한다."""
         if not group_ids:
             QMessageBox.information(self, "선택 없음", "갤러리에서 삭제할 항목을 선택하세요.")
             return
@@ -1666,6 +1784,11 @@ class MainWindow(QMainWindow):
             conn.close()
         except Exception as exc:
             self._log.append(f"[ERROR] 삭제 실패: {exc}")
+
+    def _on_delete_selected(self) -> None:
+        """다중 선택된 group_id를 대상으로 삭제 미리보기 → 영구 삭제를 실행한다."""
+        group_ids = self._gallery.get_selected_group_ids()
+        self._delete_groups(group_ids)
 
     def _get_dup_scope(self) -> str | None:
         request = self._build_duplicate_scope_request()
@@ -1709,9 +1832,22 @@ class MainWindow(QMainWindow):
             from core.duplicate_finder import (
                 find_exact_duplicates,
                 build_exact_duplicate_cleanup_preview,
+                get_duplicate_check_summary,
             )
             from core.delete_manager import build_delete_preview, execute_delete_preview
             from app.views.delete_preview_dialog import DeletePreviewDialog
+
+            # unindexed 파일 보고
+            summary = get_duplicate_check_summary(
+                conn, self._inbox_dir(), scope=scope, group_ids=group_ids
+            )
+            info_lines = [f"중복 검사 대상:"]
+            info_lines.append(f"  DB 등록 Inbox/Managed 파일: {summary['db_file_count']}개")
+            if summary["unindexed_count"] > 0:
+                info_lines.append(f"  DB 미등록 Inbox 파일: {summary['unindexed_count']}개")
+                info_lines.append("  ⚠ 미등록 파일까지 검사하려면 먼저 Inbox 스캔을 실행하세요.")
+            for line in info_lines:
+                self._log.append(f"[INFO] {line}")
 
             self._log.append(f"[INFO] 완전 중복 검사 중… (범위: {scope_label})")
             dup_groups = find_exact_duplicates(conn, scope=scope, group_ids=group_ids)
@@ -1773,10 +1909,52 @@ class MainWindow(QMainWindow):
                 return
             scope, group_ids, scope_label = request
             conn = self._get_conn()
+            from core.duplicate_finder import (
+                get_duplicate_check_summary,
+                select_duplicate_candidate_files,
+            )
             from core.visual_duplicate_finder import find_visual_duplicates
             from core.delete_manager import build_delete_preview, execute_delete_preview
             from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
             from app.views.delete_preview_dialog import DeletePreviewDialog
+
+            # 대상 파일 수 계산 + unindexed 보고
+            summary = get_duplicate_check_summary(
+                conn, self._inbox_dir(), scope=scope, group_ids=group_ids
+            )
+            db_count  = summary["db_file_count"]
+            unindexed = summary["unindexed_count"]
+
+            dup_cfg = self.config.get("duplicates", {})
+            max_files = dup_cfg.get("max_visual_files_per_run", 300)
+            confirm   = dup_cfg.get("confirm_visual_scan", True)
+
+            if confirm:
+                warn_lines = [
+                    "시각적 중복 검사는 이미지 내용을 분석하므로 시간이 오래 걸릴 수 있습니다.\n",
+                    f"검사 범위: {scope_label}",
+                    f"대상 파일 수: {db_count}개",
+                    "예상 소요 시간은 파일 수와 이미지 크기에 따라 달라집니다.",
+                ]
+                if unindexed > 0:
+                    warn_lines.append(
+                        f"\n⚠ DB 미등록 Inbox 파일 {unindexed}개는 검사 대상에서 제외됩니다.\n"
+                        "  미등록 파일까지 검사하려면 먼저 Inbox 스캔을 실행하세요."
+                    )
+                if db_count > max_files:
+                    warn_lines.insert(0,
+                        f"⚠ 대상 파일 수({db_count}개)가 권장 한도({max_files}개)를 초과합니다.\n"
+                        "선택 항목 또는 현재 목록 기준으로 줄여서 검사하는 것을 권장합니다.\n"
+                    )
+                reply = QMessageBox.question(
+                    self,
+                    "시각적 중복 검사",
+                    "\n".join(warn_lines) + "\n\n계속하시겠습니까?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    conn.close()
+                    return
 
             self._log.append(f"[INFO] 시각적 중복 검사 중… (범위: {scope_label}, 시간이 걸릴 수 있습니다)")
             dup_groups = find_visual_duplicates(conn, scope=scope, group_ids=group_ids)
@@ -1869,3 +2047,13 @@ def _tb_btn(text: str, tb: QToolBar) -> QPushButton:
     )
     tb.addWidget(b)
     return b
+
+
+def _add_tb_menu(tb: QToolBar, label: str, menu: QMenu) -> QToolButton:
+    """드롭다운 메뉴를 가진 QToolButton을 툴바에 추가한다."""
+    btn = QToolButton()
+    btn.setText(label)
+    btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+    btn.setMenu(menu)
+    tb.addWidget(btn)
+    return btn

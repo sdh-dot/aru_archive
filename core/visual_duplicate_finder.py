@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 _IMAGE_EXTS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"})
 
 
+def _flatten_grayscale_pixels(img) -> list[int]:
+    """Return grayscale pixel values without relying on Pillow's deprecated getdata()."""
+    return list(img.tobytes())
+
+
 # ---------------------------------------------------------------------------
 # pHash 계산
 # ---------------------------------------------------------------------------
@@ -47,7 +52,7 @@ def compute_perceptual_hash(file_path: str, hash_size: int = 8) -> Optional[str]
             # hash_size+1 크기로 축소, 그레이스케일
             small = img.resize((hash_size + 1, hash_size), Image.LANCZOS)
             gray = small.convert("L")
-            pixels = list(gray.getdata())
+            pixels = _flatten_grayscale_pixels(gray)
 
         # 수평 gradient 비교 (pHash)
         bits: list[int] = []
