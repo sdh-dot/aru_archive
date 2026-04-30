@@ -1,31 +1,125 @@
 // Aru Source Captioner — options page script
 //
-// Phase 1: skeleton 단계.
-// 폼 양방향 바인딩과 chrome.storage.sync 입출력은 Phase 2에서 구현합니다.
+// Phase 2A: chrome.storage.sync 기반 옵션 로드/저장 구현.
+// - DOMContentLoaded 시점에 현재 설정을 폼에 반영.
+// - submit 이벤트에서 폼 값을 chrome.storage.sync에 저장.
+// - allowedHosts는 줄 단위로 파싱 (공백 trim, 빈 줄 무시).
+// - 저장 결과는 textContent로만 표시 (innerHTML 사용 금지).
 
 (function init() {
   "use strict";
 
   const DEFAULT_OPTIONS = Object.freeze({
-    strictAllowlist: false,
+    enabled: true,
     allowHttp: false,
+    strictAllowlist: false,
     allowedHosts: ["pixiv.net", "x.com", "twitter.com"]
   });
 
-  // TODO(phase2): chrome.storage.sync.get으로 현재 옵션을 읽어 폼에 반영한다.
-  //   - 키가 없으면 DEFAULT_OPTIONS를 사용한다.
-  //   - allowedHosts 배열은 textarea에 한 줄에 하나씩 표시한다.
+  function parseHostList(text) {
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  }
 
-  // TODO(phase2): submit 이벤트에서 폼 값을 검증하고 chrome.storage.sync.set으로 저장한다.
-  //   - allowedHosts: 한 줄에 하나, 공백 trim, 빈 줄 무시.
-  //   - 호스트명 형식 검증: 알파벳/숫자/하이픈/점만 허용.
-  //   - 검증 실패 시 #save-status에 한국어 오류 메시지를 표시.
-  //   - 저장 성공 시 #save-status에 "저장되었습니다." 표시.
-  //   - 인라인 핸들러 사용 금지 (CSP 호환). addEventListener만 사용.
+  function renderHostList(hosts) {
+    if (!Array.isArray(hosts)) {
+      return "";
+    }
+    return hosts.join("\n");
+  }
 
-  // TODO(phase2): chrome.storage.onChanged 리스너로 다른 디바이스에서 변경된 값에
-  //   대해 옵션 페이지가 열려 있을 때 자동 갱신한다 (선택).
+  function setStatus(text) {
+    const el = document.getElementById("save-status");
+    if (el) {
+      el.textContent = text;
+    }
+  }
 
-  // Phase 1: 자리만 마련. 실제 동작은 수행하지 않는다.
-  void DEFAULT_OPTIONS;
+  function loadOptions() {
+    return new Promise((resolve) => {
+      chrome.storage.sync.get(null, (items) => {
+        if (chrome.runtime.lastError) {
+          console.warn(
+            "[Aru Source Captioner] options load failed, using defaults:",
+            chrome.runtime.lastError.message
+          );
+          resolve({ ...DEFAULT_OPTIONS });
+          return;
+        }
+        const merged = { ...DEFAULT_OPTIONS };
+        for (const key of Object.keys(DEFAULT_OPTIONS)) {
+          if (key in items) {
+            merged[key] = items[key];
+          }
+        }
+        resolve(merged);
+      });
+    });
+  }
+
+  function saveOptions(options) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.sync.set(options, () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
+  function applyToForm(opts) {
+    const enabledEl = document.getElementById("opt-enabled");
+    const allowHttpEl = document.getElementById("opt-allow-http");
+    const strictEl = document.getElementById("opt-strict-allowlist");
+    const hostsEl = document.getElementById("opt-allowed-hosts");
+
+    if (enabledEl) enabledEl.checked = !!opts.enabled;
+    if (allowHttpEl) allowHttpEl.checked = !!opts.allowHttp;
+    if (strictEl) strictEl.checked = !!opts.strictAllowlist;
+    if (hostsEl) hostsEl.value = renderHostList(opts.allowedHosts);
+  }
+
+  function readFromForm() {
+    return {
+      enabled: !!document.getElementById("opt-enabled")?.checked,
+      allowHttp: !!document.getElementById("opt-allow-http")?.checked,
+      strictAllowlist: !!document.getElementById("opt-strict-allowlist")?.checked,
+      allowedHosts: parseHostList(
+        document.getElementById("opt-allowed-hosts")?.value ?? ""
+      )
+    };
+  }
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    try {
+      const opts = await loadOptions();
+      applyToForm(opts);
+      setStatus("");
+    } catch (err) {
+      const msg = err?.message || String(err);
+      setStatus(`설정을 불러오지 못했습니다: ${msg}`);
+    }
+
+    const form = document.getElementById("options-form");
+    if (!form) {
+      return;
+    }
+
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      setStatus("저장 중…");
+      try {
+        const next = readFromForm();
+        await saveOptions(next);
+        setStatus("저장되었습니다.");
+      } catch (err) {
+        const msg = err?.message || String(err);
+        setStatus(`저장에 실패했습니다: ${msg}`);
+      }
+    });
+  });
 })();

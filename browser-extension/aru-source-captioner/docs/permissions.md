@@ -2,13 +2,15 @@
 
 본 확장은 권한을 최소한으로 요청합니다. `manifest.json`에 선언된 각 권한의 사유와, 의도적으로 요청하지 않은 권한 목록을 함께 기록합니다.
 
+> Phase 2A에서 아이콘(`icons` / `action.default_icon`)이 추가되었으나 **새로운 권한 요청은 없습니다.** `icons` 필드는 manifest 메타데이터일 뿐 권한이 아니며, `action`은 도구바 표시용으로 별도 권한을 요구하지 않습니다.
+
 ## 요청하는 권한
 
 ### `permissions`
 
 | 권한 | 사유 | 사용 위치 |
 |---|---|---|
-| `storage` | 사용자 옵션(`strictAllowlist`, `allowHttp`, `allowedHosts`)을 `chrome.storage.sync`에 저장하기 위해 필요 | `options.js`, `background.js` |
+| `storage` | 사용자 옵션(`enabled`, `strictAllowlist`, `allowHttp`, `allowedHosts`)을 `chrome.storage.sync`에 저장하기 위해 필요 | `options.js`, `background.js`, `content.js` |
 
 ### `host_permissions`
 
