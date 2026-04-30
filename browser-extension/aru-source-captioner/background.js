@@ -1,31 +1,51 @@
 // Aru Source Captioner — background service worker
 //
-// Phase 1: skeleton 단계.
-// 본 service worker는 현재 실제 메시지 라우팅을 수행하지 않습니다.
-// 향후 옵션 변경 알림, content script 헬스체크, 옵션 시드 등의 자리로 사용됩니다.
+// Phase 2A: 기본 옵션 seed 구현.
+// - 신규 설치 또는 업데이트 시 chrome.storage.sync에 누락된 키만 기본값으로 채운다.
+// - 기존 사용자가 설정한 값은 절대 덮어쓰지 않는다.
+//
+// 캡션 삽입 / EXIF·XMP 파싱은 Phase 2B에서 추가된다.
 
 const DEFAULT_OPTIONS = Object.freeze({
-  strictAllowlist: false,
+  enabled: true,
   allowHttp: false,
+  strictAllowlist: false,
   allowedHosts: ["pixiv.net", "x.com", "twitter.com"]
 });
 
-// TODO(phase2): chrome.runtime.onInstalled 핸들러에서 chrome.storage.sync에
-// DEFAULT_OPTIONS를 시드한다 (값이 없을 때만 — 사용자가 이미 설정한 값을 덮어쓰지 않는다).
-chrome.runtime.onInstalled.addListener((details) => {
-  // Phase 1: 자리만 마련. 실제 시드 로직은 Phase 2에서 추가한다.
-  void details;
+function seedMissingOptions() {
+  chrome.storage.sync.get(null, (items) => {
+    if (chrome.runtime.lastError) {
+      console.warn("[Aru Source Captioner] storage.get failed:", chrome.runtime.lastError.message);
+      return;
+    }
+
+    const updates = {};
+    for (const key of Object.keys(DEFAULT_OPTIONS)) {
+      if (!(key in items)) {
+        updates[key] = DEFAULT_OPTIONS[key];
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return;
+    }
+
+    chrome.storage.sync.set(updates, () => {
+      if (chrome.runtime.lastError) {
+        console.warn("[Aru Source Captioner] storage.set failed:", chrome.runtime.lastError.message);
+        return;
+      }
+      console.info("[Aru Source Captioner] seeded missing default options:", Object.keys(updates));
+    });
+  });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  // install / update / chrome_update / shared_module_update 모두에 대해 누락 키만 보강한다.
+  seedMissingOptions();
 });
 
-// TODO(phase2): content script가 옵션을 요청할 때 응답하는 메시지 라우팅을 추가한다.
-//   - 메시지 형식과 응답 스키마는 Phase 2 진입 시 docs/phase1-design.md에 추가 정의한다.
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Phase 1: 자리만 마련. 어떤 메시지도 처리하지 않는다.
-  void message;
-  void sender;
-  void sendResponse;
-  return false;
-});
-
-// 사용 시 import할 수 없도록 의도적으로 export를 두지 않는다 (service worker 컨텍스트).
-void DEFAULT_OPTIONS;
+// Phase 2B 예정: content script가 옵션 변경을 즉시 반영해야 하는 경우
+// chrome.runtime.onMessage 리스너를 여기에 등록한다. 현 Phase 2A에는 메시지 라우팅이
+// 필요하지 않아 리스너 자체를 두지 않는다 (불필요한 listener 등록 방지).

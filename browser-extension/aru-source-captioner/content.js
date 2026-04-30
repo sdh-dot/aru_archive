@@ -1,63 +1,81 @@
 // Aru Source Captioner — content script
 //
-// Phase 1: skeleton 단계.
-// 본 파일은 manifest.matches에 의해 루리웹 게시판 경로에서 로드되지만,
-// 현재는 어떤 DOM 변경도 수행하지 않습니다.
-// 실제 매칭/캡션 삽입 로직은 Phase 2 이후 추가됩니다.
+// Phase 2A: 설정 로드와 enabled 체크 구현.
+// - chrome.storage.sync에서 옵션을 로드해 DEFAULT_OPTIONS와 병합.
+// - enabled가 false면 즉시 중단 (어떤 DOM 변경도 하지 않음).
+// - 글쓰기 페이지 판별, EXIF·XMP 파싱, MutationObserver 캡션 삽입은 Phase 2B에서 추가.
 //
-// Phase 1 정책 요약 (자세한 내용은 docs/phase1-design.md 참고):
-//   1.  파일 매칭은 File.name === img.alt 기준으로 한다.
-//   2.  img.src(루리웹 CDN WebP URL)는 매칭에 사용하지 않는다.
-//   3.  캡션은 이미지가 들어있는 부모 <p> 바로 다음에 삽입한다.
-//   4.  캡션 형식:
-//         <p style="text-align: center;">
-//           출처: <a href="..." target="_blank" rel="noopener noreferrer">...</a>
-//         </p>
-//   5.  안전한 출처 URL이 있는 경우에만 캡션을 삽입한다.
-//   6.  메타데이터 또는 URL이 없으면 아무것도 삽입하지 않는다.
-//   7.  "출처 없음" placeholder는 절대 삽입하지 않는다.
-//   8.  페이지 상단의 출처 입력란은 절대 건드리지 않는다.
-//   9.  innerHTML / outerHTML / insertAdjacentHTML 사용 금지 (DOM API만 사용).
-//   10. URL 검증은 new URL() 파서를 사용한다.
-//   11. 기본은 https만 허용.
-//   12. http는 옵션(allowHttp)이 true일 때만 허용 — 기본값 false.
-//   13. javascript:, data:, vbscript:, file:, chrome:, chrome-extension:, about: 등
-//       http/https가 아닌 모든 스킴을 차단한다.
-//   14. allowlist 정책:
-//         - strictAllowlist 기본값 false
-//         - allowedHosts 기본값 ["pixiv.net", "x.com", "twitter.com"]
-//   15. 같은 파일명 record가 여러 개 있으면 차단하지 않고 FIFO로 하나씩 소비한다.
-//   16. 중복 캡션 방지는 파일명이 아니라 DOM 기준으로 한다:
-//         - 이미지가 captioned 마커(예: data-aru-source-caption="1")를 갖고 있으면 skip.
-//         - 이미지 부모 <p>의 다음 형제가 "출처:"로 시작하고 a[href]를 포함하면 skip.
+// Phase 1 정책(16개 + DOM 관찰 8항)은 docs/phase1-design.md 단일 출처를 따른다.
+// 본 파일은 정책 요지만 인용한다.
+//
+// 절대 규칙:
+//   - innerHTML / outerHTML / insertAdjacentHTML 사용 금지.
+//   - eval / new Function 사용 금지.
+//   - "출처 없음" placeholder 절대 삽입 금지.
+//   - 페이지 상단의 출처 입력란은 절대 건드리지 않는다.
+//   - File.name === img.alt 정확 비교만 사용 (img.src는 매칭에 사용하지 않는다).
 
-(function init() {
+(function bootstrap() {
   "use strict";
 
-  // TODO(phase1): 실제 글쓰기 페이지인지 판별한다.
-  //   manifest.matches는 게시판 전체 URL 패턴(.../community/board/300143/*)이지만,
-  //   해당 경로 안에는 글 목록 / 글 상세 / 글쓰기 등 여러 페이지가 있다.
-  //   글쓰기 에디터(본문 contenteditable 등)의 안정적인 selector를 확인한 뒤
-  //   여기서 early-return 한다. 확정 전까지는 어떤 DOM 변경도 수행하지 않는다.
-  //
-  //   판별 후보 (Phase 2 진입 시 실측):
-  //     - location.pathname 마지막 segment가 "write"인지 검사
-  //     - 본문 에디터 root selector 존재 여부 검사
-  //     - 첨부 파일 input[type=file] 존재 여부 검사
-  //
-  //   참고: 잘못된 판별로 다른 페이지에서 동작하면 정책 8(상단 출처 입력란 미접촉)이
-  //         깨질 위험이 있으므로 보수적으로 판별한다.
+  const DEFAULT_OPTIONS = Object.freeze({
+    enabled: true,
+    allowHttp: false,
+    strictAllowlist: false,
+    allowedHosts: ["pixiv.net", "x.com", "twitter.com"]
+  });
 
-  // TODO(phase2): 옵션을 background에 요청하거나 chrome.storage.sync에서 직접 읽는다.
-  // TODO(phase2): 사용자가 첨부한 File 목록을 추적한다 (FileList <-> img.alt FIFO 큐).
-  //   - input[type=file] change 이벤트 hook
-  //   - 드래그 앤 드롭 업로드 hook (필요 시)
-  // TODO(phase2): 에디터의 이미지 노드 추가를 MutationObserver로 감시한다.
-  //   - addedNodes 안에서 <p> > <img> 패턴만 처리
-  // TODO(phase2): EXIF/XMP 파서를 도입하고 출처 URL을 추출한다.
-  //   - 파서 라이브러리 선정은 Phase 2 진입 시 결정
-  // TODO(phase2): URL 검증 (scheme + allowlist) 후 DOM API만으로 캡션을 삽입한다.
+  function loadConfig() {
+    return new Promise((resolve) => {
+      chrome.storage.sync.get(null, (items) => {
+        if (chrome.runtime.lastError) {
+          console.warn(
+            "[Aru Source Captioner] storage.get failed, falling back to defaults:",
+            chrome.runtime.lastError.message
+          );
+          resolve({ ...DEFAULT_OPTIONS });
+          return;
+        }
+        const merged = { ...DEFAULT_OPTIONS };
+        for (const key of Object.keys(DEFAULT_OPTIONS)) {
+          if (key in items) {
+            merged[key] = items[key];
+          }
+        }
+        resolve(merged);
+      });
+    });
+  }
 
-  // Phase 1: skeleton 단계 — 어떤 동작도 수행하지 않는다.
-  return;
+  async function init() {
+    const config = await loadConfig();
+
+    if (!config.enabled) {
+      console.info("[Aru Source Captioner] disabled — skipping content script");
+      return;
+    }
+
+    // Phase 2A: 설정 로드까지만 수행. 실제 캡션 로직은 아직 동작하지 않는다.
+    //
+    // Phase 2B 이후 추가 예정 (구현 순서):
+    //   1. 글쓰기 페이지 정확 판별 — location.pathname / 본문 에디터 root /
+    //      input[type=file] 존재 여부로 보수적 early-return.
+    //   2. input[type=file] change 캡처 → image/* File을 pendingByFileName Map에 push
+    //      (Map<string, Array<Record>>, 같은 파일명은 FIFO).
+    //   3. MutationObserver — addedNodes 안에서 <p> > <img> 패턴만 처리.
+    //   4. exifr 도입 후 parseSourceFromFile(file) — 우선순위 6단계
+    //      (artwork_url > source_url > XMP Source/Identifier > UserComment 등 JSON >
+    //       문자열 URL 패턴).
+    //   5. sanitizeSourceUrl(rawUrl, config) — new URL() + scheme + strictAllowlist.
+    //   6. 캡션 노드 빌드 (DOM API만) → 부모 <p>의 afterend로 삽입 +
+    //      data-aru-source-caption="1" 마커 + 다음 형제 텍스트 검사로 중복 방지.
+    console.info(
+      "[Aru Source Captioner] phase 2A loaded (settings only — caption pending Phase 2B)",
+      { strictAllowlist: config.strictAllowlist, allowHttp: config.allowHttp }
+    );
+  }
+
+  init().catch((err) => {
+    console.warn("[Aru Source Captioner] init failed:", err);
+  });
 })();

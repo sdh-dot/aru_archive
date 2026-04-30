@@ -1,10 +1,12 @@
 # lib/
 
-Phase 1에서는 비어 있습니다.
+Phase 2A까지 비어 있습니다. **exifr는 아직 도입하지 않았습니다.**
 
-본 디렉터리는 향후 `content.js`에서 분리해 옮길 모듈을 모아두는 자리입니다.
-Phase 1에서는 모든 로직이 `content.js`에 stub 형태로 머물러 있으며,
-실제 코드가 추가되면 다음 후보 모듈로 분할합니다.
+본 디렉터리는 향후 `content.js`에서 분리해 옮길 모듈과, Phase 2B에서 도입될 외부 메타데이터 파서(`exifr`)의 vendor 파일을 모아두는 자리입니다. Phase 2A까지는 모든 로직이 `content.js` 안에 머물러 있으며 (현재는 설정 로드와 `enabled` 체크만), 실제 EXIF/XMP 파싱과 캡션 삽입이 추가되는 Phase 2B 시점에 본 디렉터리에 다음 파일들이 추가됩니다.
+
+- `exifr.<variant>.umd.js` — exifr UMD 번들 (lite/full 중 선정 후 vendoring 권고)
+- `exifr.LICENSE` — MIT 라이선스 사본
+- 그 외 아래 모듈 후보들 중 분할 가치가 확인되는 것
 
 ## 향후 모듈 후보 (Phase 2 이후)
 
