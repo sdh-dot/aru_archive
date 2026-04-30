@@ -1917,6 +1917,7 @@ class MainWindow(QMainWindow):
                 select_duplicate_candidate_files,
             )
             from core.visual_duplicate_finder import find_visual_duplicates
+            from core.visual_duplicate_decision import decide_visual_duplicate_groups
             from core.delete_manager import build_delete_preview, execute_delete_preview
             from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
             from app.views.delete_preview_dialog import DeletePreviewDialog
@@ -1966,7 +1967,31 @@ class MainWindow(QMainWindow):
                 conn.close()
                 return
 
-            review_dlg = VisualDuplicateReviewDialog(dup_groups, parent=self)
+            # 자동 keep/delete 후보를 계산해 dialog 초기 상태로 주입한다.
+            # decision 모듈이 예외를 던지면 빈 dict로 fallback해 dialog가 정상 열린다.
+            initial_decisions: dict[str, str] = {}
+            try:
+                decisions_per_group = decide_visual_duplicate_groups(dup_groups)
+                for group_decisions in decisions_per_group:
+                    for decision in group_decisions:
+                        if decision.file_id:
+                            initial_decisions[decision.file_id] = decision.decision
+
+                if initial_decisions:
+                    self._log.append(
+                        "[INFO] 시각적 중복 검사: 자동 유지/삭제 후보를 적용했습니다. "
+                        "검토 후 변경할 수 있습니다."
+                    )
+            except Exception as exc:
+                self._log.append(
+                    f"[WARN] 자동 keep/delete 계산 실패 (수동 검토 필요): {exc}"
+                )
+
+            review_dlg = VisualDuplicateReviewDialog(
+                dup_groups,
+                parent=self,
+                initial_decisions=initial_decisions,
+            )
             if review_dlg.exec() != VisualDuplicateReviewDialog.DialogCode.Accepted:
                 conn.close()
                 return
