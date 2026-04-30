@@ -149,26 +149,19 @@ class _EnrichThread(QThread):
     progress = Signal(int, int)  # (done, total)
     done     = Signal(dict)      # {"success": N, "failed": N, "skipped": N}
 
-    def __init__(self, db_path: str, exiftool_path: Optional[str], parent=None):
+    def __init__(self, db_path: str, exiftool_path: Optional[str], parent=None, *, mode: str = "missing_only"):
         super().__init__(parent)
         self._db_path       = db_path
         self._exiftool_path = exiftool_path
+        self._mode          = mode
 
     def run(self) -> None:
         from db.database import initialize_database
-        from core.metadata_enricher import enrich_file_from_pixiv, _is_timing_enabled
+        from core.metadata_enricher import enrich_file_from_pixiv, _is_timing_enabled, build_enrichment_queue
         conn = initialize_database(self._db_path)
         try:
-            # metadata_missing AND artwork_id not empty
-            rows = conn.execute(
-                "SELECT af.file_id FROM artwork_files af "
-                "JOIN artwork_groups ag ON ag.group_id = af.group_id "
-                "WHERE ag.metadata_sync_status = 'metadata_missing' "
-                "  AND (ag.artwork_id IS NOT NULL AND ag.artwork_id != '') "
-                "  AND af.file_role = 'original' "
-                "ORDER BY ag.indexed_at DESC"
-            ).fetchall()
-            total   = len(rows)
+            file_ids = build_enrichment_queue(conn, mode=self._mode)
+            total    = len(file_ids)
 
             # ---- queue-level summary (timing 활성 시에만 출력) ----
             _timing_on = _is_timing_enabled()
@@ -181,10 +174,10 @@ class _EnrichThread(QThread):
             _n_with_timing = 0
 
             success = failed = skipped = 0
-            for idx, row in enumerate(rows):
+            for idx, file_id in enumerate(file_ids):
                 self.progress.emit(idx + 1, total)
                 try:
-                    r = enrich_file_from_pixiv(conn, row["file_id"], exiftool_path=self._exiftool_path)
+                    r = enrich_file_from_pixiv(conn, file_id, exiftool_path=self._exiftool_path)
                     if r.get("status") == "success":
                         success += 1
                     elif r.get("status") in ("no_artwork_id", "not_found"):
@@ -200,7 +193,7 @@ class _EnrichThread(QThread):
                             _agg_sum[k] = _agg_sum.get(k, 0.0) + float(v)
                             _agg_max[k] = max(_agg_max.get(k, 0.0), float(v))
                 except Exception as exc:
-                    self.log_msg.emit(f"[ERROR] 보강 실패 ({row['file_id'][:8]}): {exc}")
+                    self.log_msg.emit(f"[ERROR] 보강 실패 ({file_id[:8]}): {exc}")
                     failed += 1
             conn.commit()
 
@@ -860,14 +853,20 @@ class _Step4Enrich(_StepPanel):
         layout.addWidget(self._progress_lbl)
 
         layout.addWidget(QLabel(
-            "ℹ Pixiv ID가 있는 metadata_missing 항목만 보강합니다.\n"
-            "  Pixiv ID 없는 항목은 SauceNao 등으로 수동 처리하세요."
+            "ℹ 'No Metadata만 보강'은 metadata_missing 상태만 처리합니다.\n"
+            "  '전체 보강'은 metadata_write_failed / xmp_write_failed / json_only도 다시 처리합니다.\n"
+            "  source_unavailable / full / pending은 두 모드 모두 제외됩니다."
         ))
 
         btn_row = QHBoxLayout()
-        self._btn_enrich = QPushButton("🔄 Pixiv ID 추출 가능 항목 보강")
-        self._btn_enrich.clicked.connect(self._on_enrich)
+        self._btn_enrich = QPushButton("🔄 No Metadata만 보강")
+        self._btn_enrich.clicked.connect(self._on_enrich_missing)
         btn_row.addWidget(self._btn_enrich)
+
+        self._btn_enrich_all = QPushButton("🔁 Pixiv ID 있는 모든 항목 재시도")
+        self._btn_enrich_all.clicked.connect(self._on_enrich_all)
+        btn_row.addWidget(self._btn_enrich_all)
+
         btn_row.addStretch()
         layout.addLayout(btn_row)
         layout.addStretch()
@@ -893,16 +892,64 @@ class _Step4Enrich(_StepPanel):
             self._tbl.setItem(r, 0, QTableWidgetItem(k))
             self._tbl.setItem(r, 1, QTableWidgetItem(v))
 
-    def _on_enrich(self) -> None:
+    def _on_enrich_missing(self) -> None:
+        """기존 동작 — metadata_missing만 보강."""
+        self._start_enrich(mode="missing_only")
+
+    def _on_enrich_all(self) -> None:
+        """전체 보강 — confirm 후 시작."""
+        if self._enrich_thread and self._enrich_thread.isRunning():
+            return
+
+        # 처리 대상 수 계산
+        try:
+            conn = self._conn_factory()
+            try:
+                from core.metadata_enricher import build_enrichment_queue
+                count = len(build_enrichment_queue(conn, mode="all_pixiv"))
+            finally:
+                conn.close()
+        except Exception as exc:
+            self.log_msg.emit(f"[WARN] 전체 보강 큐 계산 실패: {exc}")
+            return
+
+        if count == 0:
+            QMessageBox.information(
+                self, "전체 보강",
+                "전체 보강 대상이 없습니다.",
+            )
+            return
+
+        msg = (
+            "전체 보강은 Pixiv ID가 있는 항목 중 metadata_missing, "
+            "metadata_write_failed, xmp_write_failed, json_only 상태를 "
+            "다시 처리합니다.\n"
+            "full, source_unavailable, pending 상태는 제외됩니다.\n"
+            f"처리 대상: {count}건.\n"
+            "기존 JSON/XMP가 다시 작성될 수 있습니다. 계속할까요?"
+        )
+        reply = QMessageBox.question(
+            self, "전체 보강 확인", msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self._start_enrich(mode="all_pixiv")
+
+    def _start_enrich(self, *, mode: str) -> None:
+        """공통 thread 시작 로직."""
         if self._enrich_thread and self._enrich_thread.isRunning():
             return
         db_path = self._db_path()
         from core.exiftool_resolver import resolve_exiftool_path
         exiftool = resolve_exiftool_path(self._config())
         self._btn_enrich.setEnabled(False)
+        self._btn_enrich_all.setEnabled(False)
         self._btn_enrich.setText("보강 중…")
-        self._enrich_thread = _EnrichThread(db_path, exiftool, self)
-        self._enrich_thread.log_msg .connect(self.log_msg)
+        self._enrich_thread = _EnrichThread(db_path, exiftool, self, mode=mode)
+        self._enrich_thread.log_msg.connect(self.log_msg)
         self._enrich_thread.progress.connect(
             lambda done, total: self._progress_lbl.setText(f"진행: {done}/{total}")
         )
@@ -911,7 +958,8 @@ class _Step4Enrich(_StepPanel):
 
     def _on_enrich_done(self, result: dict) -> None:
         self._btn_enrich.setEnabled(True)
-        self._btn_enrich.setText("🔄 Pixiv ID 추출 가능 항목 보강")
+        self._btn_enrich_all.setEnabled(True)
+        self._btn_enrich.setText("🔄 No Metadata만 보강")
         self._progress_lbl.setText(
             f"완료 — 성공: {result['success']}, 실패: {result['failed']}, 스킵: {result['skipped']}"
         )

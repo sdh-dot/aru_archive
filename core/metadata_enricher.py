@@ -19,7 +19,7 @@ import sqlite3
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from core.adapters.pixiv import (
     PixivAdapter,
@@ -301,3 +301,66 @@ def _update_group_from_meta(
             "INSERT INTO tags (group_id, tag, tag_type) VALUES (?, ?, 'character')",
             (group_id, tag),
         )
+
+
+# ---------------------------------------------------------------------------
+# 보강 큐 빌더
+# ---------------------------------------------------------------------------
+
+EnrichMode = Literal["missing_only", "all_pixiv"]
+
+_VALID_MODES: frozenset[str] = frozenset({"missing_only", "all_pixiv"})
+
+
+def build_enrichment_queue(
+    conn: sqlite3.Connection,
+    *,
+    mode: EnrichMode = "missing_only",
+) -> list[str]:
+    """모드에 따라 enrichment 대상 file_id 리스트를 반환한다.
+
+    공통 조건:
+    - artwork_id가 NULL/"" 아님
+    - file_role = 'original'
+    - ORDER BY ag.indexed_at DESC
+
+    missing_only:
+        metadata_sync_status = 'metadata_missing'
+
+    all_pixiv:
+        metadata_sync_status IN (
+            'metadata_missing', 'metadata_write_failed',
+            'xmp_write_failed', 'json_only'
+        )
+
+    두 모드 모두 'full' / 'source_unavailable' / 'pending' 제외.
+
+    Raises:
+        ValueError: invalid mode.
+    """
+    if mode not in _VALID_MODES:
+        raise ValueError(
+            f"invalid enrichment mode: {mode!r}. "
+            f"expected one of {sorted(_VALID_MODES)}"
+        )
+
+    if mode == "missing_only":
+        status_filter = "ag.metadata_sync_status = 'metadata_missing'"
+    else:  # all_pixiv
+        status_filter = (
+            "ag.metadata_sync_status IN ("
+            "'metadata_missing', 'metadata_write_failed', "
+            "'xmp_write_failed', 'json_only'"
+            ")"
+        )
+
+    sql = (
+        "SELECT af.file_id FROM artwork_files af "
+        "JOIN artwork_groups ag ON ag.group_id = af.group_id "
+        f"WHERE {status_filter} "
+        "AND (ag.artwork_id IS NOT NULL AND ag.artwork_id != '') "
+        "AND af.file_role = 'original' "
+        "ORDER BY ag.indexed_at DESC"
+    )
+    rows = conn.execute(sql).fetchall()
+    return [r["file_id"] for r in rows]
