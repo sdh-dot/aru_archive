@@ -20,6 +20,7 @@ METADATA_SYNC_STATUSES = [
     "db_update_failed",      # 파일 처리 성공, DB 업데이트 실패
     "needs_reindex",         # 재색인 필요 (db_update_failed 이후)
     "metadata_missing",      # 파일 내 AruArchive JSON 없음 (외부 편집 의심)
+    "source_unavailable",    # 외부 소스에서 영구 조회 불가 (Pixiv HTTP 404 등 — 삭제/비공개)
 ]
 
 # ---------------------------------------------------------------------------
@@ -34,6 +35,7 @@ METADATA_STATUS_PRIORITY: dict[str, int] = {
     "convert_failed": 90,
     "metadata_write_failed": 80,
     "metadata_missing": 70,
+    "source_unavailable": 65,  # 영구 실패 — metadata_missing보다 가벼우나 db_update_failed보다 명시적
     "db_update_failed": 60,
     "needs_reindex": 50,
     "out_of_sync": 40,

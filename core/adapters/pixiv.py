@@ -15,10 +15,13 @@ class PixivFetchError(Exception):
     """Pixiv API가 오류 응답을 반환했거나 예상치 못한 상태."""
 
 class PixivNetworkError(PixivFetchError):
-    """네트워크 수준 오류 (타임아웃, 연결 거부 등)."""
+    """네트워크 수준 오류 (타임아웃, 연결 거부 등). 일시 실패 — 재시도 대상."""
 
 class PixivRestrictedError(PixivFetchError):
-    """작품 접근 제한 (로그인 필요 또는 R-18 차단)."""
+    """작품 접근 제한 (로그인 필요 또는 R-18 차단). 가변 — 재시도 가능."""
+
+class PixivNotFoundError(PixivFetchError):
+    """Pixiv 작품이 영구적으로 조회 불가 (HTTP 404 — 삭제/비공개). 재시도 대상 아님."""
 
 class PixivParseError(PixivFetchError):
     """응답 body를 AruMetadata로 변환할 수 없음."""
@@ -117,10 +120,11 @@ class PixivAdapter(SourceSiteAdapter):
 
         Returns: raw body dict (illustId, title, tags, userId, userName, …)
         Raises:
-            PixivNetworkError   — 타임아웃 / 연결 오류
-            PixivRestrictedError — HTTP 403
-            PixivFetchError     — HTTP 404 / API error:true / 기타 HTTP 오류
-            PixivParseError     — JSON 파싱 실패 / body 구조 불일치
+            PixivNetworkError    — 타임아웃 / 연결 오류 (재시도 대상)
+            PixivRestrictedError — HTTP 403 (가변 — 로그인/R-18)
+            PixivNotFoundError   — HTTP 404 (영구 실패 — 삭제/비공개)
+            PixivFetchError      — API error:true / 기타 HTTP 오류 (재시도 대상)
+            PixivParseError      — JSON 파싱 실패 / body 구조 불일치
         """
         try:
             import httpx
@@ -143,8 +147,8 @@ class PixivAdapter(SourceSiteAdapter):
                 f"Pixiv 접근 제한 (403): artwork_id={artwork_id}"
             )
         if resp.status_code == 404:
-            raise PixivFetchError(
-                f"Pixiv 아트워크를 찾을 수 없음 (404): artwork_id={artwork_id}"
+            raise PixivNotFoundError(
+                f"Pixiv 아트워크를 찾을 수 없음 (404, 영구 실패): artwork_id={artwork_id}"
             )
         if resp.status_code != 200:
             raise PixivFetchError(

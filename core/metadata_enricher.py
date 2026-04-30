@@ -25,6 +25,7 @@ from core.adapters.pixiv import (
     PixivAdapter,
     PixivFetchError,
     PixivNetworkError,
+    PixivNotFoundError,
     PixivParseError,
     PixivRestrictedError,
 )
@@ -135,6 +136,12 @@ def enrich_file_from_pixiv(
         _set_sync_status(conn, group_id, "metadata_write_failed")
         _mark("pixiv_fetch")
         return _finish("restricted", "metadata_write_failed", str(exc))
+    except PixivNotFoundError as exc:
+        # HTTP 404 — Pixiv 작품이 영구적으로 조회 불가 (삭제/비공개).
+        # source_unavailable로 표시해 metadata_missing 큐에서 영구 제외.
+        _set_sync_status(conn, group_id, "source_unavailable")
+        _mark("pixiv_fetch")
+        return _finish("not_found_at_source", "source_unavailable", str(exc))
     except PixivNetworkError as exc:
         _mark("pixiv_fetch")
         return _finish("network_error", None, str(exc))
