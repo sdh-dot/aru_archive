@@ -324,11 +324,21 @@ def build_classify_preview(
             file_size = 0
 
     copies = sum(1 for d in dests if d["will_copy"])
-    fallback_tags = list({
-        d.get("series_canonical") or d.get("character_canonical")
-        for d in dests
-        if d.get("used_fallback") and (d.get("series_canonical") or d.get("character_canonical"))
-    })
+    # used_fallback=True인 항목에서 실제로 canonical로 폴백한 태그만 수집.
+    # display == canonical이면 localization이 없어 canonical 그대로 사용된 것.
+    _fb_set: set[str] = set()
+    for d in dests:
+        if not d.get("used_fallback"):
+            continue
+        for key_c, key_d in (
+            ("series_canonical", "series_display"),
+            ("character_canonical", "character_display"),
+        ):
+            c = d.get(key_c)
+            disp = d.get(key_d)
+            if c and disp and c == disp:
+                _fb_set.add(c)
+    fallback_tags = list(_fb_set)
 
     # 분류 실패 원인 분석 및 inferred series evidence 검출
     group_dict = dict(group)
