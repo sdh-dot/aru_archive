@@ -400,16 +400,32 @@ class TestConfigAndHandlers:
         assert "group_ids=group_ids" in exact_src
         assert "group_ids=group_ids" in visual_src
 
-    def test_workflow_wizard_exact_dup_uses_inbox_managed(self):
-        """_Step3Meta._on_exact_dup 소스에 inbox_managed가 명시적으로 포함된다."""
+    def test_workflow_wizard_exact_dup_emits_signal_only(self):
+        """PR #20 이후 Workflow Step 3는 scope를 직접 결정하지 않고
+        MainWindow handler에 signal delegation한다.
+        scope/inbox_managed 결정은 MainWindow 책임이다.
+        """
         import inspect
         from app.views.workflow_wizard_view import _Step3Meta
         src = inspect.getsource(_Step3Meta._on_exact_dup)
-        assert "inbox_managed" in src
+        # signal delegation이 있어야 한다
+        assert "exact_duplicate_scan_requested" in src
+        # Step 3가 직접 finder를 호출하거나 scope를 결정하면 안 된다
+        assert "find_exact_duplicates" not in src
+        assert "inbox_managed" not in src
 
-    def test_workflow_wizard_visual_dup_uses_inbox_managed(self):
-        """_Step3Meta._on_visual_dup 소스에 inbox_managed가 명시적으로 포함된다."""
+    def test_workflow_wizard_visual_dup_emits_signal_only(self):
+        """PR #20 이후 Workflow Step 3는 scope를 직접 결정하지 않고
+        MainWindow handler에 signal delegation한다.
+        scope/inbox_managed 결정은 MainWindow 책임이다.
+        """
         import inspect
         from app.views.workflow_wizard_view import _Step3Meta
         src = inspect.getsource(_Step3Meta._on_visual_dup)
-        assert "inbox_managed" in src
+        # signal delegation이 있어야 한다
+        assert "visual_duplicate_scan_requested" in src
+        # Step 3가 직접 finder를 호출하거나 dialog/scope를 결정하면 안 된다
+        assert "find_visual_duplicates" not in src
+        assert "VisualDuplicateReviewDialog" not in src
+        assert "DeletePreviewDialog" not in src
+        assert "inbox_managed" not in src
