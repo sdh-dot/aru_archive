@@ -103,14 +103,15 @@ def _insert_file(
     file_role: str = "original",
     file_status: str = "present",
     file_size: int = 1024,
+    metadata_embedded: int = 0,
 ) -> None:
     conn.execute(
         """INSERT INTO artwork_files
            (file_id, group_id, page_index, file_role, file_path,
-            file_format, file_size, file_status, created_at)
-           VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)""",
+            file_format, file_size, metadata_embedded, file_status, created_at)
+           VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?)""",
         (file_id, group_id, file_role, file_path,
-         file_format, file_size, file_status, _now()),
+         file_format, file_size, metadata_embedded, file_status, _now()),
     )
     conn.commit()
 
@@ -584,3 +585,63 @@ class TestExecuteClassifyPreview:
         assert "metadata_missing" not in CLASSIFIABLE_STATUSES
         assert "pending"          not in CLASSIFIABLE_STATUSES
         assert "metadata_write_failed" not in CLASSIFIABLE_STATUSES
+
+    def test_classified_copy_inherits_metadata_embedded_zero(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """원본이 metadata_embedded=0이면 classified_copy도 0이어야 한다."""
+        gid = str(uuid.uuid4())
+        fid = str(uuid.uuid4())
+        src = _make_file(tmp_path / "Inbox" / "src.jpg", size=128)
+        _insert_group(db, gid, artist_name="ZeroArtist", sync_status="json_only")
+        _insert_file(db, fid, gid, str(src), "jpg", file_size=128,
+                     metadata_embedded=0)
+
+        cfg = _config(tmp_path)
+        preview = build_classify_preview(db, gid, cfg)
+        assert preview is not None
+
+        result = execute_classify_preview(db, preview, cfg)
+        assert result["success"] is True
+        assert result["copied"] >= 1
+
+        rows = db.execute(
+            "SELECT metadata_embedded FROM artwork_files "
+            "WHERE group_id = ? AND file_role = 'classified_copy'",
+            (gid,),
+        ).fetchall()
+        assert rows, "classified_copy 행이 만들어지지 않았다"
+        for row in rows:
+            assert row["metadata_embedded"] == 0, (
+                "원본이 0이면 classified_copy도 0이어야 한다"
+            )
+
+    def test_classified_copy_inherits_metadata_embedded_one(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """원본이 metadata_embedded=1이면 classified_copy도 1이어야 한다."""
+        gid = str(uuid.uuid4())
+        fid = str(uuid.uuid4())
+        src = _make_file(tmp_path / "Inbox" / "src.jpg", size=128)
+        _insert_group(db, gid, artist_name="OneArtist", sync_status="full")
+        _insert_file(db, fid, gid, str(src), "jpg", file_size=128,
+                     metadata_embedded=1)
+
+        cfg = _config(tmp_path)
+        preview = build_classify_preview(db, gid, cfg)
+        assert preview is not None
+
+        result = execute_classify_preview(db, preview, cfg)
+        assert result["success"] is True
+        assert result["copied"] >= 1
+
+        rows = db.execute(
+            "SELECT metadata_embedded FROM artwork_files "
+            "WHERE group_id = ? AND file_role = 'classified_copy'",
+            (gid,),
+        ).fetchall()
+        assert rows
+        for row in rows:
+            assert row["metadata_embedded"] == 1, (
+                "원본이 1이면 classified_copy도 1이어야 한다"
+            )
