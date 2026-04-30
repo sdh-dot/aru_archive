@@ -468,6 +468,15 @@ def execute_classify_preview(
     skipped:  int = 0
     copy_log: list[str] = []
 
+    # 원본의 metadata_embedded 값을 그대로 상속한다. 분류는 메타데이터 임베딩
+    # 상태를 바꾸지 않으므로, 원본이 0이면 복사본도 0이어야 한다. 원본 row가
+    # 사라졌거나 조회에 실패하면 안전 기본값 0(스키마 default와 동일)을 사용.
+    src_row = conn.execute(
+        "SELECT metadata_embedded FROM artwork_files WHERE file_id = ?",
+        (preview["source_file_id"],),
+    ).fetchone()
+    src_metadata_embedded = int(src_row["metadata_embedded"]) if src_row else 0
+
     for dest_info in preview["destinations"]:
         if not dest_info["will_copy"]:
             skipped += 1
@@ -499,10 +508,11 @@ def execute_classify_preview(
                 file_format, file_hash, file_size, metadata_embedded,
                 file_status, created_at, source_file_id, classify_rule_id)
                VALUES (?, ?, 0, 'classified_copy', ?, ?, ?, ?,
-                       1, 'present', ?, ?, ?)""",
+                       ?, 'present', ?, ?, ?)""",
             (
                 copy_file_id, preview["group_id"],
                 str(dest_path), ext, file_hash, file_size,
+                src_metadata_embedded,
                 now, preview["source_file_id"],
                 dest_info.get("rule_type", "builtin"),
             ),
