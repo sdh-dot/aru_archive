@@ -194,6 +194,54 @@
 - [ ] `chrome://extensions`의 "오류" 배지 0건.
 - [ ] background service worker 콘솔에도 오류 0건 (단 첫 설치 시 `seeded missing default options` 메시지는 정상).
 
+## PNG iTXt 보강 검증 (D2)
+
+> Aru Archive 데스크톱 앱은 PNG에 비표준 iTXt(`keyword="AruArchive"`) chunk로 메타데이터를 저장합니다. exifr는 이 비표준 chunk를 인식하지 못하므로 확장이 직접 파싱합니다.
+
+### 21. AruArchive iTXt 포함 PNG 업로드 (정상 케이스)
+
+- [ ] Aru Archive 데스크톱 앱이 분류 완료한 PNG (UserComment EXIF 없음, AruArchive iTXt만 존재)을 첨부.
+- [ ] 캡션이 정상 삽입된다 (출처 URL은 `artwork_url` 또는 `source_url`).
+- [ ] DevTools 콘솔에 `png_itxt_source_found` 관련 debug 로그가 (debug 모드 시) 보인다.
+- [ ] 빨간 오류 메시지 0건.
+
+### 22. AruArchive iTXt 없는 PNG (메타 부재)
+
+- [ ] EXIF/XMP/iTXt가 모두 없는 평범한 PNG를 첨부.
+- [ ] 캡션이 삽입되지 않는다 (silent skip).
+- [ ] "출처 없음" placeholder 어떤 형태로도 본문에 들어가지 않는다.
+- [ ] 콘솔에 fatal/error 로그가 없다 (`png_itxt_missing` debug는 OK).
+
+### 23. AruArchive iTXt + XMP `Source` 동시 존재
+
+- [ ] AruArchive iTXt + XMP `Source` 둘 다 있는 PNG 첨부.
+- [ ] 우선순위 0(PNG iTXt)이 사용되어 `artwork_url` 기반 캡션이 삽입된다.
+- [ ] XMP `Source` 값과 다른 경우 PNG iTXt가 우선.
+
+### 24. compressed iTXt PNG (미지원, fallback)
+
+- [ ] `compression_flag=1`인 AruArchive iTXt를 가진 PNG (외부 도구로 작성). 또는 일반 zlib-compressed iTXt PNG.
+- [ ] PNG iTXt 파서는 미지원으로 처리 (`png_itxt_compressed_unsupported` debug 로그) → exifr fallback으로 진행.
+- [ ] XMP `Source` 등이 있으면 그쪽으로 캡션 삽입, 아니면 미삽입 (silent skip).
+
+### 25. 손상된 PNG (signature 검증 실패)
+
+- [ ] PNG signature가 깨진 파일 또는 PNG가 아닌 파일에 `.png` 확장자만 붙인 케이스.
+- [ ] `png_itxt_invalid_signature` 등으로 silent fallback to exifr.
+- [ ] 본문 무영향, 콘솔 fatal/error 0건.
+
+### 26. JPEG / WebP 회귀 (PNG iTXt 영향 없음)
+
+- [ ] JPEG에 EXIF UserComment JSON 포함 → 기존 동작 유지 (Phase 2B `from_aru_itxt_*`가 아닌 EXIF UserComment 경로).
+- [ ] WebP에 XMP `Source` 포함 → 기존 동작 유지.
+- [ ] 두 포맷 모두 PNG 분기 안 탐, exifr.parse가 정상 호출됨.
+
+### 27. 큰 PNG 파일 메모리 점검 (선택)
+
+- [ ] 수십 MB PNG (예: 작품 단일 페이지 고해상도)을 첨부.
+- [ ] 정상 파싱 + 캡션 삽입 / 또는 silent skip.
+- [ ] DevTools Performance 탭에서 메모리 폭주 / 프레임 드롭 없음을 확인 (선택).
+
 ## 회귀 검사 (Phase 2A 항목)
 
 Phase 2A에서 통과한 8개 인프라 항목(아이콘·옵션 저장/로드·`enabled` gate 등)도 Phase 2B 변경 후 다시 통과해야 합니다. 위 §1~§8 (Phase 2A)을 재실행하여 회귀 없음을 확인.
@@ -204,3 +252,4 @@ Phase 2A에서 통과한 8개 인프라 항목(아이콘·옵션 저장/로드·
 - `*.aru.json` sidecar 미지원 (Phase 3 후보).
 - 글쓰기 페이지 selector 미발견 시 60초 대기 후 boot observer 자동 종료.
 - 루리웹 측 DOM 변경(예: `img.alt` 제거)이 발생하면 매칭 실패 — silent skip.
+- **PNG iTXt 파서는 `compression_flag=0` (uncompressed) 만 지원** — compressed iTXt는 silent fallback to exifr (Phase 3 후보).

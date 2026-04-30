@@ -136,9 +136,196 @@
     return null;
   }
 
+  // ---------------- PNG AruArchive iTXt 직접 파서 (D2) ----------------
+  //
+  // Aru Archive 데스크톱 앱은 PNG에 비표준 iTXt chunk(keyword="AruArchive")로
+  // JSON 메타데이터를 저장한다. exifr는 표준 XMP/EXIF만 인식하므로, AruArchive iTXt
+  // 안의 artwork_url / source_url / artworkUrl을 별도 파서로 직접 추출한다.
+  //
+  // 지원 범위:
+  //   - PNG signature 8 bytes 검증
+  //   - chunk length(big-endian uint32) / type(ASCII 4) / data / crc 순회
+  //   - iTXt chunk 중 keyword="AruArchive"
+  //   - compression_flag === 0 (uncompressed)만 우선 지원
+  //
+  // 미지원:
+  //   - compression_flag === 1 (zlib-compressed iTXt) — Phase 3 후보
+  //   - .aru.json sidecar — 별도 첨부 시에만 가능, 본 파서 범위 외
+  //
+  // 실패는 missing / error 반환만 — throw 절대 안 함, 항상 exifr fallback에 양보.
+
+  const PNG_SIGNATURE = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+  const ARU_ITXT_KEYWORD = "AruArchive";
+  const ARU_PAYLOAD_URL_KEYS = ["artwork_url", "source_url", "artworkUrl"];
+
+  function isPngFile(file) {
+    if (!file) return false;
+    if (typeof file.type === "string" && file.type === "image/png") return true;
+    if (typeof file.name === "string" && /\.png$/i.test(file.name)) return true;
+    return false;
+  }
+
+  function hasPngSignature(buffer) {
+    if (!buffer || buffer.byteLength < 8) return false;
+    const sig = new Uint8Array(buffer, 0, 8);
+    for (let i = 0; i < PNG_SIGNATURE.length; i++) {
+      if (sig[i] !== PNG_SIGNATURE[i]) return false;
+    }
+    return true;
+  }
+
+  function decodeAruPayloadFromItxtText(textBytes) {
+    let jsonText;
+    try {
+      jsonText = new TextDecoder("utf-8", { fatal: false }).decode(textBytes);
+    } catch {
+      return { status: "error", url: null, reason: "png_itxt_invalid_chunk" };
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(jsonText);
+    } catch {
+      return { status: "error", url: null, reason: "png_itxt_json_parse_failed" };
+    }
+
+    return extractSourceFromAruArchivePayload(payload);
+  }
+
+  async function parseAruArchivePngItxt(file) {
+    let buffer;
+    try {
+      buffer = await file.arrayBuffer();
+    } catch {
+      return { status: "error", url: null, reason: "arraybuffer_failed" };
+    }
+
+    if (!hasPngSignature(buffer)) {
+      return { status: "missing", url: null, reason: "png_itxt_invalid_signature" };
+    }
+
+    for (const chunkBytes of parsePngItxtChunks(buffer)) {
+      const itxt = parseItxtChunk(chunkBytes);
+      if (!itxt) continue;
+      if (itxt.keyword !== ARU_ITXT_KEYWORD) continue;
+
+      if (itxt.compressionFlag !== 0) {
+        return { status: "missing", url: null, reason: "png_itxt_compressed_unsupported" };
+      }
+
+      return decodeAruPayloadFromItxtText(itxt.textBytes);
+    }
+
+    return { status: "missing", url: null, reason: "png_itxt_missing" };
+  }
+
+  function* parsePngItxtChunks(buffer) {
+    const view = new DataView(buffer);
+    let offset = 8;  // skip PNG signature
+
+    // 각 chunk: length(4 BE) + type(4 ASCII) + data(length bytes) + crc(4) = 12 + length bytes
+    while (offset + 12 <= buffer.byteLength) {
+      const length = view.getUint32(offset, false);
+      if (length > 0x7FFFFFFF) return;  // sanity guard against malformed PNG
+
+      const dataStart = offset + 8;
+      const dataEnd = dataStart + length;
+      if (dataEnd + 4 > buffer.byteLength) return;  // truncated
+
+      const t0 = view.getUint8(offset + 4);
+      const t1 = view.getUint8(offset + 5);
+      const t2 = view.getUint8(offset + 6);
+      const t3 = view.getUint8(offset + 7);
+      const type = String.fromCodePoint(t0, t1, t2, t3);
+
+      if (type === "iTXt" && length > 0) {
+        yield new Uint8Array(buffer, dataStart, length);
+      }
+
+      if (type === "IEND") return;
+
+      offset = dataEnd + 4;  // skip CRC
+    }
+  }
+
+  function parseItxtChunk(data) {
+    if (!data || data.length < 6) return null;
+
+    // 1. keyword (1-79 bytes Latin-1, null-terminated)
+    let kwEnd = -1;
+    const maxKw = Math.min(data.length, 80);
+    for (let i = 0; i < maxKw; i++) {
+      if (data[i] === 0) { kwEnd = i; break; }
+    }
+    if (kwEnd < 1) return null;
+
+    let keyword;
+    try {
+      keyword = String.fromCodePoint(...data.subarray(0, kwEnd));
+    } catch {
+      return null;
+    }
+
+    // 2. compression_flag (1 byte) + compression_method (1 byte)
+    if (kwEnd + 2 >= data.length) return null;
+    const compressionFlag = data[kwEnd + 1];
+    const compressionMethod = data[kwEnd + 2];
+
+    // 3. language_tag (variable, null-terminated)
+    let langEnd = -1;
+    for (let i = kwEnd + 3; i < data.length; i++) {
+      if (data[i] === 0) { langEnd = i; break; }
+    }
+    if (langEnd === -1) return null;
+
+    // 4. translated_keyword (variable, null-terminated)
+    let tkwEnd = -1;
+    for (let i = langEnd + 1; i < data.length; i++) {
+      if (data[i] === 0) { tkwEnd = i; break; }
+    }
+    if (tkwEnd === -1) return null;
+
+    // 5. text (remainder)
+    const textBytes = data.subarray(tkwEnd + 1);
+
+    return { keyword, compressionFlag, compressionMethod, textBytes };
+  }
+
+  function extractSourceFromAruArchivePayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      return { status: "missing", url: null, reason: "png_itxt_no_url" };
+    }
+
+    for (const key of ARU_PAYLOAD_URL_KEYS) {
+      const v = payload[key];
+      if (typeof v === "string" && v.trim().length > 0) {
+        return { status: "ok", url: v.trim(), reason: "png_itxt_source_found" };
+      }
+    }
+
+    return { status: "missing", url: null, reason: "png_itxt_no_url" };
+  }
+
   // ---------------- 메타데이터 파싱 ----------------
 
   async function parseSourceFromFile(file) {
+    // PNG 우선: Aru Archive 데스크톱 앱이 PNG에 비표준 iTXt(keyword="AruArchive")로
+    // JSON 메타데이터를 저장하는데, exifr는 이를 인식하지 못한다. PNG 파일이면
+    // 직접 파서를 먼저 시도하고, 성공 시 즉시 반환한다. 실패(missing/error)는
+    // silent fallback으로 기존 exifr 흐름을 그대로 탄다.
+    if (isPngFile(file)) {
+      const aruResult = await parseAruArchivePngItxt(file);
+      if (aruResult.status === "ok") {
+        return aruResult;
+      }
+      if (aruResult.status === "error") {
+        console.debug(
+          "[Aru Source Captioner] png itxt fallback to exifr:",
+          file.name, aruResult.reason
+        );
+      }
+    }
+
     if (typeof exifr === "undefined" || !exifr || typeof exifr.parse !== "function") {
       return { status: "error", url: null, reason: "exifr_unavailable" };
     }
