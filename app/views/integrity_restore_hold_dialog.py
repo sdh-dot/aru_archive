@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -33,7 +33,13 @@ class IntegrityRestoreHoldDialog(QDialog):
 
     어떤 DB 변경도 수행하지 않습니다.
     강제 복원 / hash 갱신 / 새 파일 등록 액션은 포함하지 않습니다.
+
+    Signals:
+        view_missing_files_requested: 사용자가 "누락 파일 보기" 버튼을 클릭했을 때 발생.
+            이 시그널을 받은 MainWindow는 Sidebar의 missing 카테고리로 이동한다.
     """
+
+    view_missing_files_requested = pyqtSignal()
 
     def __init__(
         self,
@@ -84,7 +90,7 @@ class IntegrityRestoreHoldDialog(QDialog):
         table.resizeColumnsToContents()
         layout.addWidget(table, 1)
 
-        # 버튼 — 닫기만 제공
+        # 버튼 — 닫기 + 누락 파일 보기
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Close,
             parent=self,
@@ -95,4 +101,21 @@ class IntegrityRestoreHoldDialog(QDialog):
         buttons.rejected.connect(self.reject)
         # Close 버튼은 rejected 시그널을 발생시키므로 accept()로도 처리
         buttons.accepted.connect(self.accept)
+
+        # "누락 파일 보기" — ActionRole (standardButtons()에 영향 없음)
+        view_btn = buttons.addButton(
+            "누락 파일 보기", QDialogButtonBox.ButtonRole.ActionRole
+        )
+        view_btn.setToolTip("Sidebar의 ⚠ 누락 파일 카테고리로 이동합니다.")
+        view_btn.clicked.connect(self._on_view_missing)
+
         layout.addWidget(buttons)
+
+    # ------------------------------------------------------------------
+    # slot
+    # ------------------------------------------------------------------
+
+    def _on_view_missing(self) -> None:
+        """'누락 파일 보기' 버튼 클릭 — signal emit 후 dialog 닫기."""
+        self.view_missing_files_requested.emit()
+        self.accept()

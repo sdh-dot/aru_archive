@@ -154,3 +154,33 @@ class TestHashMismatchReviewDialogIntegration:
         assert "누락으로 표시" in src
         assert "다시 확인됨" in src
         assert "해시 불일치로 복원 보류" in src
+
+    def test_main_window_connects_view_missing_signal(self):
+        """_on_integrity_check 소스에 view_missing_files_requested signal connect가 있다."""
+        from app.main_window import MainWindow
+        src = inspect.getsource(MainWindow._on_integrity_check)
+        assert "view_missing_files_requested" in src
+        assert "_navigate_to_missing_category" in src
+
+    def test_navigate_to_missing_category_method_exists(self):
+        """MainWindow에 _navigate_to_missing_category 메서드가 존재한다."""
+        from app.main_window import MainWindow
+        assert hasattr(MainWindow, "_navigate_to_missing_category")
+        assert callable(MainWindow._navigate_to_missing_category)
+
+    def test_navigate_method_calls_sidebar_select(self):
+        """_navigate_to_missing_category가 sidebar.select_category('missing')를 호출한다."""
+        from app.main_window import MainWindow
+        src = inspect.getsource(MainWindow._navigate_to_missing_category)
+        assert "select_category" in src
+        assert '"missing"' in src or "'missing'" in src
+
+
+class TestSidebarSelectCategoryAPI:
+    """SidebarWidget.select_category() 공개 API 검증."""
+
+    def test_sidebar_has_select_category(self):
+        """SidebarWidget에 select_category 메서드가 있다."""
+        from app.widgets.sidebar import SidebarWidget
+        assert hasattr(SidebarWidget, "select_category")
+        assert callable(SidebarWidget.select_category)
