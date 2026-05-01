@@ -1,0 +1,25 @@
+{
+  "pack_id": "nikke",
+  "name": "NIKKE: Goddess of Victory",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "NIKKE: Goddess of Victory",
+      "media_type": "game",
+      "aliases": [
+        "NIKKE: Goddess of Victory",
+        "NIKKE",
+        "니케",
+        "승리의 여신: 니케",
+        "勝利の女神：NIKKE"
+      ],
+      "localizations": {
+        "ko": "승리의 여신: 니케",
+        "ja": "勝利の女神：NIKKE",
+        "en": "NIKKE: Goddess of Victory"
+      }
+    }
+  ],
+  "characters": []
+}

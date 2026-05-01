@@ -1,0 +1,26 @@
+{
+  "pack_id": "azur_lane",
+  "name": "Azur Lane",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Azur Lane",
+      "media_type": "game",
+      "aliases": [
+        "Azur Lane",
+        "アズールレーン",
+        "벽람항로",
+        "碧蓝航线",
+        "アズレン",
+        "아주르 레인"
+      ],
+      "localizations": {
+        "ko": "벽람항로",
+        "ja": "アズールレーン",
+        "en": "Azur Lane"
+      }
+    }
+  ],
+  "characters": []
+}
