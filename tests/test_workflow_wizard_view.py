@@ -219,6 +219,7 @@ class TestStep7PreviewTable:
 
         assert step7._preview_table.rowCount() == 2
         assert step7._preview_table.item(0, 0).text() == "sample.jpg"
-        assert step7._preview_table.item(0, 1).text() == "예"
-        assert step7._preview_table.item(1, 1).text() == "아니오"
+        # col 2: 분류 대상 여부 ("분류됨" / "제외")
+        assert step7._preview_table.item(0, 2).text() == "분류됨"
+        assert step7._preview_table.item(1, 2).text() == "제외"
         assert "would_skip" in step7._preview_table.item(1, 4).text()
