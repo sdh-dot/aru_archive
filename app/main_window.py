@@ -79,7 +79,20 @@ _GALLERY_BASE = """
          FROM artwork_files af3
          WHERE af3.group_id = g.group_id) AS role_summary
     FROM artwork_groups g
+    WHERE EXISTS (
+        SELECT 1 FROM artwork_files af_present
+        WHERE af_present.group_id = g.group_id
+          AND af_present.file_status = 'present'
+    )
 """
+
+_PRESENT_EXISTS_FRAGMENT = (
+    "EXISTS ("
+    "SELECT 1 FROM artwork_files af_present "
+    "WHERE af_present.group_id = g.group_id "
+    "AND af_present.file_status = 'present'"
+    ")"
+)
 
 _FAILED_STATUSES = (
     "'file_write_failed','convert_failed','metadata_write_failed',"
@@ -88,37 +101,47 @@ _FAILED_STATUSES = (
 
 _GALLERY_WHERE: dict[str, str] = {
     "all":         "",
-    "inbox":       "WHERE g.status = 'inbox'",
+    "inbox":       "AND g.status = 'inbox'",
     "managed": (
-        "WHERE EXISTS ("
+        "AND EXISTS ("
         "  SELECT 1 FROM artwork_files af "
         "  WHERE af.group_id = g.group_id AND af.file_role = 'managed'"
         ")"
     ),
     "no_metadata": "",
-    "warning":     "WHERE g.metadata_sync_status IN ('xmp_write_failed', 'json_only')",
-    "failed":      f"WHERE g.metadata_sync_status IN ({_FAILED_STATUSES})",
+    "warning":     "AND g.metadata_sync_status IN ('xmp_write_failed', 'json_only')",
+    "failed":      f"AND g.metadata_sync_status IN ({_FAILED_STATUSES})",
 }
 
 _COUNT_SQL: dict[str, str] = {
-    "all":
-        "SELECT COUNT(*) FROM artwork_groups",
-    "inbox":
-        "SELECT COUNT(*) FROM artwork_groups WHERE status = 'inbox'",
+    "all": (
+        "SELECT COUNT(*) FROM artwork_groups g "
+        f"WHERE {_PRESENT_EXISTS_FRAGMENT}"
+    ),
+    "inbox": (
+        "SELECT COUNT(*) FROM artwork_groups g "
+        f"WHERE {_PRESENT_EXISTS_FRAGMENT} AND g.status = 'inbox'"
+    ),
     "managed": (
         "SELECT COUNT(DISTINCT g.group_id) FROM artwork_groups g "
         "JOIN artwork_files af ON af.group_id = g.group_id "
-        "WHERE af.file_role = 'managed'"
+        f"WHERE af.file_role = 'managed' AND {_PRESENT_EXISTS_FRAGMENT}"
     ),
-    "no_metadata":
-        "SELECT COUNT(*) FROM artwork_groups "
-        "WHERE metadata_sync_status = 'metadata_missing'",
-    "warning":
-        "SELECT COUNT(*) FROM artwork_groups "
-        "WHERE metadata_sync_status IN ('xmp_write_failed', 'json_only')",
-    "failed":
-        f"SELECT COUNT(*) FROM artwork_groups "
-        f"WHERE metadata_sync_status IN ({_FAILED_STATUSES})",
+    "no_metadata": (
+        "SELECT COUNT(*) FROM artwork_groups g "
+        f"WHERE g.metadata_sync_status = 'metadata_missing' "
+        f"AND {_PRESENT_EXISTS_FRAGMENT}"
+    ),
+    "warning": (
+        "SELECT COUNT(*) FROM artwork_groups g "
+        f"WHERE g.metadata_sync_status IN ('xmp_write_failed', 'json_only') "
+        f"AND {_PRESENT_EXISTS_FRAGMENT}"
+    ),
+    "failed": (
+        "SELECT COUNT(*) FROM artwork_groups g "
+        f"WHERE g.metadata_sync_status IN ({_FAILED_STATUSES}) "
+        f"AND {_PRESENT_EXISTS_FRAGMENT}"
+    ),
 }
 
 _NO_META_IDX = 1
@@ -722,7 +745,7 @@ class MainWindow(QMainWindow):
             self._gallery.load_groups([])
 
     def _refresh_gallery_item(self, group_id: str) -> None:
-        sql = _GALLERY_BASE + " WHERE g.group_id = ?"
+        sql = _GALLERY_BASE + " AND g.group_id = ?"
         try:
             conn = self._get_conn()
             row  = conn.execute(sql, (group_id,)).fetchone()
