@@ -963,7 +963,14 @@ class MainWindow(QMainWindow):
             msg += f" / 해시 불일치로 복원 보류: {mismatch_count}건"
         self._log.append(msg)
 
-        # 6. refresh
+        # 6. hash mismatch 복원 보류 항목이 있으면 상세 dialog 표시
+        mismatch_files = apply_result.get("hash_mismatch_files", [])
+        if mismatch_files:
+            from app.views.integrity_restore_hold_dialog import IntegrityRestoreHoldDialog
+            hold_dlg = IntegrityRestoreHoldDialog(mismatch_files, parent=self)
+            hold_dlg.exec()
+
+        # 7. refresh
         self._on_refresh()
 
     def _on_select_root(self) -> None:

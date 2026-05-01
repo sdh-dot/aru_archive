@@ -125,3 +125,32 @@ class TestHashMismatchCompletionMessage:
         assert "다시 확인됨" in src
         # mismatch_count 조건 분기가 있어야 함
         assert "mismatch_count" in src
+
+
+class TestHashMismatchReviewDialogIntegration:
+    """MainWindow._on_integrity_check()가 hash mismatch 결과에 따라
+    IntegrityRestoreHoldDialog를 호출(또는 호출하지 않음)하는지 source-inspection으로 확인."""
+
+    def test_no_mismatch_skips_review_dialog(self):
+        """hash_mismatch_files 키를 확인하는 조건 분기가 존재한다 (빈 list면 dialog 미표시 경로)."""
+        from app.main_window import MainWindow
+        src = inspect.getsource(MainWindow._on_integrity_check)
+        # 조건 분기 존재 확인
+        assert "hash_mismatch_files" in src
+        # 조건이 비어 있을 때를 처리하는 if 분기 (빈 list → falsy)
+        assert "if mismatch_files" in src or "if len(mismatch_files)" in src
+
+    def test_mismatch_present_invokes_review_dialog(self):
+        """hash_mismatch_files가 있을 때 IntegrityRestoreHoldDialog를 호출한다."""
+        from app.main_window import MainWindow
+        src = inspect.getsource(MainWindow._on_integrity_check)
+        assert "IntegrityRestoreHoldDialog" in src
+        assert "hash_mismatch_files" in src
+
+    def test_completion_message_unchanged_when_mismatch(self):
+        """완료 메시지 문구 자체는 변경되지 않았다 — 기존 키워드가 그대로 존재."""
+        from app.main_window import MainWindow
+        src = inspect.getsource(MainWindow._on_integrity_check)
+        assert "누락으로 표시" in src
+        assert "다시 확인됨" in src
+        assert "해시 불일치로 복원 보류" in src
