@@ -8,7 +8,7 @@ Aru Archive를 배포하기 위한 패키징 절차와 릴리즈 구성입니다
 
 아이콘 리소스는 아래 원본 이미지에서 생성됩니다.
 
-- 원본: `docs/icon_1.png`
+- 원본: `assets/icon/source/icon_1.png`
 
 생성 산출물:
 

@@ -3,7 +3,7 @@ Aru Archive icon asset generator.
 
 Usage:
     python build/generate_icons.py
-    python build/generate_icons.py --source docs/icon_1.png
+    python build/generate_icons.py --source assets/icon/source/icon_1.png
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ except ImportError:
 
 ROOT = Path(__file__).parent.parent
 
-SOURCE_DEFAULT  = ROOT / "docs" / "icon_1.png"
+SOURCE_DEFAULT  = ROOT / "assets" / "icon" / "source" / "icon_1.png"
 MASTER_OUT      = ROOT / "assets" / "icon" / "aru_archive_icon_master.png"
 ASSET_DIR       = ROOT / "assets" / "icon"
 EXT_ICONS_DIR   = ROOT / "extension" / "icons"
@@ -136,7 +136,7 @@ def generate_ico(master: Image.Image, ico_sizes: list[int], out_path: Path) -> N
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate Aru Archive icon assets")
-    parser.add_argument("--source", default=str(SOURCE_DEFAULT), help="Source PNG (default: docs/icon_1.png)")
+    parser.add_argument("--source", default=str(SOURCE_DEFAULT), help="Source PNG (default: assets/icon/source/icon_1.png)")
     parser.add_argument("--tolerance", type=int, default=BG_TOLERANCE,
                         help="Background removal tolerance 0-255 (default: 30)")
     args = parser.parse_args()

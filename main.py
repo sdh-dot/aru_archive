@@ -65,6 +65,50 @@ def _resolve_data_dir(config: dict) -> Path:
     return resolve_data_dir(raw)
 
 
+def _create_startup_splash(app):
+    """assets/splash/splash.png를 사용해 QSplashScreen을 생성한다.
+
+    실패 시 None을 반환해 splash 없이도 앱이 정상 기동되도록 한다.
+
+    Scaling: screen.availableSize()의 72%까지 KeepAspectRatio로 비례 축소.
+    asset 자체 변형 0건 (display transform).
+    """
+    try:
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QPixmap
+        from PyQt6.QtWidgets import QSplashScreen
+        from app.resources import splash_path
+
+        path = splash_path()
+        if not path:
+            return None
+
+        pixmap = QPixmap(path)
+        if pixmap.isNull():
+            return None
+
+        screen = app.primaryScreen()
+        if screen is not None:
+            avail = screen.availableSize()
+            max_w = int(avail.width() * 0.72)
+            max_h = int(avail.height() * 0.72)
+            if max_w > 0 and max_h > 0 and (
+                pixmap.width() > max_w or pixmap.height() > max_h
+            ):
+                pixmap = pixmap.scaled(
+                    max_w, max_h,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+
+        return QSplashScreen(
+            pixmap,
+            Qt.WindowType.WindowStaysOnTopHint,
+        )
+    except Exception:
+        return None
+
+
 def run_gui(config: dict, config_path: str = "config.json") -> int:
     try:
         from PyQt6.QtWidgets import QApplication
@@ -80,11 +124,22 @@ def run_gui(config: dict, config_path: str = "config.json") -> int:
     from app.resources import icon_path
     app.setWindowIcon(QIcon(icon_path()))
 
+    # (1) Splash 표시 — 실패 시 None
+    splash = _create_startup_splash(app)
+    if splash is not None:
+        splash.show()
+        app.processEvents()  # 즉시 paint 강제
+
     from app.main_window import MainWindow, _apply_wine_style  # type: ignore[import]
     _apply_wine_style(app)
 
+    # (2) MainWindow 무거운 init
     window = MainWindow(config, config_path=config_path)
     window.show()
+
+    # (3) Splash 자동 종료 — main window paint와 동기화
+    if splash is not None:
+        splash.finish(window)
 
     return app.exec()
 
