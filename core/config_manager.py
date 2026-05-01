@@ -51,6 +51,9 @@ _DEFAULTS: dict[str, Any] = {
         "include_absolute_paths_in_debug_reports": False,
     },
     "classification": {
+        # 분류 기준 선택 UI에서 저장되는 사용자 선택 값.
+        # series_only | series_character | tag (tag는 미구현)
+        "classification_level":           "series_character",
         # primary_strategy는 현재 문서화용 값이다. 실제 분기 플래그는 아래 bool 옵션들이다.
         "primary_strategy":               "series_character",
         # 기본 분류는 series/character를 우선하고, 정보가 부족할 때 author로 폴백한다.

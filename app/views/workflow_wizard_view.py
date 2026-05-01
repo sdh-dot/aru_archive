@@ -27,10 +27,10 @@ from typing import Optional
 from PyQt6.QtCore import Qt, QThread, pyqtSignal as Signal
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QFileDialog,
+    QButtonGroup, QCheckBox, QComboBox, QDialog, QFileDialog,
     QFrame, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
-    QProgressBar, QPushButton, QScrollArea, QSizePolicy, QSplitter,
-    QStackedWidget, QTableWidget, QTableWidgetItem,
+    QProgressBar, QPushButton, QRadioButton, QScrollArea, QSizePolicy,
+    QSplitter, QStackedWidget, QTableWidget, QTableWidgetItem,
     QTextEdit, QVBoxLayout, QWidget,
 )
 
@@ -85,12 +85,15 @@ _STEPS = [
     (2, "Scan",     "Scan / Load"),
     (3, "Metadata", "메타데이터 확인"),
     (4, "Enrich",   "메타데이터 보강"),
-    (5, "Dict",     "사전 정규화"),
+    (5, "Classify", "분류 기준 선택"),
     (6, "Retag",    "태그 재분류"),
     (7, "Preview",  "분류 미리보기"),
     (8, "Execute",  "분류 실행"),
     (9, "Result",   "결과 / Undo"),
 ]
+
+# Step 6 (index 5)은 헤더 버튼에서 숨긴다 — 패널 자체는 _stack에 유지.
+_HIDDEN_STEP_INDICES = {5}
 
 _RISK_STYLE = {
     "low":    "color:#5CDB8F; font-weight:bold;",
@@ -967,104 +970,134 @@ class _Step4Enrich(_StepPanel):
         self.refresh_main.emit()
 
 
-# ── Step 5: Dictionary / Tag Normalization ───────────────────────────────────
+# ── Step 5: 분류 기준 선택 ───────────────────────────────────────────────────
 
-class _Step5Dict(_StepPanel):
+
+def _apply_level_to_cfg(level: str, cls_cfg: dict) -> None:
+    """classification_level 문자열을 기존 분류 플래그에 매핑한다.
+
+    series_only:       시리즈 폴더만 (_uncategorized 포함)
+    series_character:  기존 동작 유지 (default)
+    tag:               미구현 — series_character로 fallback
+    """
+    if level == "series_only":
+        cls_cfg["enable_series_character"] = False
+        cls_cfg["enable_series_uncategorized"] = True
+        cls_cfg["enable_character_without_series"] = False
+    # series_character / tag / 기타: 기본값 유지 — config.json의 사용자 설정 보존
+
+
+class _Step5ClassifyLevel(_StepPanel):
+    """Step 5 — 분류 기준 선택.
+
+    이전 사전 정규화 패널은 후보 태그 / 웹 사전 / 사전 내보내기 기능을
+    가졌으나, 동일 기능이 Top Menu '정규화'에 모두 존재하므로 Wizard에서는
+    분류 기준 선택 UI로 교체한다.
+
+    상단: 경량 사전 상태 요약 (pending 후보 N건) + 정규화 도구 열기 버튼
+    하단: 분류 기준 RadioButton 그룹
+    """
+
     def __init__(self, wizard, parent=None):
         super().__init__(wizard, parent)
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        layout.addWidget(_label("사전 / 태그 정규화 상태", bold=True))
+        layout.addWidget(_label("분류 기준 선택", bold=True))
         layout.addWidget(_h_sep())
 
-        self._tbl = _kv_table([])
-        layout.addWidget(self._tbl)
+        # 상단 — 경량 사전 상태 요약
+        self._dict_summary_lbl = QLabel("사전 상태: 로드 중…")
+        self._dict_summary_lbl.setStyleSheet("color:#8F8890; font-size:12px;")
+        layout.addWidget(self._dict_summary_lbl)
 
-        self._warn_lbl = QLabel("")
-        self._warn_lbl.setWordWrap(True)
-        layout.addWidget(self._warn_lbl)
+        btn_open_dict_tools = QPushButton("정규화 도구 열기 (Top Menu)")
+        btn_open_dict_tools.setObjectName("btn_open_dict_tools")
+        btn_open_dict_tools.setToolTip(
+            "Top Menu의 '정규화' 메뉴에 후보 태그 / 웹 사전 / 사전 내보내기 기능이 있습니다."
+        )
+        btn_open_dict_tools.clicked.connect(self._on_open_dict_tools)
+        layout.addWidget(btn_open_dict_tools)
 
-        btn_row = QHBoxLayout()
-        for label, handler in [
-            ("🏷 후보 태그",     self._open_candidates),
-            ("🌐 웹 사전",       self._open_dict_import),
-            ("📤 사전 내보내기", self._export_dict),
-        ]:
-            b = QPushButton(label)
-            b.clicked.connect(handler)
-            btn_row.addWidget(b)
-        btn_row.addStretch()
-        layout.addLayout(btn_row)
+        layout.addWidget(_h_sep())
+
+        # 하단 — 분류 기준 RadioButton
+        layout.addWidget(_label("분류 기준", bold=True))
+
+        self._radio_group = QButtonGroup(self)
+
+        self._radio_series_char = QRadioButton("시리즈 + 캐릭터 폴더 (권장)")
+        self._radio_series_char.setToolTip(
+            "BySeries/{series}/{character}/ 또는 ByCharacter/{character}/ 형태로 분류"
+        )
+        self._radio_group.addButton(self._radio_series_char, 0)
+        layout.addWidget(self._radio_series_char)
+
+        self._radio_series_only = QRadioButton("시리즈 폴더만 (_uncategorized 포함)")
+        self._radio_series_only.setToolTip(
+            "BySeries/{series}/_uncategorized/ 형태로만 분류"
+        )
+        self._radio_group.addButton(self._radio_series_only, 1)
+        layout.addWidget(self._radio_series_only)
+
+        self._radio_tag = QRadioButton("개별 태그별 (추후 지원 예정)")
+        self._radio_tag.setEnabled(False)
+        self._radio_tag.setToolTip("아직 구현되지 않았습니다.")
+        self._radio_group.addButton(self._radio_tag, 2)
+        layout.addWidget(self._radio_tag)
+
+        # config에서 현재 값 읽어 적용
+        self._restore_from_config()
+
+        # 변경 시 config + 영구 저장
+        self._radio_series_char.toggled.connect(self._on_level_changed)
+        self._radio_series_only.toggled.connect(self._on_level_changed)
+
         layout.addStretch()
 
+    def _on_open_dict_tools(self) -> None:
+        QMessageBox.information(
+            self, "정규화 도구",
+            "Top Menu의 '정규화' 메뉴에서 후보 태그 / 웹 사전 / 사전 내보내기 "
+            "기능을 사용할 수 있습니다.\n\n"
+            "필요 시 작업 마법사를 닫지 않고 메뉴에서 작업 후 돌아올 수 있습니다.",
+        )
+
+    def _restore_from_config(self) -> None:
+        cfg = self._config()
+        cls_cfg = cfg.setdefault("classification", {})
+        level = cls_cfg.get("classification_level", "series_character")
+        if level == "series_only":
+            self._radio_series_only.setChecked(True)
+        else:
+            self._radio_series_char.setChecked(True)
+
+    def _on_level_changed(self) -> None:
+        if self._radio_series_only.isChecked():
+            level = "series_only"
+        else:
+            level = "series_character"
+        cfg = self._config()
+        cfg.setdefault("classification", {})["classification_level"] = level
+        try:
+            from core.config_manager import save_config
+            config_path = getattr(self._wizard, "_config_path", "config.json")
+            save_config(cfg, config_path)
+        except Exception:
+            pass
+
     def refresh(self) -> None:
-        from core.workflow_summary import build_dictionary_status_summary
         try:
+            from core.workflow_summary import build_dictionary_status_summary
             conn = self._conn_factory()
-            ds   = build_dictionary_status_summary(conn)
-            conn.close()
-        except Exception as exc:
-            return
-
-        rows = [
-            ("tag_aliases (전체)",         str(ds.get("tag_aliases_count", 0))),
-            ("  series aliases",           str(ds.get("series_aliases_count", 0))),
-            ("  character aliases",        str(ds.get("character_aliases_count", 0))),
-            ("tag_localizations",          str(ds.get("tag_localizations_count", 0))),
-            ("pending 태그 후보",          str(ds.get("pending_candidates", 0))),
-            ("외부 사전 staged",           str(ds.get("staged_external_entries", 0))),
-            ("외부 사전 accepted",         str(ds.get("accepted_external_entries", 0))),
-            ("classification_failure 후보", str(ds.get("classification_failure_candidates", 0))),
-        ]
-        self._tbl.setRowCount(len(rows))
-        for r, (k, v) in enumerate(rows):
-            self._tbl.setItem(r, 0, QTableWidgetItem(k))
-            self._tbl.setItem(r, 1, QTableWidgetItem(v))
-
-        warns = []
-        if ds.get("pending_candidates", 0) > 0:
-            warns.append(f"⚠ pending 후보 {ds['pending_candidates']}개 — [후보 태그]에서 승인/거부하세요.")
-        if ds.get("staged_external_entries", 0) > 0:
-            warns.append(f"ℹ staged 외부 사전 {ds['staged_external_entries']}개 — [웹 사전]에서 승인하세요.")
-        self._warn_lbl.setText("\n".join(warns) if warns else "✅ 검토 대기 항목 없음")
-
-    def _open_candidates(self) -> None:
-        try:
-            from app.views.tag_candidate_view import TagCandidateView
-            conn = self._conn_factory()
-            dlg  = TagCandidateView(conn, parent=self._wizard)
-            dlg.exec()
-            conn.close()
-            self.refresh()
-        except Exception as exc:
-            QMessageBox.critical(self._wizard, "오류", str(exc))
-
-    def _open_dict_import(self) -> None:
-        try:
-            from app.views.dictionary_import_view import DictionaryImportView
-            dlg = DictionaryImportView(self._conn_factory, parent=self._wizard)
-            dlg.exec()
-            self.refresh()
-        except Exception as exc:
-            QMessageBox.critical(self._wizard, "오류", str(exc))
-
-    def _export_dict(self) -> None:
-        try:
-            path, _ = QFileDialog.getSaveFileName(
-                self._wizard, "사전 내보내기", "tag_pack_export.json", "JSON 파일 (*.json)"
-            )
-            if not path:
-                return
-            from core.tag_pack_exporter import export_public_tag_pack, save_to_file
-            conn = self._conn_factory()
-            pack_id = Path(path).stem
-            data = export_public_tag_pack(conn, pack_id, pack_id.replace("_", " ").title())
-            conn.close()
-            save_to_file(data, path)
-            self.log_msg.emit(f"[INFO] 사전 내보내기 완료: {path}")
-        except Exception as exc:
-            QMessageBox.critical(self._wizard, "오류", str(exc))
+            try:
+                ds = build_dictionary_status_summary(conn)
+            finally:
+                conn.close()
+            pending = ds.get("pending_candidates", 0) if isinstance(ds, dict) else 0
+            self._dict_summary_lbl.setText(f"사전 상태: 검토 대기 후보 {pending}건")
+        except Exception:
+            self._dict_summary_lbl.setText("사전 상태: 정보를 가져올 수 없습니다.")
 
 
 # ── Step 6: Tag Reclassification ────────────────────────────────────────────
@@ -1305,6 +1338,10 @@ class _Step7Preview(_StepPanel):
         cfg  = dict(self._config())
         cls  = dict(cfg.get("classification", {}))
         cls["folder_locale"] = self._locale_combo.currentData() or "canonical"
+        # PR A: Step 6를 자동화 — preview 생성 전 retag 자동 실행 플래그
+        cls["retag_before_batch_preview"] = True
+        # PR A: classification_level을 기존 분류 플래그에 매핑
+        _apply_level_to_cfg(cls.get("classification_level", "series_character"), cls)
         cfg["classification"] = cls
         return cfg
 
@@ -1348,6 +1385,8 @@ class _Step7Preview(_StepPanel):
         # developer: 분류 실패 export 로그 (기본값 OFF, 일반 사용자에게 표시 안 됨)
         if result.get("dev_log_msg"):
             self.log_msg.emit(result["dev_log_msg"])
+        # PR A: retag 자동 실행 안내
+        self.log_msg.emit("[INFO] Preview 생성 전 자동 태그 재분류가 수행되었습니다.")
         self._batch_preview = result
         self._show_preview_summary(result)
         self.preview_ready.emit(result)
@@ -1714,6 +1753,9 @@ class WorkflowWizardView(QDialog):
                 "QPushButton {color:#8F6874; background:transparent; border:none; font-size:11px;}"
                 "QPushButton:hover {color:#D8AEBB;}"
             )
+            # _HIDDEN_STEP_INDICES에 해당하는 단계 버튼은 숨긴다 (패널은 _stack에 유지)
+            if idx in _HIDDEN_STEP_INDICES:
+                btn.setVisible(False)
             self._step_btns.append(btn)
             hbox.addWidget(btn)
             if idx < len(_STEPS) - 1:
@@ -1737,7 +1779,7 @@ class WorkflowWizardView(QDialog):
 
         for PanelClass in [
             _Step1Root, _Step2Scan, _Step3Meta, _Step4Enrich,
-            _Step5Dict,  _Step6Retag, _Step7Preview, _Step8Execute,
+            _Step5ClassifyLevel, _Step6Retag, _Step7Preview, _Step8Execute,
             _Step9Result,
         ]:
             panel = PanelClass(self)
@@ -1802,6 +1844,11 @@ class WorkflowWizardView(QDialog):
 
     def _go_to_step(self, idx: int) -> None:
         idx = max(0, min(idx, len(_STEPS) - 1))
+        # _HIDDEN_STEP_INDICES에 해당하는 단계는 자동으로 건너뛴다.
+        # 방향은 _current 기준으로 판단 (없으면 forward).
+        if idx in _HIDDEN_STEP_INDICES:
+            direction = 1 if idx >= getattr(self, "_current", 0) else -1
+            idx = max(0, min(idx + direction, len(_STEPS) - 1))
         self._current = idx
         self._stack.setCurrentIndex(idx)
 
