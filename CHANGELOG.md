@@ -5,6 +5,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.5.1] — 2026-05-01
+
+### Changed
+
+**Visual Duplicate UX 개선 (PR #41, #43)**
+- 파일 크기 표시를 byte에서 MB 단위로 변경.
+- 자동 keep/delete 추천 근거(이유)를 카드별로 표시.
+- 자동 추천 라벨과 수동 선택 라벨 분리 (`추천: 유지` / `✓ 유지` 등).
+- keep/delete 영문·한글 혼재 표현을 한국어로 통일 (`삭제 후보` 표현으로 final-state와 명확히 구분).
+- 삭제 미리보기 이동 버튼에 "실제 삭제 전 단계" tooltip 추가.
+
+**UI 라벨·tooltip 정리 (PR #42, #44, #45, #46)**
+- Manual Override dialog form labels 한국어화 (시리즈 이름 / 캐릭터 이름 / 폴더명 언어 / 원본 태그) + 입력 위젯 tooltip 추가.
+- Integrity dialog: "missing으로 표시" → "누락으로 표시" + "실제 파일 삭제가 아니라 DB 상태 기록" tooltip 추가.
+- Workflow Wizard Step 4/6/7/8/9 라벨·tooltip 정리:
+  - "No Metadata만 보강" → "메타데이터 없는 항목만 보강"
+  - "태그 재분류" → "태그 다시 분석"
+  - "미리보기 생성" → "분류 미리보기 생성"
+  - 컬럼 헤더 "분류사유·비고" → "사유·경고"
+- Toolbar 정규화·분류 메뉴 항목 한국어화 + tooltip:
+  - "태그 재분류" → "태그 다시 분석"
+  - "후보 태그" → "태그 후보 검토"
+  - "웹 사전" → "외부 사전 가져오기"
+  - "Localized Tag Pack 가져오기" → "번역 태그팩 가져오기"
+- Sidebar 카테고리 6건 한국어화 (`All Files` → `전체 파일` 등).
+- BatchClassifyDialog / TagCandidateView / CanonicalMergeDialog의 영문·DB enum 노출 문구 한국어화.
+
+### Fixed
+
+**테스트·안정성 (PR #47, #48)**
+- `tests/test_gui_smoke.py`의 toolbar button rename 사전 fail 2건 정리 (`_btn_*` → `_act_*` 매핑).
+- MainWindow의 stale `_btn_scan` 미정의 참조를 현재 `_act_inbox_scan` 구조로 정정 — 스캔 시작·완료 핸들러에서 AttributeError 가능성 제거.
+
+---
+
 ## [0.5.0] — 2026-05-01
 
 ### Changed
