@@ -190,3 +190,79 @@ def test_refresh_preview_rows_updates_rule_type_cell(step7):
     assert rule_item.text() == "manual_override", (
         f"Expected 'manual_override', got '{rule_item.text()}'"
     )
+
+
+# ---------------------------------------------------------------------------
+# 6. 필터 적용 후 override 동작 회귀 가드
+# ---------------------------------------------------------------------------
+
+def test_override_group_id_accessible_after_filter_applied(step7):
+    """
+    필터 적용으로 row가 숨겨진 후에도 _preview_rows[row].group_id 로
+    _preview_items에 접근 가능해야 한다 (setRowHidden은 mapping을 깨지 않음).
+    """
+    group_id = "group-filter-rg-001"
+    fake = _make_fake_preview(group_id)
+    step7._populate_preview_table([fake])
+
+    # "수동 보정됨" 필터 적용 → fake는 override 아니므로 숨겨짐
+    step7._apply_filter("manual_override")
+
+    row_idx = None
+    for i, rd in enumerate(step7._preview_rows):
+        if rd.get("group_id") == group_id:
+            row_idx = i
+            break
+    assert row_idx is not None, "group_id를 _preview_rows에서 찾을 수 없음"
+    assert step7._preview_table.isRowHidden(row_idx), "override 없는 row가 숨겨지지 않음"
+
+    # 숨겨진 row에서도 _preview_items 접근 가능
+    assert group_id in step7._preview_items, "_preview_items에서 group_id 접근 불가"
+
+    # 필터 복구
+    step7._apply_filter("all")
+    assert not step7._preview_table.isRowHidden(row_idx), "필터 복구 후 row가 여전히 숨겨짐"
+
+
+def test_preview_rows_and_items_consistent_after_filter_and_refresh(step7):
+    """
+    필터 적용 → override refresh → 필터 재적용 흐름에서
+    _preview_rows 와 _preview_items 가 일관성을 유지해야 한다.
+    """
+    group_id = "group-filter-rg-002"
+    fake = _make_fake_preview(group_id)
+    step7._populate_preview_table([fake])
+
+    # 초기 "수동 보정됨" 필터 → row 숨겨짐
+    step7._apply_filter("manual_override")
+
+    # override 적용된 item으로 _preview_items 갱신 + refresh
+    updated_item = {
+        "group_id": group_id,
+        "artwork_title": "테스트 작품",
+        "source_path": "/tmp/test.jpg",
+        "destinations": [
+            {
+                "rule_type": "manual_override",
+                "dest_path": "/Classified/BySeries/BA/Arona/test.jpg",
+                "conflict": "none",
+                "will_copy": True,
+                "used_fallback": False,
+                "override_note": "manual_override",
+            }
+        ],
+        "classification_info": None,
+    }
+    step7._preview_items[group_id] = updated_item
+    step7._refresh_preview_rows_for_group(group_id, updated_item)
+
+    # refresh 후 필터가 재적용됨 → 이제 override이므로 visible
+    row_idx = None
+    for i, rd in enumerate(step7._preview_rows):
+        if rd.get("group_id") == group_id:
+            row_idx = i
+            break
+    assert row_idx is not None
+    assert not step7._preview_table.isRowHidden(row_idx), (
+        "override 적용 후 '수동 보정됨' 필터에서 row가 표시되어야 함"
+    )
