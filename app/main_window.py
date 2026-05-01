@@ -454,7 +454,7 @@ class MainWindow(QMainWindow):
         self._act_refresh     = scan_menu.addAction("🔄 갱신")
         scan_menu.addSeparator()
         self._act_integrity   = scan_menu.addAction("🛡 파일 무결성 검사")
-        self._act_integrity.setEnabled(False)   # 미구현 — TODO
+        self._act_integrity.setEnabled(True)
         _add_tb_menu(tb, "스캔 ▼", scan_menu)
 
         # ── 중복 검사 ▼ ──────────────────────────────────────────────────
@@ -557,6 +557,7 @@ class MainWindow(QMainWindow):
         # 툴바 — 스캔 메뉴
         self._act_inbox_scan.triggered.connect(self._on_inbox_scan)
         self._act_refresh.triggered.connect(self._on_refresh)
+        self._act_integrity.triggered.connect(self._on_integrity_check)
 
         # 툴바 — 중복 검사 메뉴
         self._act_exact_dup.triggered.connect(self._on_exact_duplicate_check)
@@ -782,6 +783,85 @@ class MainWindow(QMainWindow):
         """갤러리와 카운트를 수동으로 갱신한다."""
         self._refresh_gallery()
         self._refresh_counts()
+
+    def _on_integrity_check(self) -> None:
+        """파일 무결성 검사 — 외부 삭제 파일을 DB missing으로 표시.
+
+        1. inbox_dir / managed_dir reachability probe
+        2. dry-run scan
+        3. 0건이면 info, N건이면 IntegrityConfirmDialog
+        4. confirm 시 wet-run + _on_refresh
+        """
+        from pathlib import Path as _Path
+
+        # 1. reachability probe
+        inbox = self._inbox_dir()
+        managed = self._managed_dir()
+
+        for label, path in (("Inbox", inbox), ("Managed", managed)):
+            if path and not _Path(path).exists():
+                QMessageBox.warning(
+                    self,
+                    "드라이브 접근 불가",
+                    f"{label} 폴더에 접근할 수 없습니다:\n{path}\n\n"
+                    f"NAS / 외장 드라이브 연결 상태를 확인한 뒤 다시 시도하세요.",
+                )
+                self._log.append(
+                    f"[WARN] 무결성 검사 중단: {label} 경로 접근 불가 ({path})"
+                )
+                return
+
+        # 2. dry-run scan
+        from core.integrity_scanner import run_integrity_scan
+        try:
+            conn = self._get_conn()
+            try:
+                scan = run_integrity_scan(conn, dry_run=True)
+            finally:
+                conn.close()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 무결성 검사 실패: {exc}")
+            return
+
+        missing_count = scan["missing_count"]
+
+        # 3. 0건 처리
+        if missing_count == 0:
+            QMessageBox.information(
+                self,
+                "파일 무결성 검사",
+                "누락된 파일이 없습니다.\n"
+                "DB의 모든 파일이 디스크에서 정상 확인되었습니다.",
+            )
+            self._log.append("[INFO] 무결성 검사 완료: 누락 파일 0건")
+            return
+
+        # 4. confirm dialog
+        from app.views.integrity_confirm_dialog import IntegrityConfirmDialog
+        dlg = IntegrityConfirmDialog(scan, parent=self)
+        if dlg.exec() != IntegrityConfirmDialog.DialogCode.Accepted:
+            self._log.append(
+                f"[INFO] 무결성 검사 취소 — {missing_count}건 미반영"
+            )
+            return
+
+        # 5. wet-run
+        try:
+            conn = self._get_conn()
+            try:
+                apply_result = run_integrity_scan(conn, dry_run=False)
+            finally:
+                conn.close()
+        except Exception as exc:
+            self._log.append(f"[ERROR] 무결성 반영 실패: {exc}")
+            return
+
+        self._log.append(
+            f"[INFO] 누락 파일 {apply_result['updated']}건을 missing 상태로 표시했습니다."
+        )
+
+        # 6. refresh
+        self._on_refresh()
 
     def _on_select_root(self) -> None:
         self._open_path_setup_dialog(first_run=False)
