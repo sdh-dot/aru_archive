@@ -16,6 +16,7 @@ present/deleted 상태는 restored 검사 대상에서 제외되어 idempotent�
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import sqlite3
 from datetime import datetime, timezone
@@ -23,6 +24,18 @@ from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _compute_file_hash(path: str) -> Optional[str]:
+    """SHA-256 파일 해시 반환. IO 에러 시 None."""
+    try:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except OSError:
+        return None
 
 
 def find_missing_files(
@@ -176,14 +189,14 @@ def find_restored_files(
     same-path 기준만 사용 — moved/renamed 추적 없음.
     실제 파일을 이동/복사/수정하지 않는다.
 
-    반환 dict 키: file_id, group_id, file_path, file_role, file_status
+    반환 dict 키: file_id, group_id, file_path, file_role, file_status, db_hash
     """
     if not roles:
         return []
 
     role_placeholders = ",".join("?" * len(roles))
     sql = (
-        "SELECT file_id, group_id, file_path, file_role, file_status "
+        "SELECT file_id, group_id, file_path, file_role, file_status, file_hash "
         "FROM artwork_files "
         f"WHERE file_role IN ({role_placeholders}) "
         "  AND file_status = 'missing' "
@@ -208,12 +221,14 @@ def find_restored_files(
             group_id = row["group_id"]
             file_role = row["file_role"]
             file_status = row["file_status"]
+            db_hash = row["file_hash"]
         except (TypeError, IndexError):
             file_path = row[2]
             file_id = row[0]
             group_id = row[1]
             file_role = row[3]
             file_status = row[4]
+            db_hash = row[5] if len(row) > 5 else None
 
         if not file_path:
             continue
@@ -224,6 +239,7 @@ def find_restored_files(
                 "file_path": file_path,
                 "file_role": file_role,
                 "file_status": file_status,
+                "db_hash": db_hash,
             })
     return restored
 
@@ -296,6 +312,80 @@ def mark_files_as_present(
     }
 
 
+def _classify_restore_candidate(
+    candidate: dict,
+) -> tuple[str, Optional[dict]]:
+    """복원 후보 1건의 hash 검증 결과를 분류한다.
+
+    Returns:
+        ("restore", None)           — 복원 진행 (hash 일치 또는 검증 불가)
+        ("hash_unavailable", None)  — DB hash 없어 검증 skip, 복원 진행
+        ("mismatch", mismatch_dict) — hash 불일치, 복원 skip
+    """
+    db_hash: Optional[str] = candidate.get("db_hash")
+    if not db_hash:
+        return "hash_unavailable", None
+
+    current_hash = _compute_file_hash(candidate["file_path"])
+    if current_hash is None:
+        logger.warning(
+            "integrity_scan: cannot compute hash for %s — skipping restore",
+            candidate["file_path"],
+        )
+        db_prefix = db_hash[:16] + "…" if len(db_hash) > 16 else db_hash
+        return "mismatch", {
+            "file_id": candidate["file_id"],
+            "group_id": candidate["group_id"],
+            "file_path": candidate["file_path"],
+            "file_role": candidate["file_role"],
+            "db_hash": db_prefix,
+            "current_hash": None,
+        }
+
+    if current_hash == db_hash:
+        return "restore", None
+
+    logger.warning(
+        "integrity_scan: hash mismatch at %s — db=%s… current=%s… (restore skipped)",
+        candidate["file_path"],
+        db_hash[:16],
+        current_hash[:16],
+    )
+    return "mismatch", {
+        "file_id": candidate["file_id"],
+        "group_id": candidate["group_id"],
+        "file_path": candidate["file_path"],
+        "file_role": candidate["file_role"],
+        "db_hash": db_hash[:16] + "…",
+        "current_hash": current_hash[:16] + "…",
+    }
+
+
+def _partition_restore_candidates(
+    candidates: list[dict],
+) -> tuple[list[dict], list[dict], int]:
+    """복원 후보 목록을 hash 검증으로 세 그룹으로 분류한다.
+
+    Returns:
+        (restored_files, hash_mismatch_files, hash_unavailable_count)
+    """
+    restored_files: list[dict] = []
+    hash_mismatch_files: list[dict] = []
+    hash_unavailable_count = 0
+
+    for candidate in candidates:
+        verdict, mismatch_entry = _classify_restore_candidate(candidate)
+        if verdict == "hash_unavailable":
+            hash_unavailable_count += 1
+            restored_files.append(candidate)
+        elif verdict == "mismatch":
+            hash_mismatch_files.append(mismatch_entry)  # type: ignore[arg-type]
+        else:
+            restored_files.append(candidate)
+
+    return restored_files, hash_mismatch_files, hash_unavailable_count
+
+
 def run_integrity_scan(
     conn: sqlite3.Connection,
     *,
@@ -311,9 +401,13 @@ def run_integrity_scan(
         "affected_group_count": int,
         "updated": int,             # dry_run=True이면 0 (missing 마킹 건수)
         "dry_run": bool,
-        "restored_files": list[dict],   # find_restored_files() 결과
+        "restored_files": list[dict],   # 실제 복원 대상 (hash 일치 + unavailable)
         "restored_count": int,          # len(restored_files)
         "restore_updated": int,         # dry_run=True이면 0, 아니면 mark_files_as_present() updated
+        "restore_skipped_hash_mismatch": int,   # hash 불일치로 복원 skip된 건수
+        "hash_mismatch_files": list[dict],      # skip 상세 (file_id, group_id, file_path,
+                                                #   file_role, db_hash, current_hash)
+        "restore_skipped_hash_unavailable": int,  # hash 검증 불가로 기존 정책 그대로 복원
     }
     """
     missing_files = find_missing_files(conn, roles=roles, group_ids=group_ids)
@@ -328,7 +422,10 @@ def run_integrity_scan(
         )
         updated = result["updated"]
 
-    restored_files = find_restored_files(conn, roles=roles, group_ids=group_ids)
+    candidates = find_restored_files(conn, roles=roles, group_ids=group_ids)
+    restored_files, hash_mismatch_files, hash_unavailable_count = (
+        _partition_restore_candidates(candidates)
+    )
 
     restore_updated = 0
     if not dry_run and restored_files:
@@ -339,6 +436,12 @@ def run_integrity_scan(
         )
         restore_updated = restore_result["updated"]
 
+    if hash_mismatch_files:
+        logger.warning(
+            "integrity_scan: %d file(s) skipped due to hash mismatch",
+            len(hash_mismatch_files),
+        )
+
     return {
         "missing_files": missing_files,
         "missing_count": len(missing_files),
@@ -348,4 +451,7 @@ def run_integrity_scan(
         "restored_files": restored_files,
         "restored_count": len(restored_files),
         "restore_updated": restore_updated,
+        "restore_skipped_hash_mismatch": len(hash_mismatch_files),
+        "hash_mismatch_files": hash_mismatch_files,
+        "restore_skipped_hash_unavailable": hash_unavailable_count,
     }
