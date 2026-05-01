@@ -5,6 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.5.0] — 2026-05-01
+
+### Changed
+
+**Workflow 재구성 (PR #36, #37, #38)**
+- Step 5: 사전 정규화 UI를 분류 기준 선택 UI로 교체 — 시리즈+캐릭터 / 시리즈만 / 개별태그(비활성) 세 가지 선택.
+- Step 6: 태그 재분류 항목을 헤더에서 숨김 처리; Step 7 진입 시 자동 retag로 통합.
+- Step 7 Preview 우클릭으로 수동 분류 지정 추가. 자동완성 라벨은 "캐릭터명 (시리즈명)" 형식이며 label/value 분리로 DB·metadata override에는 canonical value만 저장.
+- Step 7 Preview 리스트 필터 추가 (전체 / 확인 필요 / 수동 보정됨), 상태 컬럼과 tooltip으로 검토 필요 항목 식별.
+
+### Added
+
+**Tag Pack / User Custom (PR #33, #39)**
+- v3 mojibake repair helper 추가 (`tools/repair_mojibake_via_v2.py`) — v2 reference를 이용해 v3 raw export의 깨진 문자열을 복구.
+- User Custom Alias API 추가: `add_user_alias` / `remove_user_alias` / `list_user_aliases`.
+- `tag_aliases.source='user_confirmed'` 경로 사용 — DB schema 변경 없이 사용자 승인 alias 진입.
+- user_confirmed series alias가 hardcoded SERIES_ALIASES보다 우선하는 정책 고정.
+
+**Startup / Asset (PR #34, #35)**
+- splash/icon source 자산을 `docs/`에서 `assets/`로 정리.
+- Startup splash 추가 (`assets/splash/splash.png`).
+- Startup notice dialog 추가 — 버전별 1회 표시, `ui.startup_notice_seen_version` config로 관리.
+
+---
+
 ## [0.4.1] — 2026-05-01
 
 ### Added
