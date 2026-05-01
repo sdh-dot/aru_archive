@@ -1921,17 +1921,38 @@ class _Step8Execute(_StepPanel):
         self._btn_execute.setText("▶ 분류 실행")
         self._progress.hide()
         if result.get("success", False):
-            self._result_lbl.setText(
+            base_msg = (
                 f"✅ 완료 — 복사: {result.get('copied',0)}, "
                 f"스킵: {result.get('skipped',0)}, "
                 f"entry_id: {result.get('entry_id','')[:8]}…"
             )
+            json_only_count = self._query_json_only_count()
+            if json_only_count > 0:
+                base_msg += (
+                    f"\n⚠ 메타데이터 JSON-only 저장: {json_only_count}건"
+                    " — ExifTool 설정을 확인하세요."
+                    " Windows Explorer 세부 정보에는 태그/제목이 표시되지 않을 수 있습니다."
+                )
+            self._result_lbl.setText(base_msg)
         else:
             self._result_lbl.setText(
                 f"❌ 실패: {result.get('error', '알 수 없는 오류')}"
             )
         self._progress_lbl.setText("완료")
         self.refresh_main.emit()
+
+    def _query_json_only_count(self) -> int:
+        """DB에서 metadata_sync_status='json_only' 그룹 수를 반환한다."""
+        try:
+            conn = self._conn_factory()
+            row = conn.execute(
+                "SELECT COUNT(*) FROM artwork_groups"
+                " WHERE metadata_sync_status = 'json_only'"
+            ).fetchone()
+            conn.close()
+            return int(row[0]) if row else 0
+        except Exception:
+            return 0
 
 
 # ── Step 9: Result / Undo ───────────────────────────────────────────────────
