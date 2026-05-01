@@ -163,7 +163,11 @@ class ManualClassifyOverrideDialog(QDialog):
             "QTextEdit { background: #1A0F14; color: #C0A0B0; "
             "font-size: 10px; border: 1px solid #4A2030; }"
         )
-        info_form.addRow("raw tags:", tags_widget)
+        tags_widget.setToolTip(
+            "원본 파일이나 메타데이터에서 읽은 태그입니다. "
+            "수동 분류 판단에 참고용으로 표시됩니다."
+        )
+        info_form.addRow("원본 태그:", tags_widget)
         root.addWidget(info_box)
 
         # ── 수동 지정 입력 ─────────────────────────────────────────────
@@ -181,7 +185,7 @@ class ManualClassifyOverrideDialog(QDialog):
             c.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
             c.setFilterMode(Qt.MatchFlag.MatchContains)
             self._series_edit.setCompleter(c)
-        override_form.addRow("시리즈 canonical:", self._series_edit)
+        override_form.addRow("시리즈 이름:", self._series_edit)
 
         self._char_edit = QLineEdit()
         self._char_edit.setPlaceholderText("예: 伊落マリー (Blue Archive)")
@@ -191,12 +195,15 @@ class ManualClassifyOverrideDialog(QDialog):
             c2.setFilterMode(Qt.MatchFlag.MatchContains)
             # 자동완성 선택 시 label 전체를 LineEdit에 채움 (canonical 역조회는 OK 시 수행)
             self._char_edit.setCompleter(c2)
-        override_form.addRow("캐릭터 (시리즈):", self._char_edit)
+        override_form.addRow("캐릭터 이름:", self._char_edit)
 
         self._locale_edit = QLineEdit()
         self._locale_edit.setText(current_locale)
         self._locale_edit.setPlaceholderText("canonical / ko / ja / en")
-        override_form.addRow("폴더 locale:", self._locale_edit)
+        self._locale_edit.setToolTip(
+            "폴더명 생성에 사용할 언어입니다. 비워두면 기본 설정을 사용합니다."
+        )
+        override_form.addRow("폴더명 언어:", self._locale_edit)
 
         self._reason_edit = QLineEdit()
         self._reason_edit.setPlaceholderText("예: 제목에만 캐릭터명 있음")

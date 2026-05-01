@@ -85,7 +85,11 @@ class IntegrityConfirmDialog(QDialog):
             | QDialogButtonBox.StandardButton.Cancel,
             parent=self,
         )
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("missing으로 표시")
+        ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        ok_btn.setText("누락으로 표시")
+        ok_btn.setToolTip(
+            "선택한 파일들을 DB에서 '누락' 상태로 기록합니다. 실제 파일은 삭제되지 않습니다."
+        )
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("취소")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
