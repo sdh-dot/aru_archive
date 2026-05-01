@@ -32,7 +32,7 @@ class TestStep4UIHasTwoButtons:
     def test_step4_has_missing_only_button_label(self):
         from app.views.workflow_wizard_view import _Step4Enrich
         src = inspect.getsource(_Step4Enrich)
-        assert "No Metadata만 보강" in src
+        assert "메타데이터 없는 항목만 보강" in src
 
     def test_step4_has_all_pixiv_button_label(self):
         from app.views.workflow_wizard_view import _Step4Enrich

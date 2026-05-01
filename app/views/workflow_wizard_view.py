@@ -856,17 +856,23 @@ class _Step4Enrich(_StepPanel):
         layout.addWidget(self._progress_lbl)
 
         layout.addWidget(QLabel(
-            "ℹ 'No Metadata만 보강'은 metadata_missing 상태만 처리합니다.\n"
+            "ℹ '메타데이터 없는 항목만 보강'은 metadata_missing 상태만 처리합니다.\n"
             "  '전체 보강'은 metadata_write_failed / xmp_write_failed / json_only도 다시 처리합니다.\n"
             "  source_unavailable / full / pending은 두 모드 모두 제외됩니다."
         ))
 
         btn_row = QHBoxLayout()
-        self._btn_enrich = QPushButton("🔄 No Metadata만 보강")
+        self._btn_enrich = QPushButton("🔄 메타데이터 없는 항목만 보강")
+        self._btn_enrich.setToolTip(
+            "이미 메타데이터가 있는 항목은 건너뛰고, 비어 있는 항목만 보강합니다."
+        )
         self._btn_enrich.clicked.connect(self._on_enrich_missing)
         btn_row.addWidget(self._btn_enrich)
 
         self._btn_enrich_all = QPushButton("🔁 Pixiv ID 있는 모든 항목 재시도")
+        self._btn_enrich_all.setToolTip(
+            "오류·부분 처리된 항목까지 포함해 다시 보강합니다. 시간이 더 걸릴 수 있습니다."
+        )
         self._btn_enrich_all.clicked.connect(self._on_enrich_all)
         btn_row.addWidget(self._btn_enrich_all)
 
@@ -962,7 +968,7 @@ class _Step4Enrich(_StepPanel):
     def _on_enrich_done(self, result: dict) -> None:
         self._btn_enrich.setEnabled(True)
         self._btn_enrich_all.setEnabled(True)
-        self._btn_enrich.setText("🔄 No Metadata만 보강")
+        self._btn_enrich.setText("🔄 메타데이터 없는 항목만 보강")
         self._progress_lbl.setText(
             f"완료 — 성공: {result['success']}, 실패: {result['failed']}, 스킵: {result['skipped']}"
         )
@@ -1108,16 +1114,19 @@ class _Step6Retag(_StepPanel):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        layout.addWidget(_label("태그 재분류", bold=True))
+        layout.addWidget(_label("태그 다시 분석", bold=True))
         layout.addWidget(_h_sep())
 
         layout.addWidget(QLabel(
-            "⚠ 사전(aliases) 변경 후 태그 재분류를 하지 않으면\n"
+            "⚠ 사전(aliases) 변경 후 태그 재분석을 하지 않으면\n"
             "  분류 결과(series_tags / character_tags)가 갱신되지 않습니다."
         ))
 
         btn_row = QHBoxLayout()
-        self._btn_retag = QPushButton("🏷 전체 태그 재분류")
+        self._btn_retag = QPushButton("🏷 전체 태그 재분석")
+        self._btn_retag.setToolTip(
+            "현재 태그와 사용자 보정값을 바탕으로 분류 결과를 다시 계산합니다."
+        )
         self._btn_retag.clicked.connect(self._on_retag_all)
         btn_row.addWidget(self._btn_retag)
         self._btn_refresh = QPushButton("🔄 새로고침")
@@ -1153,7 +1162,7 @@ class _Step6Retag(_StepPanel):
         )
         layout.addWidget(self._result_grid, 1)
 
-        self._empty_lbl = QLabel("재분류 결과가 없습니다. [전체 태그 재분류]를 실행하세요.")
+        self._empty_lbl = QLabel("재분석 결과가 없습니다. [전체 태그 재분석]을 실행하세요.")
         self._empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._empty_lbl)
 
@@ -1180,7 +1189,7 @@ class _Step6Retag(_StepPanel):
 
     def _on_retag_done(self, results: list) -> None:
         self._btn_retag.setEnabled(True)
-        self._btn_retag.setText("🏷 전체 태그 재분류")
+        self._btn_retag.setText("🏷 전체 태그 재분석")
         self._populate_result_grid(results)
         self.refresh()
         self.refresh_main.emit()
@@ -1313,7 +1322,11 @@ class _Step7Preview(_StepPanel):
         layout.addWidget(summary_frame)
 
         btn_row = QHBoxLayout()
-        self._btn_preview = QPushButton("미리보기 생성")
+        self._btn_preview = QPushButton("📋 분류 미리보기 생성")
+        self._btn_preview.setToolTip(
+            "태그 재분석을 먼저 수행한 뒤, 적용 전 결과를 미리 보여줍니다. "
+            "항목 수가 많으면 시간이 걸릴 수 있습니다."
+        )
         self._btn_preview.clicked.connect(self._on_preview)
         btn_row.addWidget(self._btn_preview)
 
@@ -1335,7 +1348,7 @@ class _Step7Preview(_StepPanel):
 
         self._preview_table = QTableWidget(0, 7)
         self._preview_table.setHorizontalHeaderLabels(
-            ["파일", "제목", "분류대상", "분류규칙", "분류사유·비고", "분류 경로", "상태"]
+            ["파일", "제목", "분류대상", "분류규칙", "사유·경고", "분류 경로", "상태"]
         )
         hdr = self._preview_table.horizontalHeader()
         hdr.setStretchLastSection(False)
@@ -1424,7 +1437,7 @@ class _Step7Preview(_StepPanel):
             conn.close()
         except Exception as exc:
             self._btn_preview.setEnabled(True)
-            self._btn_preview.setText("📋 미리보기 생성")
+            self._btn_preview.setText("📋 분류 미리보기 생성")
             QMessageBox.critical(self._wizard, "오류", str(exc))
             return
 
@@ -1841,6 +1854,9 @@ class _Step8Execute(_StepPanel):
         btn_row = QHBoxLayout()
         self._btn_execute = QPushButton("▶ 분류 실행")
         self._btn_execute.setEnabled(False)
+        self._btn_execute.setToolTip(
+            "먼저 미리보기를 생성하고 결과를 확인해야 분류를 실행할 수 있습니다."
+        )
         self._btn_execute.clicked.connect(self._on_execute)
         btn_row.addWidget(self._btn_execute)
         btn_row.addStretch()
@@ -1937,14 +1953,25 @@ class _Step9Result(_StepPanel):
         layout.addWidget(self._tbl)
 
         btn_row = QHBoxLayout()
-        for label, handler in [
-            ("🕘 작업 로그 열기",      self._open_work_log),
-            ("📂 Classified 폴더 열기", self._open_classified),
-            ("처음으로",               lambda: self._wizard._go_to_step(0)),
-        ]:
-            b = QPushButton(label)
-            b.clicked.connect(handler)
-            btn_row.addWidget(b)
+        _btn_worklog = QPushButton("🕘 작업 로그 열기")
+        _btn_worklog.setToolTip(
+            "분류 실행 이력과 Undo 가능 여부를 확인합니다."
+        )
+        _btn_worklog.clicked.connect(self._open_work_log)
+        btn_row.addWidget(_btn_worklog)
+
+        _btn_classified = QPushButton("📂 Classified 폴더 열기")
+        _btn_classified.setToolTip(
+            "분류 결과가 저장된 Classified 폴더를 탐색기로 엽니다."
+        )
+        _btn_classified.clicked.connect(self._open_classified)
+        btn_row.addWidget(_btn_classified)
+
+        _btn_restart = QPushButton("처음으로")
+        _btn_restart.setToolTip("Step 1로 돌아가 새 작업을 시작합니다.")
+        _btn_restart.clicked.connect(lambda: self._wizard._go_to_step(0))
+        btn_row.addWidget(_btn_restart)
+
         btn_row.addStretch()
         layout.addLayout(btn_row)
         layout.addStretch()

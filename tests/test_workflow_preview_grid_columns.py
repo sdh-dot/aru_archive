@@ -1,7 +1,7 @@
 """
 _Step7Preview 미리보기 그리드 컬럼 테스트.
 
-1. 컬럼이 6개(파일/제목/분류대상/분류규칙/분류사유·비고/분류 경로)
+1. 컬럼이 7개(파일/제목/분류대상/분류규칙/사유·경고/분류 경로/상태)
 2. 상단 kv_table(_tbl)이 없어야 한다
 3. 분류 경로(col 5) 컬럼이 Stretch 모드
 4. will_copy=True → "분류됨", False → "제외"
@@ -78,20 +78,21 @@ def _make_preview(source_path="/inbox/art.jpg", title="Test Title",
 
 
 class TestStep7ColumnStructure:
-    def test_six_columns(self, step7):
-        assert step7._preview_table.columnCount() == 6
+    def test_seven_columns(self, step7):
+        assert step7._preview_table.columnCount() == 7
 
     def test_column_header_names(self, step7):
         headers = [
             step7._preview_table.horizontalHeaderItem(i).text()
-            for i in range(6)
+            for i in range(7)
         ]
         assert headers[0] == "파일"
         assert headers[1] == "제목"
         assert headers[2] == "분류대상"
         assert headers[3] == "분류규칙"
-        assert headers[4] == "분류사유·비고"
+        assert headers[4] == "사유·경고"
         assert headers[5] == "분류 경로"
+        assert headers[6] == "상태"
 
     def test_last_column_stretch_mode(self, step7):
         hdr = step7._preview_table.horizontalHeader()
