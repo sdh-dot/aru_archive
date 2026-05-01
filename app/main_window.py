@@ -94,6 +94,41 @@ _PRESENT_EXISTS_FRAGMENT = (
     ")"
 )
 
+# present-only base의 WHERE 조건을 missing 으로 뒤집은 미러 프래그먼트
+_MISSING_EXISTS_FRAGMENT = (
+    "EXISTS ("
+    "SELECT 1 FROM artwork_files af_missing "
+    "WHERE af_missing.group_id = g.group_id "
+    "AND af_missing.file_status = 'missing'"
+    ")"
+)
+
+# missing 카테고리 전용 Gallery SQL
+# _GALLERY_BASE 는 present 필터를 내장하므로 missing 카테고리에는 사용 불가 — 별도 정의
+_GALLERY_MISSING_SQL = """
+    SELECT
+        g.group_id,
+        g.artwork_title,
+        g.artwork_id,
+        g.metadata_sync_status,
+        g.status,
+        g.source_site,
+        (SELECT af.file_format FROM artwork_files af
+         WHERE af.group_id = g.group_id AND af.file_role = 'original'
+         ORDER BY af.page_index LIMIT 1) AS file_format,
+        (SELECT tc.thumb_path
+         FROM artwork_files af2
+         JOIN thumbnail_cache tc ON tc.file_id = af2.file_id
+         WHERE af2.group_id = g.group_id
+         ORDER BY af2.page_index LIMIT 1) AS thumb_path,
+        (SELECT GROUP_CONCAT(DISTINCT af3.file_role)
+         FROM artwork_files af3
+         WHERE af3.group_id = g.group_id) AS role_summary
+    FROM artwork_groups g
+    WHERE {missing_exists}
+    ORDER BY g.indexed_at DESC
+""".format(missing_exists=_MISSING_EXISTS_FRAGMENT)
+
 _FAILED_STATUSES = (
     "'file_write_failed','convert_failed','metadata_write_failed',"
     "'db_update_failed','needs_reindex'"
@@ -141,6 +176,10 @@ _COUNT_SQL: dict[str, str] = {
         "SELECT COUNT(*) FROM artwork_groups g "
         f"WHERE g.metadata_sync_status IN ({_FAILED_STATUSES}) "
         f"AND {_PRESENT_EXISTS_FRAGMENT}"
+    ),
+    "missing": (
+        "SELECT COUNT(*) FROM artwork_groups g "
+        f"WHERE {_MISSING_EXISTS_FRAGMENT}"
     ),
 }
 
@@ -763,8 +802,14 @@ class MainWindow(QMainWindow):
             return
 
         self._stack.setCurrentIndex(_GALLERY_IDX)
-        where = _GALLERY_WHERE.get(cat, "")
-        sql   = f"{_GALLERY_BASE} {where} ORDER BY g.indexed_at DESC"
+
+        # missing 카테고리는 _GALLERY_BASE(present-only) 를 우회하는 전용 SQL 사용
+        if cat == "missing":
+            sql = _GALLERY_MISSING_SQL
+        else:
+            where = _GALLERY_WHERE.get(cat, "")
+            sql   = f"{_GALLERY_BASE} {where} ORDER BY g.indexed_at DESC"
+
         try:
             conn = self._get_conn()
             rows = [dict(r) for r in conn.execute(sql).fetchall()]
@@ -1460,9 +1505,15 @@ class MainWindow(QMainWindow):
     def _get_current_filter_group_ids(self) -> list[str]:
         if self._current_category == "no_metadata":
             return []
-        cat   = self._current_category
-        where = _GALLERY_WHERE.get(cat, "")
-        sql   = f"SELECT g.group_id FROM artwork_groups g {where} ORDER BY g.indexed_at DESC"
+        cat = self._current_category
+        if cat == "missing":
+            sql = (
+                "SELECT g.group_id FROM artwork_groups g "
+                f"WHERE {_MISSING_EXISTS_FRAGMENT} ORDER BY g.indexed_at DESC"
+            )
+        else:
+            where = _GALLERY_WHERE.get(cat, "")
+            sql   = f"SELECT g.group_id FROM artwork_groups g {where} ORDER BY g.indexed_at DESC"
         try:
             conn = self._get_conn()
             ids  = [r[0] for r in conn.execute(sql).fetchall()]

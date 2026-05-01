@@ -14,7 +14,16 @@ CATEGORIES: list[tuple[str, str]] = [
     ("no_metadata", "메타데이터 없음"),
     ("warning",     "경고"),
     ("failed",      "오류"),
+    ("missing",     "⚠ 누락 파일"),
 ]
+
+# 카테고리별 툴팁 (없으면 표시 안 함)
+_CATEGORY_TOOLTIPS: dict[str, str] = {
+    "missing": (
+        "DB에는 기록되어 있지만 현재 경로에서 찾을 수 없는 파일입니다. "
+        "파일 무결성 검사로 표시됩니다."
+    ),
+}
 
 
 class SidebarWidget(QWidget):
@@ -70,6 +79,9 @@ class SidebarWidget(QWidget):
         for key, label in CATEGORIES:
             item = QListWidgetItem(label)
             item.setData(Qt.ItemDataRole.UserRole, key)
+            tooltip = _CATEGORY_TOOLTIPS.get(key)
+            if tooltip:
+                item.setToolTip(tooltip)
             self._list.addItem(item)
             self._items[key] = item
 
