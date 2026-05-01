@@ -112,7 +112,7 @@ class VisualDuplicateReviewDialog(QDialog):
         # 상단 안내문 — 자동 추천과 실제 삭제의 차이를 명확히 안내
         self._lbl_guide = QLabel(
             "자동 추천 결과가 미리 채워져 있습니다. "
-            "검토 후 [삭제 미리보기로 이동]을 눌러야 실제 삭제가 시작됩니다."
+            "검토 후 [삭제 미리보기로 이동]을 눌러야 실제 삭제 단계로 넘어갑니다."
         )
         self._lbl_guide.setWordWrap(True)
         self._lbl_guide.setStyleSheet(
@@ -142,6 +142,10 @@ class VisualDuplicateReviewDialog(QDialog):
             "QPushButton { background: #8B1A2A; color: #F7E8EC; "
             "font-weight: bold; padding: 6px 16px; border-radius: 4px; }"
             "QPushButton:hover { background: #A82035; }"
+        )
+        self._btn_go_delete.setToolTip(
+            "선택한 삭제 후보를 한 번 더 확인하는 미리보기 단계로 이동합니다. "
+            "이 단계에서는 아직 파일을 삭제하지 않습니다."
         )
         self._btn_cancel = QPushButton("취소")
         btn_layout.addWidget(self._btn_prev)
@@ -356,25 +360,25 @@ class VisualDuplicateReviewDialog(QDialog):
     ) -> None:
         """결정 상태와 소스(자동 추천 / 사용자 선택)에 따라 라벨을 갱신한다.
 
-        자동 추천(source=_SOURCE_AUTO): "추천: keep" / "추천: 삭제" 등
+        자동 추천(source=_SOURCE_AUTO): "추천: 유지" / "추천: 삭제 후보" 등
           — 아직 확정된 액션이 아님을 명확히 표현.
-        사용자 선택(source=_SOURCE_MANUAL): "keep (선택)" / "삭제 (선택)" 등
+        사용자 선택(source=_SOURCE_MANUAL): "✓ 유지" / "✓ 삭제 후보" 등
           — 사용자가 직접 결정한 상태임을 표현.
         미결정: "미결정"
         """
         if source == _SOURCE_AUTO:
             text_map = {
-                "keep":    ("추천: keep",   "#5CDB8F"),
-                "delete":  ("추천: 삭제",   "#FF6B7A"),
-                "exclude": ("추천: 제외",   "#D8AEBB"),
-                "":        ("미결정",        "#8F6874"),
+                "keep":    ("추천: 유지",      "#5CDB8F"),
+                "delete":  ("추천: 삭제 후보", "#FF6B7A"),
+                "exclude": ("추천: 제외",      "#D8AEBB"),
+                "":        ("미결정",           "#8F6874"),
             }
         else:
             text_map = {
-                "keep":    ("keep (선택)",  "#5CDB8F"),
-                "delete":  ("삭제 (선택)",  "#FF6B7A"),
-                "exclude": ("제외 (선택)",  "#D8AEBB"),
-                "":        ("미결정",        "#8F6874"),
+                "keep":    ("✓ 유지",      "#5CDB8F"),
+                "delete":  ("✓ 삭제 후보", "#FF6B7A"),
+                "exclude": ("제외 (선택)", "#D8AEBB"),
+                "":        ("미결정",       "#8F6874"),
             }
         text, color = text_map.get(decision, ("미결정", "#8F6874"))
         lbl.setText(text)

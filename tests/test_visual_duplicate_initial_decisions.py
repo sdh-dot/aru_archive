@@ -292,9 +292,9 @@ class TestLabelReflectsInitialDecision:
         lbl = dlg._decision_labels.get("fid_0_a")
         assert lbl is not None
         text = lbl.text()
-        # 자동 추천 initial_decisions → "추천: keep" 표현.
-        # "유지", "✓", "keep" 중 하나 이상 포함.
-        assert "유지" in text or "✓" in text or "keep" in text, (
+        # 자동 추천 initial_decisions → "추천: 유지" 표현.
+        # "유지" 포함 확인.
+        assert "유지" in text, (
             f"라벨이 keep 결정을 반영하지 않음: {text!r}"
         )
 
