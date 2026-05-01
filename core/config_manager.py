@@ -71,6 +71,9 @@ _DEFAULTS: dict[str, Any] = {
         "batch_default_scope":            "current_filter",
         "batch_existing_copy_policy":     "keep_existing",
     },
+    "ui": {
+        "startup_notice_seen_version": "",
+    },
 }
 
 
@@ -80,6 +83,7 @@ def _default_config() -> dict:
     cfg["duplicates"]     = dict(_DEFAULTS["duplicates"])      # type: ignore[arg-type]
     cfg["classification"] = dict(_DEFAULTS["classification"])  # type: ignore[arg-type]
     cfg["developer"]      = dict(_DEFAULTS["developer"])       # type: ignore[arg-type]
+    cfg["ui"]             = dict(_DEFAULTS["ui"])              # type: ignore[arg-type]
     return cfg
 
 
