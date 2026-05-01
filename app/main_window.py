@@ -980,7 +980,7 @@ class MainWindow(QMainWindow):
                 return
 
         self._log.append(f"[INFO] 이미지 스캔 시작: {inbox}")
-        self._btn_scan.setEnabled(False)
+        self._act_inbox_scan.setEnabled(False)
 
         self._scan_thread = ScanThread(
             data_dir, inbox, self._managed_dir(), db_path, parent=self
@@ -990,7 +990,7 @@ class MainWindow(QMainWindow):
         self._scan_thread.start()
 
     def _on_scan_done(self, result: ScanResult) -> None:
-        self._btn_scan.setEnabled(True)
+        self._act_inbox_scan.setEnabled(True)
         self._log.append(
             f"[INFO] 스캔 완료 — 신규: {result.new}, "
             f"스킵: {result.skipped}, 실패: {result.failed}"

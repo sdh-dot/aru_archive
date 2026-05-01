@@ -392,3 +392,13 @@ def test_main_window_has_candidates_button(qt_app, tmp_config, tmp_path):
     win = MainWindow(tmp_config, config_path=str(tmp_path / "cfg.json"))
     assert win._act_candidates.isEnabled()
     win.close()
+
+
+def test_main_window_no_stale_btn_scan_reference():
+    """PR #47 toolbar rename 이후 _btn_scan 잔재가 MainWindow 소스에 없어야 한다."""
+    import inspect
+    from app.main_window import MainWindow
+    src = inspect.getsource(MainWindow)
+    assert "_btn_scan" not in src, (
+        "Stale _btn_scan reference still present in MainWindow source"
+    )
