@@ -1,0 +1,26 @@
+{
+  "pack_id": "uma_musume",
+  "name": "Uma Musume Pretty Derby",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Uma Musume Pretty Derby",
+      "media_type": "game",
+      "aliases": [
+        "Uma Musume Pretty Derby",
+        "ウマ娘 プリティーダービー",
+        "ウマ娘",
+        "우마무스메 프리티 더비",
+        "우마무스메",
+        "우마무스"
+      ],
+      "localizations": {
+        "ko": "우마무스메 프리티 더비",
+        "ja": "ウマ娘 プリティーダービー",
+        "en": "Uma Musume Pretty Derby"
+      }
+    }
+  ],
+  "characters": []
+}

@@ -1,0 +1,27 @@
+{
+  "pack_id": "honkai_star_rail",
+  "name": "Honkai: Star Rail",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Honkai: Star Rail",
+      "media_type": "game",
+      "aliases": [
+        "Honkai: Star Rail",
+        "崩壊：スターレイル",
+        "스타레일",
+        "붕괴: 스타레일",
+        "崩壊スターレイル",
+        "スターレイル",
+        "붕스"
+      ],
+      "localizations": {
+        "ko": "붕괴: 스타레일",
+        "ja": "崩壊：スターレイル",
+        "en": "Honkai: Star Rail"
+      }
+    }
+  ],
+  "characters": []
+}

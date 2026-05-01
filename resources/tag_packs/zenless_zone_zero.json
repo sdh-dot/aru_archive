@@ -1,0 +1,26 @@
+{
+  "pack_id": "zenless_zone_zero",
+  "name": "Zenless Zone Zero",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Zenless Zone Zero",
+      "media_type": "game",
+      "aliases": [
+        "Zenless Zone Zero",
+        "ゼンレスゾーンゼロ",
+        "젠레스 존 제로",
+        "ZZZ",
+        "ゼンゼロ",
+        "젠제로"
+      ],
+      "localizations": {
+        "ko": "젠레스 존 제로",
+        "ja": "ゼンレスゾーンゼロ",
+        "en": "Zenless Zone Zero"
+      }
+    }
+  ],
+  "characters": []
+}

@@ -8,11 +8,15 @@
 
 우선순위:
   1. locale == "canonical" → canonical 즉시 반환
-  2. DB tag_localizations (enabled=1) 검색
-  3. BUILTIN_LOCALIZATIONS 검색
-  4. fallback_locale로 DB 재검색
-  5. fallback_locale로 BUILTIN 재검색
-  6. canonical 반환
+  2. DB tag_localizations (enabled=1, user source) 검색
+  3. DB tag_localizations (enabled=1, built_in source) 검색
+  4. BUILTIN_LOCALIZATIONS 검색 (in-memory)
+  5. DB tag_localizations (enabled=1, 기타 source) 검색
+  6. fallback_locale로 동일 순서 반복
+  7. canonical 반환
+
+source 우선순위 (높은 순):
+  user_confirmed / user_import / user  >  built_in / built_in_pack:*  >  imported_localized_pack / 기타
 """
 from __future__ import annotations
 
@@ -139,6 +143,30 @@ def _builtin_lookup(
     return None
 
 
+_USER_SOURCES = frozenset({"user_confirmed", "user_import", "user"})
+
+
+def _source_tier(source: str) -> int:
+    """source 문자열을 우선순위 tier로 변환한다. 낮을수록 높은 우선순위."""
+    if source in _USER_SOURCES:
+        return 0
+    if source == "built_in" or source.startswith("built_in_pack:"):
+        return 1
+    return 2
+
+
+def _pick_by_priority(rows: list) -> Optional[str]:
+    """(display_name, source) 행 목록에서 source tier 기준 최우선 값을 반환."""
+    best_tier = 3
+    best_name: Optional[str] = None
+    for row in rows:
+        tier = _source_tier(row[1] or "")
+        if tier < best_tier:
+            best_tier = tier
+            best_name = row[0]
+    return best_name
+
+
 def _db_lookup(
     conn: sqlite3.Connection,
     canonical: str,
@@ -146,16 +174,21 @@ def _db_lookup(
     parent_series: str,
     locale: str,
 ) -> Optional[str]:
-    """DB tag_localizations에서 enabled=1 exact match 검색. 없으면 None."""
+    """DB tag_localizations에서 enabled=1 exact match를 source 우선순위에 따라 검색.
+
+    우선순위 (tier 낮을수록 우선):
+      tier 0 — user_confirmed / user_import / user
+      tier 1 — built_in / built_in_pack:*
+      tier 2 — imported_localized_pack 및 기타
+    """
     ps = parent_series or ""
-    row = conn.execute(
-        """SELECT display_name FROM tag_localizations
+    rows = conn.execute(
+        """SELECT display_name, source FROM tag_localizations
            WHERE canonical = ? AND tag_type = ? AND parent_series = ?
-             AND locale = ? AND enabled = 1
-           LIMIT 1""",
+             AND locale = ? AND enabled = 1""",
         (canonical, tag_type, ps, locale),
-    ).fetchone()
-    return row[0] if row else None
+    ).fetchall()
+    return _pick_by_priority(rows)
 
 
 # ---------------------------------------------------------------------------
@@ -176,9 +209,9 @@ def resolve_display_name(
 
     우선순위:
       1. locale == "canonical" → canonical 즉시 반환
-      2. DB 검색 (enabled=1)
-      3. BUILTIN_LOCALIZATIONS 검색
-      4. fallback_locale DB 검색
+      2. DB 검색 (enabled=1, source tier 순: user > built_in > 기타)
+      3. BUILTIN_LOCALIZATIONS in-memory 검색
+      4. fallback_locale DB 검색 (동일 tier 순서)
       5. fallback_locale BUILTIN 검색
       6. canonical 반환
     """

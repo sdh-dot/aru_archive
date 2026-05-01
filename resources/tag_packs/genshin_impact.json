@@ -1,0 +1,25 @@
+{
+  "pack_id": "genshin_impact",
+  "name": "Genshin Impact",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Genshin Impact",
+      "media_type": "game",
+      "aliases": [
+        "Genshin Impact",
+        "原神",
+        "원신",
+        "겐신 임팩트",
+        "げんしん"
+      ],
+      "localizations": {
+        "ko": "원신",
+        "ja": "原神",
+        "en": "Genshin Impact"
+      }
+    }
+  ],
+  "characters": []
+}

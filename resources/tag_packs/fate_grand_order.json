@@ -1,0 +1,26 @@
+{
+  "pack_id": "fate_grand_order",
+  "name": "Fate/Grand Order",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Fate/Grand Order",
+      "media_type": "game",
+      "aliases": [
+        "Fate/Grand Order",
+        "FGO",
+        "페이트/그랜드 오더",
+        "페그오",
+        "フェイト/グランドオーダー",
+        "フェスグラ"
+      ],
+      "localizations": {
+        "ko": "페이트/그랜드 오더",
+        "ja": "Fate/Grand Order",
+        "en": "Fate/Grand Order"
+      }
+    }
+  ],
+  "characters": []
+}
