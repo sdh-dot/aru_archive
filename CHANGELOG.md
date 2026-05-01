@@ -5,6 +5,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.6.1] — 2026-05-02
+
+### Added
+
+**Hash mismatch 안전장치 — 복원 보류 정책 (PR #53)**
+- Same-path missing → present 자동 복원 시 DB `file_hash`와 현재 파일 SHA-256이 다르면 복원을 보류.
+- `run_integrity_scan()` 반환 dict에 additive key 추가:
+  - `restore_skipped_hash_mismatch` — hash 불일치로 보류된 건수.
+  - `hash_mismatch_files` — 보류된 파일 경로 목록.
+  - `restore_skipped_hash_unavailable` — DB hash 없어 보류된 건수 (기존 same-path 복원 정책 유지).
+- DB hash가 없는 파일은 종전 정책대로 복원 진행, hash 계산 실패 시 보수적으로 보류.
+- MainWindow 무결성 검사 완료 메시지에 mismatch ≥1건일 때 `"해시 불일치로 복원 보류: Z건"` 문구 추가.
+
+**Hash mismatch review UI (PR #54)**
+- 복원 보류 항목을 read-only 상세 목록(`IntegrityRestoreHoldDialog`)에서 확인 가능.
+- 표시 컬럼: 파일 경로 / 그룹 ID / 역할 / DB 해시(prefix) / 현재 해시(prefix).
+- 사용자 액션은 닫기만 제공 — 강제 복원·DB update 없음.
+- mismatch 0건일 때는 dialog 미표시.
+
+### Notes
+
+- DB schema 변경 없음.
+- `core/inbox_scanner.py` 변경 없음.
+- 실제 파일 삭제·복사·복원 로직 변경 없음.
+- moved/renamed 파일 복원, 강제 복원, hash 갱신, 새 파일 등록 액션은 미구현.
+
+---
+
 ## [0.6.0] — 2026-05-01
 
 ### Added
