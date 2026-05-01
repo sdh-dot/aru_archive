@@ -5,6 +5,76 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.6.2] — 2026-05-02
+
+### Added
+
+**Missing-file restore UX 후속 — 누락 파일 보기 navigation (PR #56)**
+- `IntegrityRestoreHoldDialog`에 "누락 파일 보기" 버튼 추가.
+- 버튼 클릭 시 `navigate_to_missing_requested` signal 발신 → Sidebar "⚠ 누락 파일" 카테고리로 이동.
+- hash mismatch 보류 항목 확인 후 누락 파일 목록으로 이어서 탐색 가능.
+- read-only 유지 — DB update 없음.
+
+**Mojibake DB 진단 도구 (PR #60)**
+- `tools/diagnose_mojibake.py` — read-only DB 진단 스크립트 추가.
+- `tag_aliases` / `tag_localizations` 테이블의 오염 범위를 정량 확인:
+  - U+FFFD 대체 문자, `???` / underscore placeholder, locale mismatch, Latin-1 mojibake heuristic.
+- `--json` 옵션으로 JSON report 출력.
+
+**Mojibake DB 자동 정리 도구 (PR #61)**
+- `tools/repair_mojibake_db.py` — 안전한 DB 정리 스크립트 추가.
+- 기본 동작은 dry-run; `--apply` 실행 시 `--backup` 필수.
+- 보호 source: `user_confirmed`, `built_in_pack:*`, `external:safebooru`, NULL/empty — 수정 대상에서 제외.
+- action 분류: `update_localization` / `delete_alias` / `manual_review` / `protected_skip`.
+- 트랜잭션 단위 rollback으로 부분 적용 방지.
+
+**내장 Localization 보강 — 주요 시리즈 8종 (PR #62)**
+- BA(블루 아카이브) 외 8종 built-in localization 추가:
+  NIKKE, Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Arknights, Fate/Grand Order, Uma Musume Pretty Derby, Azur Lane.
+- `core/tag_localizer.py` `_db_lookup` source priority tier 정비:
+  - tier 0: `user_confirmed` (최우선)
+  - tier 1: `built_in_pack:*`
+  - tier 2: `imported_localized_pack` 등
+- imported_localized_pack mojibake 값보다 built-in localization이 우선 적용되는 회귀 가드 추가.
+
+### Changed
+
+**Pixiv enrichment — DB tag_aliases 반영 (PR #57)**
+- `classify_pixiv_tags()`에 DB connection 전달, enrichment 시점에 `tag_aliases` / user_confirmed alias를 character·series 정규화에 반영.
+- 기준 태그가 있는데 `_uncategorized`로 분류되던 경로 완화.
+
+**Windows Explorer 메타데이터 UX 개선 (PR #58)**
+- `XPSubject` / `XPComment` / `ImageDescription` ExifTool 필드 보강.
+- 태그·제목·설명이 Windows 탐색기 속성 창에서 올바르게 표시.
+- JSON dump가 사용자-facing 설명 필드처럼 노출되던 문제 완화.
+
+**json_only 메타데이터 경고 (PR #59)**
+- ExifTool 미해결 등으로 `sync_status='json_only'`인 항목에 대해 Workflow Step 8 완료 메시지에 사용자 가시 경고 표시.
+
+**Hitomi 추출 절차 문서화 및 .gitignore 강화 (PR #63)**
+- `docs/data/hitomi_base_catalog/` 에 절차·스키마·추출 도구만 commit; sample data 제외.
+- README에 commit 금지 대상 명시 (sample.json, catalog_summary, 사용자 DB, 원본 tags.txt 등).
+- `.gitignore` 추가 항목:
+  - `mojibake_report*.json`, `repair_plan*.json`
+  - `docs/data/**/*.sample.json`, `docs/data/**/full/`, `docs/data/**/raw/`
+  - `.research/`, `.scratch/`
+  - `build/hitomi_catalog_check/`, `build/mojibake_*/`
+- `extract_hitomi_catalog.py`에 adult/explicit 콘텐츠 denylist 적용 (로컬 추출 시 자동 필터).
+
+### Notes
+
+- DB schema 변경 없음.
+- 사용자 DB 파일 commit 없음.
+- Hitomi 원본 데이터 / sample data는 repository에 포함되지 않음.
+- `resources/tag_packs/`에 외부 full export 미포함.
+- duplicate awareness 미구현.
+- `retag_before_batch_preview` default=True 미구현.
+- `drafts/*` mojibake import 차단 lint 미구현.
+- moved/renamed 복원, 강제 복원, hash 갱신, 새 파일 등록 미구현.
+- Step 6 Observation 저장 미구현.
+
+---
+
 ## [0.6.1] — 2026-05-02
 
 ### Added
