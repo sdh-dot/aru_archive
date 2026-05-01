@@ -234,8 +234,8 @@ class TestAutoVsFinalSeparation:
             f"자동 추천 라벨에 '추천:' 접두어 없음: {lbl.text()!r}"
         )
 
-    def test_manual_decision_label_uses_selection_suffix(self, app):
-        """사용자가 직접 결정한 후 라벨에 '(선택)' 접미어가 있어야 한다."""
+    def test_manual_decision_label_uses_checkmark_prefix(self, app):
+        """사용자가 직접 결정한 후 라벨에 '✓' 접두어와 한국어 상태가 있어야 한다."""
         from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
 
         dlg = VisualDuplicateReviewDialog(_make_groups(1))
@@ -244,12 +244,16 @@ class TestAutoVsFinalSeparation:
 
         lbl = dlg._decision_labels.get("fid_0_a")
         assert lbl is not None
-        assert "(선택)" in lbl.text(), (
-            f"사용자 선택 후 라벨에 '(선택)' 없음: {lbl.text()!r}"
+        text = lbl.text()
+        assert "✓" in text, (
+            f"사용자 선택 후 라벨에 '✓' 없음: {text!r}"
+        )
+        assert "유지" in text, (
+            f"사용자 선택 후 라벨에 '유지' 없음: {text!r}"
         )
 
     def test_auto_then_manual_override_changes_label_source(self, app):
-        """자동 추천 → 사용자 override 시 라벨이 '(선택)' 으로 바뀌어야 한다."""
+        """자동 추천 → 사용자 override 시 라벨이 '✓ 유지' 로 바뀌어야 한다."""
         from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
 
         dlg = VisualDuplicateReviewDialog(
@@ -262,8 +266,12 @@ class TestAutoVsFinalSeparation:
 
         # 사용자 override
         dlg._apply_group_decision("fid_0_a", "keep")
-        assert "(선택)" in lbl.text(), (
-            f"override 후 '(선택)' 없음: {lbl.text()!r}"
+        text = lbl.text()
+        assert "✓" in text, (
+            f"override 후 '✓' 없음: {text!r}"
+        )
+        assert "유지" in text, (
+            f"override 후 '유지' 없음: {text!r}"
         )
 
 
@@ -294,4 +302,65 @@ class TestDialogGuidance:
         guide_text = dlg._lbl_guide.text()
         assert "삭제" in guide_text, (
             f"안내문에 삭제 관련 안내 없음: {guide_text!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 6. 회귀 가드: 한국어 전용 라벨 / tooltip 존재
+# ---------------------------------------------------------------------------
+
+class TestKoreanOnlyLabels:
+    def test_label_korean_only_no_english_keep_delete(self, app):
+        """결정 라벨에 영문 'keep' / 'delete' 가 직접 노출되지 않아야 한다."""
+        from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
+
+        # 자동 추천 상태
+        dlg_auto = VisualDuplicateReviewDialog(
+            _make_groups(1),
+            initial_decisions={"fid_0_a": "keep", "fid_0_b": "delete"},
+        )
+        lbl_keep = dlg_auto._decision_labels.get("fid_0_a")
+        lbl_del  = dlg_auto._decision_labels.get("fid_0_b")
+        assert lbl_keep is not None and lbl_del is not None
+
+        for lbl in (lbl_keep, lbl_del):
+            text = lbl.text()
+            assert "keep" not in text.lower(), (
+                f"자동 추천 라벨에 영문 'keep' 노출: {text!r}"
+            )
+            assert text.lower() != "delete" and not text.lower().startswith("delete"), (
+                f"자동 추천 라벨에 영문 'delete' 노출: {text!r}"
+            )
+
+        # 수동 선택 상태
+        dlg_manual = VisualDuplicateReviewDialog(_make_groups(1))
+        dlg_manual._apply_group_decision("fid_0_a", "keep")
+        dlg_manual._apply_group_decision("fid_0_b", "delete")
+
+        lbl_mk = dlg_manual._decision_labels.get("fid_0_a")
+        lbl_md = dlg_manual._decision_labels.get("fid_0_b")
+        assert lbl_mk is not None and lbl_md is not None
+
+        for lbl in (lbl_mk, lbl_md):
+            text = lbl.text()
+            assert "keep" not in text.lower(), (
+                f"수동 선택 라벨에 영문 'keep' 노출: {text!r}"
+            )
+            assert text.lower() != "delete" and not text.lower().startswith("delete"), (
+                f"수동 선택 라벨에 영문 'delete' 노출: {text!r}"
+            )
+
+    def test_btn_go_delete_has_tooltip(self, app):
+        """삭제 미리보기 버튼에 미리보기 단계 안내 tooltip이 존재해야 한다."""
+        from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
+
+        dlg = VisualDuplicateReviewDialog(_make_groups(1))
+        assert hasattr(dlg, "_btn_go_delete"), "_btn_go_delete 위젯 없음"
+        tip = dlg._btn_go_delete.toolTip()
+        assert tip, "삭제 미리보기 버튼에 tooltip이 없음"
+        assert "미리보기" in tip, (
+            f"tooltip에 '미리보기' 단어 없음: {tip!r}"
+        )
+        assert "파일을 삭제하지 않습니다" in tip, (
+            f"tooltip에 '파일을 삭제하지 않습니다' 안내 없음: {tip!r}"
         )
