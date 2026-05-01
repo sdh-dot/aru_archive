@@ -5,9 +5,15 @@ shell=True 사용 금지. 모든 subprocess 호출은 인자 리스트로 전달
 
 Windows Explorer 호환 필드:
   XPTitle    (0x9C9B) — 탐색기 "제목" 열
+  XPSubject  (0x9C9F) — 탐색기 "주제" 열 (XPTitle 보조)
   XPAuthor   (0x9C9D) — 탐색기 "만든 이" 열
   XPKeywords (0x9C9E) — 탐색기 "태그" 열
+  XPComment  (0x9C9C) — 탐색기 "설명/주석" 열
   모두 UTF-16LE null-terminated 로 저장.
+
+  ImageDescription (0x010E) — EXIF 표준 description.
+    Windows 탐색기 description column이 UserComment 대신 이 필드를 우선
+    표시하므로, 사용자-facing 짧은 요약을 기록해 JSON dump 노출을 방지한다.
 
 주의: piexif는 이 태그들을 인식하지 못하므로, piexif로 EXIF를 재기록하면
 기존 XP 필드가 소실된다. ExifTool을 사용해야 안전하다.
@@ -60,6 +66,7 @@ def get_exiftool_version(exiftool_path: str) -> Optional[str]:
 def build_exiftool_xmp_args(
     file_path: str,
     metadata: dict,
+    user_facing_summary: str = "",
 ) -> list[str]:
     """
     ExifTool XMP 기록용 CLI 인자 리스트를 생성한다.
@@ -68,15 +75,18 @@ def build_exiftool_xmp_args(
     shell=True 없이 직접 사용 가능하다.
 
     매핑:
-      XMP-dc:Title       ← artwork_title
-      XMP-dc:Creator     ← artist_name
-      XMP-dc:Subject     ← tags + series_tags + character_tags (multi-value)
-      XMP-dc:Source      ← artwork_url
-      XMP-dc:Description ← description / custom_notes
-      XMP-dc:Identifier  ← artwork_id
-      XMP:MetadataDate   ← 현재 UTC
-      XMP:Rating         ← rating (있으면)
-      XMP:Label          ← source_site 또는 "Aru Archive"
+      XMP-dc:Title        ← artwork_title
+      XMP-dc:Creator      ← artist_name
+      XMP-dc:Subject      ← tags + series_tags + character_tags (multi-value)
+      XMP-dc:Source       ← artwork_url
+      XMP-dc:Description  ← description / custom_notes (내부 상세 설명)
+      XMP-dc:Identifier   ← artwork_id
+      XMP:MetadataDate    ← 현재 UTC
+      XMP:Rating          ← rating (있으면)
+      XMP:Label           ← source_site 또는 "Aru Archive"
+      EXIF:ImageDescription ← user_facing_summary (짧은 사용자-facing 요약)
+        Windows 탐색기 description column이 UserComment(JSON dump)보다
+        ImageDescription을 우선 표시한다.
     """
     args: list[str] = []
 
@@ -125,6 +135,14 @@ def build_exiftool_xmp_args(
     label = source_site if source_site else "Aru Archive"
     args.append(f"-XMP:Label={label}")
 
+    # ImageDescription: 사용자-facing 짧은 요약.
+    # Windows 탐색기가 description column에서 UserComment(JSON dump)보다
+    # EXIF:ImageDescription을 우선 표시하므로, 여기에 사람이 읽을 수 있는
+    # 요약을 기록해 JSON dump가 description 열에 노출되는 것을 방지한다.
+    summary = user_facing_summary.strip()
+    if summary:
+        args.append(f"-EXIF:ImageDescription={summary}")
+
     args.append("-overwrite_original")
     args.append(file_path)
 
@@ -134,13 +152,30 @@ def build_exiftool_xmp_args(
 def build_exiftool_xp_args(
     file_path: str,
     metadata: dict,
+    xp_subject: str = "",
+    xp_comment: str = "",
 ) -> list[str]:
     """
     Windows Explorer 호환 EXIF XP 필드 기록용 ExifTool CLI 인자.
 
-    XPTitle (0x9C9B), XPAuthor (0x9C9D), XPKeywords (0x9C9E)를
-    UTF-16LE로 기록한다. ExifTool이 입력값을 UTF-8로 해석하도록
+    XPTitle    (0x9C9B) — 탐색기 "제목" 열
+    XPSubject  (0x9C9F) — 탐색기 "주제" 열 (xp_subject 인자로 채움)
+    XPAuthor   (0x9C9D) — 탐색기 "만든 이" 열
+    XPKeywords (0x9C9E) — 탐색기 "태그" 열
+    XPComment  (0x9C9C) — 탐색기 "설명/주석" 열 (xp_comment 인자로 채움)
+
+    모두 UTF-16LE로 기록한다. ExifTool이 입력값을 UTF-8로 해석하도록
     -charset exif=utf8 을 지정한다.
+
+    Parameters
+    ----------
+    xp_subject:
+        XPSubject에 기록할 문자열. 보통 artwork_title과 동일하거나
+        사용자-facing 짧은 제목. 빈 문자열이면 해당 인자를 skip한다.
+    xp_comment:
+        XPComment에 기록할 문자열. 탐색기 "설명/주석" 열에 표시된다.
+        예: "Aru Archive: pixiv artwork 12345678"
+        빈 문자열이면 해당 인자를 skip한다.
 
     반환값: [exiftool_path] + 이 리스트 형태로 subprocess.run()에 전달.
     """
@@ -149,6 +184,11 @@ def build_exiftool_xp_args(
     title = (metadata.get("artwork_title") or "").strip()
     if title:
         args.append(f"-EXIF:XPTitle={title}")
+
+    # XPSubject: 탐색기 "주제" 열 — artwork_title 보조 또는 별도 요약
+    subject = xp_subject.strip()
+    if subject:
+        args.append(f"-EXIF:XPSubject={subject}")
 
     artist = (metadata.get("artist_name") or "").strip()
     if artist:
@@ -161,6 +201,11 @@ def build_exiftool_xp_args(
             subjects.extend(v for v in val if v and str(v).strip())
     for subj in subjects:
         args.append(f"-EXIF:XPKeywords={subj}")
+
+    # XPComment: 탐색기 "설명/주석" 열 — 사용자-facing 짧은 설명
+    comment = xp_comment.strip()
+    if comment:
+        args.append(f"-EXIF:XPComment={comment}")
 
     args.append("-overwrite_original")
     args.append(file_path)
