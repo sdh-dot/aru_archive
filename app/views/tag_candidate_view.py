@@ -52,17 +52,30 @@ class TagCandidateView(QDialog):
         filter_row = QHBoxLayout()
         filter_row.addWidget(QLabel("상태 필터:"))
         self._filter_box = QComboBox()
-        self._filter_box.addItems(["pending", "accepted", "rejected", "ignored", "all"])
-        self._filter_box.currentTextChanged.connect(self._load_candidates)
+        # itemData = 실제 DB 상태값, 표시 텍스트만 한국어화
+        for _status, _label in [
+            ("pending",  "대기 중"),
+            ("accepted", "승인됨"),
+            ("rejected", "거부됨"),
+            ("ignored",  "무시됨"),
+            ("all",      "전체"),
+        ]:
+            self._filter_box.addItem(_label, _status)
+        self._filter_box.currentIndexChanged.connect(self._load_candidates)
         filter_row.addWidget(self._filter_box)
 
         filter_row.addSpacing(16)
         filter_row.addWidget(QLabel("소스 필터:"))
         self._source_filter_box = QComboBox()
-        self._source_filter_box.addItems([
-            "all", "group_analysis", "full_analysis", "classification_failure"
-        ])
-        self._source_filter_box.currentTextChanged.connect(self._load_candidates)
+        # itemData = 실제 DB 소스값, 표시 텍스트만 한국어화
+        for _src, _label in [
+            ("all",                    "전체"),
+            ("group_analysis",         "그룹 분석"),
+            ("full_analysis",          "전체 분석"),
+            ("classification_failure", "분류 실패"),
+        ]:
+            self._source_filter_box.addItem(_label, _src)
+        self._source_filter_box.currentIndexChanged.connect(self._load_candidates)
         filter_row.addWidget(self._source_filter_box)
         filter_row.addStretch()
         layout.addLayout(filter_row)
@@ -78,13 +91,29 @@ class TagCandidateView(QDialog):
 
         # 버튼 행
         btn_row = QHBoxLayout()
-        self._btn_accept     = QPushButton("✅ 새 canonical로 승인")
-        self._btn_merge      = QPushButton("🔀 기존 canonical에 병합")
-        self._btn_general    = QPushButton("🏷 general로 처리")
+        self._btn_accept     = QPushButton("✅ 새 항목으로 승인")
+        self._btn_merge      = QPushButton("🔀 기존 항목에 병합")
+        self._btn_general    = QPushButton("🏷 일반 태그로 등록")
         self._btn_reject     = QPushButton("❌ 거부")
         self._btn_ignore     = QPushButton("⏭ 무시")
-        self._btn_regenerate = QPushButton("🔄 후보 재생성")
+        self._btn_regenerate = QPushButton("🔄 태그 후보 다시 분석")
         self._btn_close      = QPushButton("닫기")
+
+        self._btn_accept.setToolTip(
+            "새 canonical 항목으로 승인합니다. tag_aliases에 등록되어 다음 태그 재분류부터 적용됩니다."
+        )
+        self._btn_merge.setToolTip(
+            "선택한 후보를 기존 canonical 항목의 별칭으로 병합합니다."
+        )
+        self._btn_general.setToolTip(
+            "시리즈·캐릭터가 아닌 일반(general) 태그로 사전에 등록합니다."
+        )
+        self._btn_reject.setToolTip(
+            "이 후보를 거부합니다. tag_aliases에 등록되지 않습니다."
+        )
+        self._btn_regenerate.setToolTip(
+            "기존 분류 결과를 다시 분석해 태그 후보를 생성합니다. 수 초 소요될 수 있습니다."
+        )
 
         self._btn_accept    .clicked.connect(self._on_accept)
         self._btn_merge     .clicked.connect(self._on_merge)
@@ -106,8 +135,9 @@ class TagCandidateView(QDialog):
     # ------------------------------------------------------------------
 
     def _load_candidates(self) -> None:
-        status_filter = self._filter_box.currentText()
-        source_filter = self._source_filter_box.currentText()
+        # currentData() 로 실제 DB 키 값을 읽음 (표시 라벨과 분리)
+        status_filter = self._filter_box.currentData() or "all"
+        source_filter = self._source_filter_box.currentData() or "all"
 
         conditions: list[str] = []
         params: list = []

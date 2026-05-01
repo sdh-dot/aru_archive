@@ -236,7 +236,7 @@ class BatchClassifyDialog(QDialog):
         # ── 목록 ─────────────────────────────────────────────────────
         self._table = QTableWidget(0, 5)
         self._table.setHorizontalHeaderLabels(
-            ["제목", "상태", "rule type", "목적지 경로", "경고"]
+            ["제목", "상태", "분류 규칙", "목적지 경로", "경고"]
         )
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)

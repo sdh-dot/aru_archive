@@ -6,14 +6,14 @@ from PyQt6.QtWidgets import (
     QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget,
 )
 
-# (key, 표시 레이블)
+# (key, 표시 레이블) — key는 _GALLERY_WHERE / _COUNT_SQL 의존, 변경 금지
 CATEGORIES: list[tuple[str, str]] = [
-    ("all",         "All Files"),
-    ("inbox",       "Inbox"),
-    ("managed",     "Managed"),
-    ("no_metadata", "No Metadata"),
-    ("warning",     "Warning"),
-    ("failed",      "Failed"),
+    ("all",         "전체 파일"),
+    ("inbox",       "수신함"),
+    ("managed",     "관리 중"),
+    ("no_metadata", "메타데이터 없음"),
+    ("warning",     "경고"),
+    ("failed",      "오류"),
 ]
 
 
