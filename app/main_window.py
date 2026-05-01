@@ -462,6 +462,9 @@ class MainWindow(QMainWindow):
 
         # ── 작업 마법사 (단독 버튼) ──────────────────────────────────────
         self._btn_wizard = _tb_btn("🧭 작업 마법사", tb)
+        self._btn_wizard.setToolTip(
+            "분류 작업을 단계별로 진행하는 마법사를 엽니다. (9단계)"
+        )
         tb.addSeparator()
 
         # ── 폴더 ▼ ───────────────────────────────────────────────────────
@@ -475,15 +478,21 @@ class MainWindow(QMainWindow):
         scan_menu = QMenu(self)
         self._act_inbox_scan  = scan_menu.addAction("🔍 이미지 스캔")
         self._act_refresh     = scan_menu.addAction("🔄 갱신")
+        self._act_refresh.setToolTip("갤러리와 사이드바 카운트를 새로고침합니다.")
         scan_menu.addSeparator()
         self._act_integrity   = scan_menu.addAction("🛡 파일 무결성 검사")
+        self._act_integrity.setToolTip(
+            "파일이 외부에서 삭제됐는지 확인하고 DB에 누락 상태를 기록합니다."
+        )
         self._act_integrity.setEnabled(True)
         _add_tb_menu(tb, "스캔 ▼", scan_menu)
 
         # ── 중복 검사 ▼ ──────────────────────────────────────────────────
         dup_menu = QMenu(self)
         self._act_exact_dup   = dup_menu.addAction("🧬 완전 중복 검사")
+        self._act_exact_dup.setToolTip("SHA-256 해시 기준 완전 일치 중복을 찾습니다.")
         self._act_visual_dup  = dup_menu.addAction("👁 시각적 중복 검사")
+        self._act_visual_dup.setToolTip("유사한 이미지(perceptual hash 기반)를 찾습니다.")
         _add_tb_menu(tb, "중복 검사 ▼", dup_menu)
 
         # ── 메타데이터 ▼ ─────────────────────────────────────────────────
@@ -493,26 +502,47 @@ class MainWindow(QMainWindow):
         meta_menu.addSeparator()
         self._act_xmp_sel     = meta_menu.addAction("🔄 선택 XMP 재처리")
         self._act_xmp_all     = meta_menu.addAction("🔄 전체 XMP 재처리")
+        self._act_xmp_all.setToolTip(
+            "모든 항목의 XMP 메타데이터를 다시 기록합니다. 시간이 오래 걸릴 수 있습니다."
+        )
         _add_tb_menu(tb, "메타데이터 ▼", meta_menu)
 
         # ── 정규화 ▼ ─────────────────────────────────────────────────────
         norm_menu = QMenu(self)
-        self._act_retag       = norm_menu.addAction("🏷 태그 재분류")
-        self._act_candidates  = norm_menu.addAction("🏷 후보 태그")
-        self._act_dict_import = norm_menu.addAction("🌐 웹 사전")
-        self._act_tag_pack    = norm_menu.addAction("📦 Localized Tag Pack 가져오기")
+        self._act_retag       = norm_menu.addAction("🏷 태그 다시 분석")
+        self._act_retag.setToolTip(
+            "현재 태그와 사용자 보정값을 바탕으로 분류 결과를 다시 계산합니다."
+        )
+        self._act_candidates  = norm_menu.addAction("🏷 태그 후보 검토")
+        self._act_candidates.setToolTip(
+            "자동 생성된 태그 후보를 검토하고 사전에 추가합니다."
+        )
+        self._act_dict_import = norm_menu.addAction("🌐 외부 사전 가져오기")
+        self._act_dict_import.setToolTip(
+            "외부 웹 소스에서 시리즈/캐릭터 사전을 가져옵니다."
+        )
+        self._act_tag_pack    = norm_menu.addAction("📦 번역 태그팩 가져오기")
+        self._act_tag_pack.setToolTip(
+            "한국어/일본어 이름이 포함된 태그팩 파일을 가져옵니다."
+        )
         self._act_tag_pack.triggered.connect(self._on_show_dict_import)
         norm_menu.addSeparator()
-        self._act_dict_export = norm_menu.addAction("📤 사전 내보내기")
+        self._act_dict_export = norm_menu.addAction("📤 태그 사전 내보내기 (JSON)")
+        self._act_dict_export.setToolTip("현재 사전을 JSON 파일로 내보냅니다.")
         _add_tb_menu(tb, "정규화 ▼", norm_menu)
 
         # ── 분류 ▼ ───────────────────────────────────────────────────────
         cls_menu = QMenu(self)
         self._act_cls_preview    = cls_menu.addAction("📋 분류 미리보기")
+        self._act_cls_preview.setToolTip("전체 갤러리의 분류 결과를 미리 봅니다.")
         self._act_cls_sel_prev   = cls_menu.addAction("📋 선택 분류 미리보기")
+        self._act_cls_sel_prev.setToolTip("현재 선택된 항목만 분류 결과를 미리 봅니다.")
         cls_menu.addSeparator()
         self._act_batch_classify = cls_menu.addAction("📋 일괄 분류")
         self._act_cls_run        = cls_menu.addAction("▶ 분류 실행")
+        self._act_cls_run.setToolTip(
+            "현재 선택된 항목을 즉시 분류합니다. 미리보기를 먼저 확인하세요."
+        )
         _add_tb_menu(tb, "분류 ▼", cls_menu)
 
         # ── 도구 ▼ ───────────────────────────────────────────────────────
