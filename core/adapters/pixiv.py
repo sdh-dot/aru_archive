@@ -1,7 +1,9 @@
 """Pixiv 소스 사이트 어댑터."""
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime, timezone
+from typing import Optional
 
 from core.adapters.base import SourceSiteAdapter
 from core.models import AruMetadata
@@ -178,6 +180,8 @@ class PixivAdapter(SourceSiteAdapter):
         raw: dict,
         page_index: int = 0,
         original_filename: str = "",
+        *,
+        conn: Optional[sqlite3.Connection] = None,
     ) -> AruMetadata:
         """
         fetch_metadata() 반환값(body dict)을 AruMetadata로 변환한다.
@@ -191,7 +195,7 @@ class PixivAdapter(SourceSiteAdapter):
         user_id    = str(raw.get("userId", ""))
         tags_raw   = raw.get("tags", {}).get("tags", [])
         all_tags   = [t.get("tag", "") for t in tags_raw if t.get("tag")]
-        classified = classify_pixiv_tags(all_tags)
+        classified = classify_pixiv_tags(all_tags, conn=conn)
         page_count = int(raw.get("pageCount", 1))
         is_ugoira  = int(raw.get("illustType", 0)) == 2
         now        = datetime.now(timezone.utc).isoformat()

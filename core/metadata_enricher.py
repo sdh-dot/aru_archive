@@ -156,6 +156,7 @@ def enrich_file_from_pixiv(
             raw,
             page_index=page_index,
             original_filename=_file_basename,
+            conn=conn,
         )
     except Exception as exc:
         logger.error("AruMetadata 변환 실패: %s", exc)
