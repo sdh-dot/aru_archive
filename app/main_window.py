@@ -954,10 +954,14 @@ class MainWindow(QMainWindow):
             self._log.append(f"[ERROR] 무결성 반영 실패: {exc}")
             return
 
-        self._log.append(
+        mismatch_count = apply_result.get("restore_skipped_hash_mismatch", 0)
+        msg = (
             f"[INFO] 누락으로 표시: {apply_result['updated']}건 / "
             f"다시 확인됨: {apply_result['restore_updated']}건"
         )
+        if mismatch_count:
+            msg += f" / 해시 불일치로 복원 보류: {mismatch_count}건"
+        self._log.append(msg)
 
         # 6. refresh
         self._on_refresh()

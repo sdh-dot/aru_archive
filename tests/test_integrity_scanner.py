@@ -33,6 +33,7 @@ def _bootstrap_schema(conn):
             file_role TEXT NOT NULL,
             file_path TEXT NOT NULL UNIQUE,
             file_format TEXT NOT NULL,
+            file_hash TEXT,
             file_status TEXT NOT NULL DEFAULT 'present',
             last_seen_at TEXT,
             created_at TEXT
@@ -51,7 +52,7 @@ def conn():
 
 
 def _add_file(conn, *, file_id, group_id, file_path, file_role="original",
-              file_status="present", file_format="jpg"):
+              file_status="present", file_format="jpg", file_hash=None):
     conn.execute(
         "INSERT INTO artwork_groups (group_id, artwork_id, indexed_at) "
         "VALUES (?, '', '2026-01-01') "
@@ -61,9 +62,9 @@ def _add_file(conn, *, file_id, group_id, file_path, file_role="original",
     conn.execute(
         "INSERT INTO artwork_files "
         "(file_id, group_id, page_index, file_role, file_path, file_format, "
-        " file_status, created_at) "
-        "VALUES (?, ?, 0, ?, ?, ?, ?, '2026-01-01')",
-        (file_id, group_id, file_role, file_path, file_format, file_status),
+        " file_hash, file_status, created_at) "
+        "VALUES (?, ?, 0, ?, ?, ?, ?, ?, '2026-01-01')",
+        (file_id, group_id, file_role, file_path, file_format, file_hash, file_status),
     )
     conn.commit()
 
@@ -464,3 +465,144 @@ class TestRunIntegrityScanWithRestore:
         for key in ("missing_files", "missing_count", "affected_group_count",
                     "updated", "dry_run"):
             assert key in result, f"Missing key: {key}"
+
+
+class TestHashMismatchWarning:
+    """same-path restore 시 hash 검증 동작 확인."""
+
+    def _sha256(self, path) -> str:
+        import hashlib
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def test_same_path_same_hash_restores_to_present(self, conn, tmp_path):
+        """DB hash == 현재 hash → 복원 진행, file_status='present'."""
+        real = tmp_path / "returned.jpg"
+        real.write_bytes(b"original content")
+        real_hash = self._sha256(real)
+        _add_file(conn, file_id="f1", group_id="g1",
+                  file_path=str(real), file_status="missing",
+                  file_hash=real_hash)
+
+        result = run_integrity_scan(conn, dry_run=False)
+
+        assert result["restore_updated"] == 1
+        assert result["restore_skipped_hash_mismatch"] == 0
+        row = conn.execute(
+            "SELECT file_status FROM artwork_files WHERE file_id='f1'"
+        ).fetchone()
+        assert row["file_status"] == "present"
+
+    def test_same_path_hash_mismatch_skips_restore(self, conn, tmp_path):
+        """DB hash != 현재 hash → 복원 skip, file_status='missing' 유지."""
+        real = tmp_path / "imposter.jpg"
+        real.write_bytes(b"different content")
+        db_hash = "a" * 64  # DB에 저장된 (다른) hash
+        _add_file(conn, file_id="f1", group_id="g1",
+                  file_path=str(real), file_status="missing",
+                  file_hash=db_hash)
+
+        result = run_integrity_scan(conn, dry_run=False)
+
+        assert result["restore_updated"] == 0
+        assert result["restore_skipped_hash_mismatch"] == 1
+        assert result["restored_count"] == 0
+        row = conn.execute(
+            "SELECT file_status FROM artwork_files WHERE file_id='f1'"
+        ).fetchone()
+        assert row["file_status"] == "missing"
+
+    def test_same_path_hash_mismatch_in_reporting(self, conn, tmp_path):
+        """hash_mismatch_files에 skip된 후보 상세가 포함된다."""
+        real = tmp_path / "imposter.jpg"
+        real.write_bytes(b"replaced content")
+        db_hash = "b" * 64
+        _add_file(conn, file_id="f1", group_id="g1",
+                  file_path=str(real), file_status="missing",
+                  file_hash=db_hash)
+
+        result = run_integrity_scan(conn, dry_run=False)
+
+        assert result["restore_skipped_hash_mismatch"] == 1
+        assert len(result["hash_mismatch_files"]) == 1
+        entry = result["hash_mismatch_files"][0]
+        assert entry["file_id"] == "f1"
+        assert entry["group_id"] == "g1"
+        assert entry["file_path"] == str(real)
+        assert entry["db_hash"] is not None
+        assert entry["current_hash"] is not None
+
+    def test_db_hash_unavailable_falls_back_to_path_only(self, conn, tmp_path):
+        """DB hash 없음 → hash 검증 skip, 기존 same-path 복원 정책 유지."""
+        real = tmp_path / "no_hash_file.jpg"
+        real.write_bytes(b"some content")
+        # file_hash=None (DB에 hash 미기록)
+        _add_file(conn, file_id="f1", group_id="g1",
+                  file_path=str(real), file_status="missing",
+                  file_hash=None)
+
+        result = run_integrity_scan(conn, dry_run=False)
+
+        assert result["restore_updated"] == 1
+        assert result["restore_skipped_hash_mismatch"] == 0
+        assert result["restore_skipped_hash_unavailable"] == 1
+        row = conn.execute(
+            "SELECT file_status FROM artwork_files WHERE file_id='f1'"
+        ).fetchone()
+        assert row["file_status"] == "present"
+
+    def test_current_file_hash_unavailable_skips_restore(self, conn, tmp_path,
+                                                          monkeypatch):
+        """현재 파일 hash 계산 실패(IO 에러) → 보수적으로 복원 skip."""
+        import core.integrity_scanner as mod
+        real = tmp_path / "unreadable.jpg"
+        real.write_bytes(b"content")
+        db_hash = "c" * 64
+        _add_file(conn, file_id="f1", group_id="g1",
+                  file_path=str(real), file_status="missing",
+                  file_hash=db_hash)
+
+        # _compute_file_hash가 None을 반환하도록 monkeypatch
+        monkeypatch.setattr(mod, "_compute_file_hash", lambda path: None)
+
+        result = run_integrity_scan(conn, dry_run=False)
+
+        assert result["restore_updated"] == 0
+        assert result["restore_skipped_hash_mismatch"] == 1
+        row = conn.execute(
+            "SELECT file_status FROM artwork_files WHERE file_id='f1'"
+        ).fetchone()
+        assert row["file_status"] == "missing"
+
+    def test_existing_restore_count_unchanged_when_no_mismatch(self, conn, tmp_path):
+        """hash 불일치 없을 때 기존 restore 카운트 동작 회귀 없음."""
+        real = tmp_path / "clean.jpg"
+        real.write_bytes(b"clean content")
+        real_hash = self._sha256(real)
+        _add_file(conn, file_id="f1", group_id="g1",
+                  file_path=str(real), file_status="missing",
+                  file_hash=real_hash)
+        # f2: 실제로 존재하지 않는 파일 — present 상태로 등록하면 find_missing_files에서 발견
+        _add_file(conn, file_id="f2", group_id="g2",
+                  file_path=str(tmp_path / "still_gone.jpg"),
+                  file_status="present", file_hash=None)
+
+        result = run_integrity_scan(conn, dry_run=False)
+
+        # f1: hash 일치 → 복원, f2: 파일 없음 → missing으로 마킹
+        assert result["restore_updated"] == 1
+        assert result["restore_skipped_hash_mismatch"] == 0
+        assert result["missing_count"] == 1  # f2 (파일 없음, present→missing)
+
+    def test_run_integrity_scan_returns_new_hash_keys(self, conn, tmp_path):
+        """반환 dict에 신규 hash 관련 키가 모두 포함되는지 확인."""
+        result = run_integrity_scan(conn, dry_run=True)
+        for key in ("restore_skipped_hash_mismatch", "hash_mismatch_files",
+                    "restore_skipped_hash_unavailable"):
+            assert key in result, f"Missing key: {key}"
+        assert isinstance(result["hash_mismatch_files"], list)
+        assert result["restore_skipped_hash_mismatch"] == 0
+        assert result["restore_skipped_hash_unavailable"] == 0

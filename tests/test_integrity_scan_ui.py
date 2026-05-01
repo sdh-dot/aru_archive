@@ -106,3 +106,22 @@ class TestIntegrityRestoreCompletionMessage:
         assert "restored_files" in src
         assert "restored_count" in src
         assert "restore_updated" in src
+
+
+class TestHashMismatchCompletionMessage:
+    def test_completion_message_includes_hash_mismatch_count_when_nonzero(self):
+        """hash mismatch 1건 이상일 때 완료 메시지에 '해시 불일치' 문구 포함."""
+        from app.main_window import MainWindow
+        src = inspect.getsource(MainWindow._on_integrity_check)
+        assert "해시 불일치" in src
+        assert "restore_skipped_hash_mismatch" in src
+
+    def test_completion_message_unchanged_when_hash_mismatch_zero(self):
+        """hash mismatch 0건 분기가 존재하고 기존 문구를 그대로 사용한다."""
+        from app.main_window import MainWindow
+        src = inspect.getsource(MainWindow._on_integrity_check)
+        # 기존 키워드가 여전히 존재해야 함
+        assert "누락으로 표시" in src
+        assert "다시 확인됨" in src
+        # mismatch_count 조건 분기가 있어야 함
+        assert "mismatch_count" in src
