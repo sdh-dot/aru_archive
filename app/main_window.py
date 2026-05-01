@@ -955,7 +955,8 @@ class MainWindow(QMainWindow):
             return
 
         self._log.append(
-            f"[INFO] 누락 파일 {apply_result['updated']}건을 missing 상태로 표시했습니다."
+            f"[INFO] 누락으로 표시: {apply_result['updated']}건 / "
+            f"다시 확인됨: {apply_result['restore_updated']}건"
         )
 
         # 6. refresh

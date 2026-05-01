@@ -74,3 +74,35 @@ class TestIntegrityScannerNoDeletion:
         assert "os.unlink" not in src
         assert ".unlink(" not in src
         assert "shutil.rmtree" not in src
+
+
+class TestIntegrityRestoreCompletionMessage:
+    def test_completion_message_contains_restored_keyword(self):
+        """완료 메시지에 '다시 확인됨' 키워드가 포함되는지 확인."""
+        from app.main_window import MainWindow
+        src = inspect.getsource(MainWindow._on_integrity_check)
+        assert "다시 확인됨" in src
+
+    def test_completion_message_uses_restore_updated_key(self):
+        """완료 메시지가 restore_updated 키를 참조하는지 확인."""
+        from app.main_window import MainWindow
+        src = inspect.getsource(MainWindow._on_integrity_check)
+        assert "restore_updated" in src
+
+    def test_scanner_exports_find_restored_files(self):
+        """find_restored_files가 모듈에서 임포트 가능한지 확인."""
+        from core.integrity_scanner import find_restored_files
+        assert callable(find_restored_files)
+
+    def test_scanner_exports_mark_files_as_present(self):
+        """mark_files_as_present가 모듈에서 임포트 가능한지 확인."""
+        from core.integrity_scanner import mark_files_as_present
+        assert callable(mark_files_as_present)
+
+    def test_run_integrity_scan_returns_restore_keys(self):
+        """run_integrity_scan 반환 dict에 신규 키가 있는지 source 확인."""
+        import core.integrity_scanner as mod
+        src = inspect.getsource(mod.run_integrity_scan)
+        assert "restored_files" in src
+        assert "restored_count" in src
+        assert "restore_updated" in src
