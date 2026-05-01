@@ -109,6 +109,43 @@ def _create_startup_splash(app):
         return None
 
 
+def _show_startup_notice_if_needed(window, config: dict, config_path: str) -> None:
+    """버전별 1회 startup notice 다이얼로그를 표시한다.
+
+    QApplication.instance().applicationVersion()이 config의
+    ui.startup_notice_seen_version과 일치하면 표시하지 않는다.
+
+    dialog accept + checkbox checked일 때 seen_version을 저장한다.
+    dialog 또는 저장 실패는 silent fallback (앱 기동 영향 0).
+    """
+    try:
+        from PyQt6.QtWidgets import QApplication
+        app_version = QApplication.instance().applicationVersion()
+    except Exception:
+        return
+
+    ui_cfg = config.setdefault("ui", {})
+    seen = ui_cfg.get("startup_notice_seen_version", "")
+    if seen and seen == app_version:
+        return  # 이 버전은 이미 봤음
+
+    try:
+        from app.views.startup_notice_dialog import StartupNoticeDialog
+        dlg = StartupNoticeDialog(app_version, parent=window)
+        dlg.exec()
+        if dlg.dont_show_again_for_version():
+            ui_cfg["startup_notice_seen_version"] = app_version
+            try:
+                from core.config_manager import save_config
+                save_config(config, config_path)
+            except Exception:
+                # 저장 실패 시 다음 실행에 재표시. 사용자 경험 안전.
+                pass
+    except Exception:
+        # dialog 자체 실패해도 앱 기동 영향 없음
+        pass
+
+
 def run_gui(config: dict, config_path: str = "config.json") -> int:
     try:
         from PyQt6.QtWidgets import QApplication
@@ -140,6 +177,9 @@ def run_gui(config: dict, config_path: str = "config.json") -> int:
     # (3) Splash 자동 종료 — main window paint와 동기화
     if splash is not None:
         splash.finish(window)
+
+    # (4) Startup notice — 버전별 1회 표시
+    _show_startup_notice_if_needed(window, config, config_path)
 
     return app.exec()
 
