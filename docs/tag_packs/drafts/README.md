@@ -22,14 +22,16 @@ app 및 테스트는 항상 위 경로를 참조해야 합니다.
 
 | 파일명 | 설명 | 상태 |
 |---|---|---|
-| `tag_pack_export_20260430.raw.json` | 2026-04-30 raw export, v3 pipeline 입력 후보 | draft (strict fail) |
+| `tag_pack_export_20260430.raw.json` | 2026-04-30 raw export, v3 pipeline 입력 후보 | draft (warning 포함, strict exit 0) |
+| `tag_pack_export_20260430.repaired.json` | mojibake repair 산출물 (repair_mojibake_via_v2.py 출력) | draft (warning 포함, strict exit 0 아님) |
+| `tag_pack_export_20260430.repair_report.json` | mojibake repair 상세 보고서 | generated |
 
 ---
 
 ## `tag_pack_export_20260430.raw.json` 상세
 
 - v3 pipeline의 **입력 후보**입니다.
-- `tools/validate_tag_pack_integrity.py --strict`를 **통과하지 않습니다** (raw draft이므로 정상).
+- 현재 raw draft는 `validate_tag_pack_integrity.py --strict` exit 0이지만, mojibake localization, alias mojibake, alias conflict, parent_series orphan 등 정비 대상 warning을 포함합니다. drafts 산출물은 active dataset이 아닙니다.
 - 바이트 레벨 원본 그대로 보관 중 — 내용 수정/재포맷/인코딩 변환 금지.
 
 ### 알려진 이슈
