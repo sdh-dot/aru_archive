@@ -6,6 +6,11 @@ PyQt6 전용. PySide6 사용 금지.
 사용자가 분류 미리보기에서 실패 항목을 선택한 뒤 열린다.
 series / character canonical을 수동으로 지정할 수 있다.
 기존 tag_aliases에서 canonical 후보를 가져와 QCompleter로 자동완성한다.
+
+label/value 분리:
+- 자동완성 표시 레이블: "캐릭터명 (시리즈명)" 형식
+- 내부 저장값: canonical 문자열만 (_char_canonical_map dict에서 역조회)
+- DB/metadata write 경로에는 canonical만 전달; label 문자열 저장 금지
 """
 from __future__ import annotations
 
@@ -41,6 +46,51 @@ def _load_canonicals(conn: Optional[sqlite3.Connection], tag_type: str) -> list[
         return []
 
 
+def _load_character_labels(
+    conn: Optional[sqlite3.Connection],
+) -> tuple[list[str], dict[str, str]]:
+    """
+    캐릭터 자동완성 label 목록과 label→canonical 역매핑을 반환한다.
+
+    label 형식: "캐릭터명 (시리즈명)" — parent_series가 있을 때.
+    parent_series가 없으면 "캐릭터명" 단독 사용.
+
+    반환: (labels, label_to_canonical)
+    """
+    if conn is None:
+        return [], {}
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT canonical, parent_series FROM tag_aliases "
+            "WHERE tag_type = 'character' AND enabled = 1 "
+            "ORDER BY parent_series, canonical",
+        ).fetchall()
+    except Exception:
+        return [], {}
+
+    labels: list[str] = []
+    label_to_canonical: dict[str, str] = {}
+    seen_canonicals: set[str] = set()
+
+    for row in rows:
+        canonical    = row[0] or ""
+        parent_series = (row[1] or "").strip()
+        if not canonical:
+            continue
+        if canonical in seen_canonicals:
+            continue
+        seen_canonicals.add(canonical)
+
+        label = f"{canonical} ({parent_series})" if parent_series else canonical
+        # 동일 label이 이미 있으면 canonical을 suffix로 구별
+        if label in label_to_canonical:
+            label = f"{canonical} [{canonical}]"
+        labels.append(label)
+        label_to_canonical[label] = canonical
+
+    return labels, label_to_canonical
+
+
 class ManualClassifyOverrideDialog(QDialog):
     """
     수동 분류 지정 다이얼로그.
@@ -71,6 +121,8 @@ class ManualClassifyOverrideDialog(QDialog):
         self._group_info = group_info
         self._conn       = conn
         self._result: Optional[dict] = None
+        # label → canonical 역매핑 (캐릭터 자동완성 label/value 분리)
+        self._char_label_to_canonical: dict[str, str] = {}
 
         self.setWindowTitle("수동 분류 지정")
         self.setMinimumWidth(560)
@@ -119,8 +171,8 @@ class ManualClassifyOverrideDialog(QDialog):
         override_form = QFormLayout(override_box)
         override_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
-        series_canonicals    = _load_canonicals(self._conn, "series")
-        character_canonicals = _load_canonicals(self._conn, "character")
+        series_canonicals = _load_canonicals(self._conn, "series")
+        char_labels, self._char_label_to_canonical = _load_character_labels(self._conn)
 
         self._series_edit = QLineEdit()
         self._series_edit.setPlaceholderText("예: Blue Archive")
@@ -132,13 +184,14 @@ class ManualClassifyOverrideDialog(QDialog):
         override_form.addRow("시리즈 canonical:", self._series_edit)
 
         self._char_edit = QLineEdit()
-        self._char_edit.setPlaceholderText("예: 伊落マリー")
-        if character_canonicals:
-            c2 = QCompleter(character_canonicals, self)
+        self._char_edit.setPlaceholderText("예: 伊落マリー (Blue Archive)")
+        if char_labels:
+            c2 = QCompleter(char_labels, self)
             c2.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
             c2.setFilterMode(Qt.MatchFlag.MatchContains)
+            # 자동완성 선택 시 label 전체를 LineEdit에 채움 (canonical 역조회는 OK 시 수행)
             self._char_edit.setCompleter(c2)
-        override_form.addRow("캐릭터 canonical:", self._char_edit)
+        override_form.addRow("캐릭터 (시리즈):", self._char_edit)
 
         self._locale_edit = QLineEdit()
         self._locale_edit.setText(current_locale)
@@ -164,9 +217,28 @@ class ManualClassifyOverrideDialog(QDialog):
     # 결과
     # ------------------------------------------------------------------
 
+    def _resolve_character_canonical(self, text: str) -> str:
+        """
+        입력 텍스트에서 character canonical을 추출한다.
+
+        자동완성 label "캐릭터명 (시리즈명)" 형식이면 역매핑 dict로 canonical 반환.
+        매핑에 없으면 텍스트를 그대로 canonical로 사용 (직접 입력 허용).
+        """
+        text = text.strip()
+        if not text:
+            return ""
+        # label → canonical 역매핑 우선
+        if text in self._char_label_to_canonical:
+            return self._char_label_to_canonical[text]
+        # "canonical (series)" 형식에서 canonical 부분만 추출
+        if " (" in text and text.endswith(")"):
+            return text[: text.rfind(" (")].strip()
+        return text
+
     def _on_ok(self) -> None:
         series    = self._series_edit.text().strip()
-        character = self._char_edit.text().strip()
+        char_text = self._char_edit.text().strip()
+        character = self._resolve_character_canonical(char_text)
         locale    = self._locale_edit.text().strip() or "canonical"
         reason    = self._reason_edit.text().strip() or None
 

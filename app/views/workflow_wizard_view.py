@@ -1225,7 +1225,8 @@ class _Step7Preview(_StepPanel):
     def __init__(self, wizard, parent=None):
         super().__init__(wizard, parent)
         self._batch_preview: Optional[dict] = None
-        self._preview_rows: list[dict] = []   # source_path per table row
+        self._preview_rows: list[dict] = []   # {source_path, group_id, title} per table row
+        self._preview_items: dict[str, dict] = {}  # group_id → preview item (override 재참조)
         self._thumb_cache = PreviewThumbnailCache(max_items=200)
 
         layout = QVBoxLayout(self)
@@ -1307,6 +1308,11 @@ class _Step7Preview(_StepPanel):
             lambda cur, _prev: self._on_preview_row_changed(
                 self._preview_table.row(cur) if cur else -1
             )
+        )
+        # 우클릭 컨텍스트 메뉴 (수동 분류 지정)
+        self._preview_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._preview_table.customContextMenuRequested.connect(
+            self._on_preview_context_menu
         )
         splitter.addWidget(self._preview_table)
 
@@ -1446,8 +1452,14 @@ class _Step7Preview(_StepPanel):
     def _populate_preview_table(self, previews: list[dict]) -> None:
         self._preview_table.setRowCount(0)
         self._preview_rows.clear()
+        # preview item 전체를 group_id 키로 인덱싱 (override 적용 시 재참조용)
+        self._preview_items: dict[str, dict] = {
+            p["group_id"]: p for p in previews if p.get("group_id")
+        }
+
         for preview in previews:
             source_path = preview.get("source_path", "")
+            group_id    = preview.get("group_id", "")
             filename    = Path(source_path).name
             title       = preview.get("artwork_title", "")
             ci = preview.get("classification_info") or {}
@@ -1474,7 +1486,12 @@ class _Step7Preview(_StepPanel):
 
                 row = self._preview_table.rowCount()
                 self._preview_table.insertRow(row)
-                self._preview_rows.append({"source_path": source_path})
+                # group_id, source_path 모두 저장 (override 진입 시 필요)
+                self._preview_rows.append({
+                    "source_path": source_path,
+                    "group_id":    group_id,
+                    "title":       title,
+                })
 
                 for col, val in enumerate([
                     filename,
@@ -1491,6 +1508,179 @@ class _Step7Preview(_StepPanel):
                         f"분류 경로: {dest_path}"
                     )
                     self._preview_table.setItem(row, col, item)
+
+    # ------------------------------------------------------------------
+    # 수동 분류 지정 (우클릭 컨텍스트 메뉴)
+    # ------------------------------------------------------------------
+
+    def _on_preview_context_menu(self, pos) -> None:
+        """우클릭 위치의 row를 기준으로 컨텍스트 메뉴를 표시한다."""
+        from PyQt6.QtWidgets import QMenu
+        item = self._preview_table.itemAt(pos)
+        if item is None:
+            return
+        row = self._preview_table.row(item)
+        if row < 0 or row >= len(self._preview_rows):
+            return
+
+        menu = QMenu(self)
+        act_override = menu.addAction("수동 분류 지정")
+        act_override.setShortcut("Ctrl+M")
+        chosen = menu.exec(self._preview_table.viewport().mapToGlobal(pos))
+        if chosen is act_override:
+            self._open_manual_override_dialog(row)
+
+    def _open_manual_override_dialog(self, row: int) -> None:
+        """선택된 preview row에 대해 ManualClassifyOverrideDialog를 열고 override를 적용한다."""
+        from app.views.manual_classify_override_dialog import ManualClassifyOverrideDialog
+        from core.classification_overrides import (
+            apply_override_to_preview_item,
+            set_override_for_group,
+        )
+
+        row_data  = self._preview_rows[row]
+        group_id  = row_data.get("group_id", "")
+        if not group_id:
+            return
+
+        source_path = row_data.get("source_path", "")
+        title       = row_data.get("title", "")
+        filename    = Path(source_path).name
+
+        # destinations에서 현재 dest_path 읽기
+        dest_path = ""
+        rule_type = ""
+        tbl_item = self._preview_table.item(row, 5)
+        if tbl_item:
+            dest_path = tbl_item.text()
+        tbl_rule = self._preview_table.item(row, 3)
+        if tbl_rule:
+            rule_type = tbl_rule.text()
+
+        current_locale = self._locale_combo.currentData() or "canonical"
+
+        group_info = {
+            "filename":    filename,
+            "title":       title,
+            "artist_name": "",
+            "raw_tags":    [],
+            "rule_type":   rule_type,
+            "dest_path":   dest_path,
+        }
+
+        try:
+            conn = self._conn_factory()
+        except Exception as exc:
+            QMessageBox.critical(self._wizard, "DB 오류", str(exc))
+            return
+
+        dlg = ManualClassifyOverrideDialog(
+            group_info=group_info,
+            conn=conn,
+            current_locale=current_locale,
+            parent=self,
+        )
+        dlg.setWindowModality(Qt.WindowModality.ApplicationModal)
+        dlg.exec()
+
+        override = dlg.result()
+        if override is None:
+            conn.close()
+            return
+
+        # canonical value만 DB에 저장 (label 저장 금지)
+        try:
+            set_override_for_group(
+                conn,
+                group_id=group_id,
+                series_canonical=override.get("series_canonical"),
+                character_canonical=override.get("character_canonical"),
+                folder_locale=override.get("folder_locale") or current_locale,
+                reason=override.get("reason"),
+            )
+        except Exception as exc:
+            conn.close()
+            QMessageBox.critical(self._wizard, "Override 저장 오류", str(exc))
+            return
+
+        # 해당 group의 preview item에 override 즉시 반영
+        preview_item = self._preview_items.get(group_id)
+        if preview_item is not None:
+            cfg = self._build_config_override()
+            updated = apply_override_to_preview_item(
+                conn, preview_item, override, config=cfg
+            )
+            # 메모리 내 preview item 갱신
+            self._preview_items[group_id] = updated
+            # 동일 group_id를 가진 모든 table row 갱신
+            self._refresh_preview_rows_for_group(group_id, updated)
+
+        conn.close()
+        self.log_msg.emit(
+            f"[INFO] 수동 override 적용: {filename} → "
+            f"{override.get('series_canonical') or ''}/"
+            f"{override.get('character_canonical') or ''}"
+        )
+
+    def _refresh_preview_rows_for_group(self, group_id: str, updated_item: dict) -> None:
+        """
+        _preview_rows 중 group_id가 일치하는 row의 테이블 셀을 갱신한다.
+
+        하나의 group은 여러 destination을 가질 수 있으므로
+        destinations 리스트와 순서를 맞춰 row별로 덮어쓴다.
+        """
+        dests = updated_item.get("destinations", [])
+        dest_idx = 0
+        source_path = updated_item.get("source_path", "")
+        filename    = Path(source_path).name
+        title       = updated_item.get("artwork_title", "")
+
+        for row in range(len(self._preview_rows)):
+            if self._preview_rows[row].get("group_id") != group_id:
+                continue
+            if dest_idx >= len(dests):
+                break
+            dest = dests[dest_idx]
+            dest_idx += 1
+
+            dest_path = dest.get("dest_path", "")
+            rule_type = dest.get("rule_type", "")
+            will_copy = dest.get("will_copy", False)
+
+            warn_parts: list[str] = []
+            if dest.get("used_fallback"):
+                warn_parts.append("fallback")
+            if dest.get("conflict") not in (None, "", "none"):
+                warn_parts.append(str(dest.get("conflict")))
+            if dest.get("override_note"):
+                warn_parts.append(dest["override_note"])
+            warn_str = ", ".join(warn_parts)
+
+            for col, val in enumerate([
+                filename,
+                title,
+                "분류됨" if will_copy else "제외",
+                rule_type,
+                warn_str,
+                dest_path,
+            ]):
+                existing = self._preview_table.item(row, col)
+                new_text = val
+                if existing:
+                    existing.setText(new_text)
+                    existing.setToolTip(
+                        f"파일: {filename}\n제목: {title}\n"
+                        f"규칙: {rule_type}\n분류사유·비고: {warn_str}\n"
+                        f"분류 경로: {dest_path}"
+                    )
+                else:
+                    it = QTableWidgetItem(new_text)
+                    it.setToolTip(
+                        f"파일: {filename}\n제목: {title}\n"
+                        f"규칙: {rule_type}\n분류사유·비고: {warn_str}\n"
+                        f"분류 경로: {dest_path}"
+                    )
+                    self._preview_table.setItem(row, col, it)
 
 
 # ── Step 8: Execute Classification ──────────────────────────────────────────

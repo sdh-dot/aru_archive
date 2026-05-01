@@ -172,3 +172,94 @@ def test_dialog_works_without_db_conn(qapp):
     assert result is not None
     assert result["series_canonical"] == "Blue Archive"
     dlg.close()
+
+
+# ---------------------------------------------------------------------------
+# 7. label/value 분리: "캐릭터명 (시리즈명)" label → canonical 역조회
+# ---------------------------------------------------------------------------
+
+def test_character_label_resolves_to_canonical(qapp, conn):
+    """
+    _load_character_labels이 생성한 label을 _char_edit에 입력하면
+    OK 시 canonical만 character_canonical에 저장된다.
+    label 문자열 자체(예: "伊落マリー (Blue Archive)")는 저장되지 않아야 한다.
+    """
+    from app.views.manual_classify_override_dialog import (
+        ManualClassifyOverrideDialog,
+        _load_character_labels,
+    )
+
+    _, label_to_canonical = _load_character_labels(conn)
+
+    # DB에 "伊落マリー (Blue Archive)" label이 있어야 함
+    expected_label = "伊落マリー (Blue Archive)"
+    assert expected_label in label_to_canonical, (
+        f"Expected label '{expected_label}' in {list(label_to_canonical.keys())}"
+    )
+    assert label_to_canonical[expected_label] == "伊落マリー"
+
+    dlg = ManualClassifyOverrideDialog(
+        group_info=_make_group_info(),
+        conn=conn,
+        current_locale="ko",
+    )
+    dlg._series_edit.setText("Blue Archive")
+    # label 전체를 입력 (자동완성 선택 시 이 값이 LineEdit에 채워짐)
+    dlg._char_edit.setText(expected_label)
+    dlg._on_ok()
+
+    result = dlg.result()
+    assert result is not None
+    # canonical만 저장, label 문자열 금지
+    assert result["character_canonical"] == "伊落マリー", (
+        f"Expected canonical '伊落マリー', got '{result['character_canonical']}'"
+    )
+    assert result["character_canonical"] != expected_label, (
+        "label 문자열이 그대로 저장되면 안 됨"
+    )
+    dlg.close()
+
+
+# ---------------------------------------------------------------------------
+# 8. label/value 분리: "canonical (series)" 형식 직접 입력도 canonical 추출
+# ---------------------------------------------------------------------------
+
+def test_character_label_strip_series_suffix_on_direct_input(qapp):
+    """
+    label_to_canonical 역매핑에 없는 직접 입력 "キャラ (シリーズ)" 도
+    _resolve_character_canonical이 "(시리즈)" suffix를 제거하고 canonical만 반환한다.
+    """
+    from app.views.manual_classify_override_dialog import ManualClassifyOverrideDialog
+
+    dlg = ManualClassifyOverrideDialog(
+        group_info=_make_group_info(),
+        conn=None,
+    )
+    # 매핑에 없는 직접 입력
+    resolved = dlg._resolve_character_canonical("キャラA (シリーズB)")
+    assert resolved == "キャラA", f"Expected 'キャラA', got '{resolved}'"
+
+    # suffix 없는 단독 입력 그대로 반환
+    resolved2 = dlg._resolve_character_canonical("キャラA")
+    assert resolved2 == "キャラA"
+
+    dlg.close()
+
+
+# ---------------------------------------------------------------------------
+# 9. _load_character_labels: parent_series 포함 여부 확인
+# ---------------------------------------------------------------------------
+
+def test_load_character_labels_includes_parent_series(conn):
+    """
+    _load_character_labels은 parent_series가 있는 캐릭터에 대해
+    "canonical (parent_series)" 형식 label을 반환해야 한다.
+    """
+    from app.views.manual_classify_override_dialog import _load_character_labels
+
+    labels, label_to_canonical = _load_character_labels(conn)
+
+    assert len(labels) >= 1
+    assert "伊落マリー (Blue Archive)" in labels
+    # canonical은 "伊落マリー"여야 함
+    assert label_to_canonical["伊落マリー (Blue Archive)"] == "伊落マリー"
