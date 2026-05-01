@@ -1,20 +1,24 @@
 """
 extract_hitomi_catalog.py
 =========================
-Read-only extraction tool: Hitomi local tags.txt → docs sample JSON files.
+Read-only extraction tool: Hitomi local tags.txt → sample JSON files.
 
-Usage:
+Usage (output to a gitignored local working directory — recommended):
     python docs/data/hitomi_base_catalog/extract_hitomi_catalog.py \
-        --tags "D:/Personal/hitomi_downloader_GUI/hitomi_data/tags.txt" \
-        --out docs/data/hitomi_base_catalog \
+        --tags "<your-local-tags.txt-path>" \
+        --out .research/hitomi_catalog \
         --limit 100
+
+The recommended `--out` targets are `.research/` or `build/hitomi_catalog_check/`,
+both ignored by `.gitignore`. Do NOT point `--out` at any path under
+`docs/data/hitomi_base_catalog/` — sample files there must never be committed.
 
 CLI arguments:
     --tags PATH            Path to hitomi_data/tags.txt (required)
-    --out DIR              Output directory (required)
+    --out DIR              Output directory (required, prefer .research/ or build/)
     --limit N              Sample size per category, default 100
 
-Output files:
+Output files (locally generated, gitignored):
     catalog_summary.json   Category counts + sample metadata
     schema.json            JSON schema for sample items
     series.sample.json     Top N series by count
@@ -25,6 +29,8 @@ Output files:
 NOTE: This script is READ-ONLY with respect to source data.
       The original tags.txt is never modified.
       Do NOT commit the full tags.txt or any gallery pack files.
+      Do NOT commit any *.sample.json or catalog_summary.json files —
+      `.gitignore` blocks them, but never bypass that rule manually.
       female/male samples are filtered through ADULT_DENYLIST — review
       output files after extraction to catch any borderline items.
 """
