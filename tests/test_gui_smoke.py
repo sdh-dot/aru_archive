@@ -59,12 +59,12 @@ def test_main_window_init(qt_app, tmp_config, tmp_path):
 
 
 def test_main_window_toolbar_buttons(qt_app, tmp_config, tmp_path):
-    """툴바 버튼이 존재하고 초기에 활성 상태이다."""
+    """툴바 액션이 존재하고 초기에 활성 상태이다."""
     from app.main_window import MainWindow
     win = MainWindow(tmp_config, config_path=str(tmp_path / "cfg.json"))
-    assert win._btn_root.isEnabled()
-    assert win._btn_scan.isEnabled()
-    assert win._btn_db_init.isEnabled()
+    assert win._act_archive_root.isEnabled()
+    assert win._act_inbox_scan.isEnabled()
+    assert win._act_db_init.isEnabled()
     win.close()
 
 
@@ -387,8 +387,8 @@ def test_tag_candidate_view_loads_rows(qt_app, tmp_path):
 
 
 def test_main_window_has_candidates_button(qt_app, tmp_config, tmp_path):
-    """MainWindow에 후보 태그 버튼이 존재한다."""
+    """MainWindow에 후보 태그 액션이 존재한다."""
     from app.main_window import MainWindow
     win = MainWindow(tmp_config, config_path=str(tmp_path / "cfg.json"))
-    assert win._btn_candidates.isEnabled()
+    assert win._act_candidates.isEnabled()
     win.close()
