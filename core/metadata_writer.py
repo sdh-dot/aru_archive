@@ -200,6 +200,41 @@ def _write_sidecar(file_path: str, metadata: dict) -> None:
     sidecar_path.write_text(json_text, encoding="utf-8")
 
 
+def _build_user_facing_summary(metadata: dict) -> str:
+    """
+    Windows Explorer에 표시할 사용자-facing 짧은 설명 문자열을 생성한다.
+
+    형식: "Aru Archive: <source_site> artwork <artwork_id>"
+    artwork_title이 있으면 부가 정보로 title도 포함한다.
+    예: "Aru Archive: pixiv artwork 12345678 — 테스트 작품"
+
+    metadata가 None이거나 필요한 키가 없으면 빈 문자열을 반환한다.
+    반환값은 ExifTool XP 필드(XPComment, XPSubject)와
+    EXIF:ImageDescription에 사용한다.
+
+    주의: UserComment에 기록되는 JSON dump와 무관하다.
+    UserComment는 Aru Archive 내부 schema 전용이며 변경하지 않는다.
+    """
+    if not metadata:
+        return ""
+    source_site = (metadata.get("source_site") or "").strip()
+    artwork_id = (metadata.get("artwork_id") or "").strip()
+    artwork_title = (metadata.get("artwork_title") or "").strip()
+
+    if not source_site and not artwork_id:
+        return ""
+
+    parts = ["Aru Archive"]
+    if source_site:
+        parts.append(source_site)
+    if artwork_id:
+        parts.append(f"artwork {artwork_id}")
+    summary = " ".join(parts)
+    if artwork_title:
+        summary = f"{summary} — {artwork_title}"
+    return summary
+
+
 def write_windows_exif_fields(
     file_path: str,
     metadata: dict,
@@ -208,7 +243,7 @@ def write_windows_exif_fields(
     """
     Windows Explorer 호환 EXIF XP 필드를 ExifTool로 기록한다.
 
-    XPTitle (탐색기 제목), XPKeywords (탐색기 태그), XPAuthor (만든 이)를
+    XPTitle / XPSubject / XPAuthor / XPKeywords / XPComment를
     UTF-16LE로 기록한다. ExifTool 없으면 False 반환.
 
     권장 호출 순서: write_aru_metadata → write_xmp_metadata_with_exiftool
@@ -230,7 +265,13 @@ def write_windows_exif_fields(
         logger.warning("ExifTool 실행 불가 (XP 필드 기록 건너뜀): %s", exiftool_path)
         return False
 
-    args = [exiftool_path] + build_exiftool_xp_args(file_path, metadata)
+    summary = _build_user_facing_summary(metadata)
+    xp_subject = (metadata.get("artwork_title") or "").strip()
+    args = [exiftool_path] + build_exiftool_xp_args(
+        file_path, metadata,
+        xp_subject=xp_subject,
+        xp_comment=summary,
+    )
     _t0 = time.perf_counter()
     _timeout = False
     _success = False
@@ -270,8 +311,10 @@ def write_xmp_metadata_with_exiftool(
     ExifTool을 사용하여 XMP 표준 필드를 기록한다.
 
     include_xp_fields=True (기본값)이면 XMP-dc 필드와 함께
-    Windows Explorer 호환 EXIF XP 필드(XPTitle/XPKeywords/XPAuthor)도
-    한 번의 ExifTool 호출로 같이 기록한다.
+    Windows Explorer 호환 EXIF XP 필드를 한 번의 ExifTool 호출로 기록한다.
+      - XPTitle / XPAuthor / XPKeywords (기존)
+      - XPSubject / XPComment (신규 — 사용자-facing 요약 기록)
+      - EXIF:ImageDescription (신규 — description column JSON dump 방지)
 
     반환값:
       True   : XMP 기록 성공 → metadata_sync_status = 'full'
@@ -296,12 +339,24 @@ def write_xmp_metadata_with_exiftool(
         logger.warning("ExifTool 실행 불가: %s", exiftool_path)
         return False
 
-    # XMP 인자 (-overwrite_original과 file_path 제외)
-    xmp_args = build_exiftool_xmp_args(file_path, metadata)
+    # 사용자-facing 요약 문자열 생성 — XPSubject / XPComment / ImageDescription 공용
+    summary = _build_user_facing_summary(metadata)
+
+    # XMP 인자 (ImageDescription 포함, -overwrite_original과 file_path 포함)
+    xmp_args = build_exiftool_xmp_args(file_path, metadata, user_facing_summary=summary)
 
     if include_xp_fields:
+        # XPSubject: artwork_title (탐색기 "주제" 열)
+        xp_subject = (metadata.get("artwork_title") or "").strip()
+        # XPComment: 사용자-facing 짧은 요약 (탐색기 "설명/주석" 열)
+        xp_comment = summary
+
         # XP 인자에서 중복되는 -overwrite_original / file_path 제거 후 합침
-        xp_args = build_exiftool_xp_args(file_path, metadata)
+        xp_args = build_exiftool_xp_args(
+            file_path, metadata,
+            xp_subject=xp_subject,
+            xp_comment=xp_comment,
+        )
         xp_tag_args = [
             a for a in xp_args
             if a not in ("-overwrite_original", file_path)
