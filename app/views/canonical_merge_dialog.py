@@ -29,7 +29,7 @@ class CanonicalMergeDialog(QDialog):
         super().__init__(parent)
         self._canonicals = canonicals
         self._raw_tag = raw_tag
-        self.setWindowTitle("기존 canonical에 병합")
+        self.setWindowTitle("기존 항목과 병합")
         self.resize(440, 220)
         self._build_ui()
         self._filter("")
