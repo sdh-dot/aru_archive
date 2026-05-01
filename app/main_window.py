@@ -968,10 +968,20 @@ class MainWindow(QMainWindow):
         if mismatch_files:
             from app.views.integrity_restore_hold_dialog import IntegrityRestoreHoldDialog
             hold_dlg = IntegrityRestoreHoldDialog(mismatch_files, parent=self)
+            hold_dlg.view_missing_files_requested.connect(self._navigate_to_missing_category)
             hold_dlg.exec()
 
         # 7. refresh
         self._on_refresh()
+
+    def _navigate_to_missing_category(self) -> None:
+        """Sidebar의 '⚠ 누락 파일' 카테고리를 선택한다.
+
+        IntegrityRestoreHoldDialog의 view_missing_files_requested 시그널에 연결된다.
+        category_selected 시그널이 이미 _on_category_changed에 연결되어 있으므로
+        카테고리 선택만으로 갤러리 갱신이 트리거된다.
+        """
+        self._sidebar.select_category("missing")
 
     def _on_select_root(self) -> None:
         self._open_path_setup_dialog(first_run=False)

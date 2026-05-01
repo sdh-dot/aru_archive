@@ -186,3 +186,63 @@ class TestIntegrityRestoreHoldDialogSafety:
         """닫기 버튼이 소스에 존재한다."""
         raw = _module_source()
         assert "닫기" in raw
+
+
+class TestViewMissingButton:
+    """'누락 파일 보기' 버튼 및 view_missing_files_requested 시그널 검증."""
+
+    def test_view_missing_button_exists(self, app):
+        """'누락 파일 보기' 텍스트를 가진 버튼이 dialog에 있다."""
+        from PyQt6.QtWidgets import QDialogButtonBox, QPushButton
+        from app.views.integrity_restore_hold_dialog import IntegrityRestoreHoldDialog
+
+        dlg = IntegrityRestoreHoldDialog([])
+        btn_box = dlg.findChild(QDialogButtonBox)
+        assert btn_box is not None
+        all_buttons = btn_box.buttons()
+        texts = [b.text() for b in all_buttons]
+        assert "누락 파일 보기" in texts
+
+    def test_view_missing_signal_exists(self, app):
+        """view_missing_files_requested 시그널이 클래스에 존재한다."""
+        from app.views.integrity_restore_hold_dialog import IntegrityRestoreHoldDialog
+        assert hasattr(IntegrityRestoreHoldDialog, "view_missing_files_requested")
+
+    def test_view_missing_button_emits_signal(self, app):
+        """'누락 파일 보기' 버튼 클릭 시 view_missing_files_requested 가 emit된다."""
+        from PyQt6.QtWidgets import QDialogButtonBox
+        from app.views.integrity_restore_hold_dialog import IntegrityRestoreHoldDialog
+
+        dlg = IntegrityRestoreHoldDialog([])
+        emitted: list[bool] = []
+        dlg.view_missing_files_requested.connect(lambda: emitted.append(True))
+
+        btn_box = dlg.findChild(QDialogButtonBox)
+        assert btn_box is not None
+        view_btn = next(
+            (b for b in btn_box.buttons() if b.text() == "누락 파일 보기"), None
+        )
+        assert view_btn is not None
+        view_btn.click()
+
+        assert emitted, "view_missing_files_requested 시그널이 emit되지 않았습니다."
+
+    def test_close_button_still_exists(self, app):
+        """기존 Close(닫기) 버튼이 여전히 존재한다."""
+        from PyQt6.QtWidgets import QDialogButtonBox
+        from app.views.integrity_restore_hold_dialog import IntegrityRestoreHoldDialog
+
+        dlg = IntegrityRestoreHoldDialog([])
+        btn_box = dlg.findChild(QDialogButtonBox)
+        assert btn_box is not None
+        # StandardButton.Close 가 standardButtons()에 남아 있어야 한다
+        std = btn_box.standardButtons()
+        assert QDialogButtonBox.StandardButton.Close in std
+
+    def test_dialog_no_db_update_on_view_missing(self, app):
+        """view_missing_files_requested 시그널 emit 시 DB 변경이 없다 — conn 파라미터 부재로 보장."""
+        from app.views.integrity_restore_hold_dialog import IntegrityRestoreHoldDialog
+        sig = inspect.signature(IntegrityRestoreHoldDialog.__init__)
+        param_names = list(sig.parameters.keys())
+        assert "conn" not in param_names
+        assert "db" not in param_names

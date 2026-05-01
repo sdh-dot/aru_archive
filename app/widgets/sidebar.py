@@ -107,3 +107,13 @@ class SidebarWidget(QWidget):
     def current_category(self) -> str:
         item = self._list.currentItem()
         return item.data(Qt.ItemDataRole.UserRole) if item else "all"
+
+    def select_category(self, key: str) -> None:
+        """주어진 key의 카테고리를 선택 상태로 만든다.
+
+        ``category_selected`` 시그널을 발생시켜 연결된 갤러리 갱신을 트리거한다.
+        key가 존재하지 않으면 아무 동작도 하지 않는다.
+        """
+        item = self._items.get(key)
+        if item is not None:
+            self._list.setCurrentItem(item)
