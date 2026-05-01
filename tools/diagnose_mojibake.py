@@ -29,101 +29,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-
-# ---------------------------------------------------------------------------
-# Mojibake heuristics
-# ---------------------------------------------------------------------------
-
-# Latin-1 / CP932 mojibake indicator characters that appear when
-# UTF-8 multi-byte sequences are misread as ISO-8859-1 or CP1252.
-_LATIN1_MOJIBAKE_CHARS = frozenset("ÃÂãâ¢¥ÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáäåæçèéêëìíîïðñòóôõöøùúûüýþÿ")
-
-# U+FFFD REPLACEMENT CHARACTER
-_REPLACEMENT_CHAR = "�"
-
-# U+25A1 WHITE SQUARE (also used in some mojibake contexts)
-_WHITE_SQUARE = "□"
-
-
-def is_suspected_mojibake(
-    text: Optional[str],
-    locale: Optional[str] = None,
-) -> tuple[bool, list[str]]:
-    """Determine whether *text* looks like a charset-corrupted string.
-
-    Parameters
-    ----------
-    text:
-        The string to check.
-    locale:
-        Optional locale hint (``"ko"``, ``"ja"``, ``"en"``, etc.).
-        Used for locale-mismatch heuristics.
-
-    Returns
-    -------
-    (suspected, reasons)
-        *suspected* is True when at least one heuristic fired.
-        *reasons* is a list of short reason keys (see below).
-
-    Reason keys
-    -----------
-    ``replacement-char``      U+FFFD or U+25A1 found.
-    ``latin1-mojibake``       Latin-1 / CP932 indicator characters found.
-    ``?-runs``                Three or more consecutive ``?`` characters.
-    ``underscore-placeholder``Three or more consecutive ``_`` with < 30 % alphanumeric.
-    ``locale-mismatch``       Expected locale script is under-represented.
-    ``punctuation-heavy``     ASCII punctuation accounts for > 50 % of characters.
-    """
-    if not isinstance(text, str) or not text:
-        return False, []
-
-    reasons: list[str] = []
-
-    # 1. Replacement character
-    if _REPLACEMENT_CHAR in text or _WHITE_SQUARE in text:
-        reasons.append("replacement-char")
-
-    # 2. Latin-1 / CP932 mojibake characters
-    latin1_count = sum(1 for ch in text if ch in _LATIN1_MOJIBAKE_CHARS)
-    if latin1_count >= 2:
-        reasons.append("latin1-mojibake")
-
-    # 3. Three or more consecutive '?'
-    if "???" in text:
-        reasons.append("?-runs")
-
-    # 4. Underscore placeholder: 3+ consecutive '_' AND < 30 % alphanumeric
-    if "___" in text:
-        alnum_ratio = sum(1 for ch in text if ch.isalnum()) / max(len(text), 1)
-        if alnum_ratio < 0.30:
-            reasons.append("underscore-placeholder")
-
-    # 5. Locale mismatch
-    if locale in ("ko", "ja"):
-        total = max(len(text), 1)
-        if locale == "ko":
-            ko_count = sum(1 for ch in text if "가" <= ch <= "힣")
-            if (ko_count / total) < 0.30:
-                reasons.append("locale-mismatch")
-        elif locale == "ja":
-            ja_count = sum(
-                1 for ch in text
-                if ("぀" <= ch <= "ゟ")   # hiragana
-                or ("゠" <= ch <= "ヿ")   # katakana
-                or ("一" <= ch <= "鿿")   # CJK unified (kanji)
-            )
-            if (ja_count / total) < 0.30:
-                reasons.append("locale-mismatch")
-
-    # 6. Punctuation-heavy: ASCII punctuation > 50 %
-    ascii_punct_count = sum(
-        1 for ch in text
-        if 0x21 <= ord(ch) <= 0x7e and not ch.isalnum()
-    )
-    if (ascii_punct_count / max(len(text), 1)) > 0.50:
-        reasons.append("punctuation-heavy")
-
-    return bool(reasons), reasons
+# Heuristic logic is centralised in core/mojibake_heuristics.py (PR-6).
+# Re-exported here so existing callers of ``tools.diagnose_mojibake`` keep
+# working without change (e.g. tools/repair_mojibake_db.py, tests).
+from core.mojibake_heuristics import is_suspected_mojibake  # noqa: F401
 
 
 # ---------------------------------------------------------------------------

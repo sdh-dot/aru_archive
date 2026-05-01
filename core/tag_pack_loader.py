@@ -16,6 +16,11 @@ DB 저장 정책:
   character alias→ tag_aliases (tag_type='character', parent_series=parent_series)
   localization   → tag_localizations (INSERT OR IGNORE)
   source = 'built_in_pack:{pack_id}'
+
+Mojibake 차단 정책 (PR-6):
+  Strong 신호 1건이라도 발견되면 import 전체를 중단 (TagPackImportBlockedError).
+  Weak 신호는 해당 row를 건너뛰고 경고를 기록한 뒤 나머지를 import.
+  source = 'built_in_pack:*' 도 동일하게 lint 적용 (알려진 정상 pack 통과 확인 완료).
 """
 from __future__ import annotations
 
@@ -27,7 +32,154 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Union
 
+from core.mojibake_heuristics import classify_mojibake_severity, is_suspected_mojibake
+
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Import-blocking exception
+# ---------------------------------------------------------------------------
+
+class TagPackImportBlockedError(Exception):
+    """Raised when a tag pack contains strong mojibake signals.
+
+    Attributes
+    ----------
+    reasons_summary : dict
+        Counts of strong/weak signals found.  Keys: ``"strong"``, ``"weak"``.
+    samples : list[dict]
+        Up to 5 sample rows that triggered a strong signal.
+        Each dict has keys: table, field, value, reasons.
+    """
+
+    def __init__(self, reasons_summary: dict, samples: list[dict]) -> None:
+        self.reasons_summary = reasons_summary
+        self.samples = samples
+        super().__init__(self._format_message())
+
+    def _format_message(self) -> str:
+        lines = [
+            "TagPackImportBlocked: 가져오려는 태그팩에 깨진 문자로 보이는 항목이 포함되어 있어 import를 중단했습니다.",
+            "",
+            "원본 파일 인코딩을 확인하거나 `tools/diagnose_mojibake.py`로 진단 후 수정하세요.",
+            "",
+            "차단 사유:",
+            f"  - strong 신호 {self.reasons_summary.get('strong', 0)}건",
+            f"  - weak   신호 {self.reasons_summary.get('weak',   0)}건",
+            "",
+            "의심 row sample (top 5):",
+        ]
+        for i, s in enumerate(self.samples[:5], 1):
+            lines.append(
+                f"  {i}. table={s.get('table','?')} field={s.get('field','?')}"
+                f" value={s.get('value','')!r} reasons={s.get('reasons', [])}"
+            )
+        return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Internal lint helpers
+# ---------------------------------------------------------------------------
+
+def _lint_pack_data(data: dict) -> tuple[list[dict], list[dict]]:
+    """Scan all text fields in *data* for mojibake signals.
+
+    Returns
+    -------
+    (strong_hits, weak_hits)
+        Each element is a list of dicts with keys:
+        table, field, value, reasons, tag_type, canonical.
+    """
+    strong_hits: list[dict] = []
+    weak_hits: list[dict] = []
+
+    def _check(value: str | None, table: str, field: str,
+                tag_type: str, canonical: str, locale: str | None = None) -> None:
+        if not value:
+            return
+        suspected, reasons = is_suspected_mojibake(value, locale=locale)
+        if not suspected:
+            return
+        severity = classify_mojibake_severity(reasons)
+        hit = {
+            "table": table,
+            "field": field,
+            "value": value,
+            "reasons": reasons,
+            "tag_type": tag_type,
+            "canonical": canonical,
+        }
+        if severity == "strong":
+            strong_hits.append(hit)
+        else:
+            weak_hits.append(hit)
+
+    for s in data.get("series", []):
+        if not isinstance(s, dict):
+            continue
+        canonical = s.get("canonical", "")
+        _check(canonical, "tag_aliases", "canonical", "series", canonical)
+        for alias in s.get("aliases", []):
+            _check(alias, "tag_aliases", "alias", "series", canonical)
+        for locale, display_name in s.get("localizations", {}).items():
+            if locale.startswith("_"):
+                continue
+            _check(display_name, "tag_localizations", "display_name",
+                   "series", canonical, locale=locale)
+
+    for char in data.get("characters", []):
+        if not isinstance(char, dict):
+            continue
+        canonical = char.get("canonical", "")
+        _check(canonical, "tag_aliases", "canonical", "character", canonical)
+        for alias in char.get("aliases", []):
+            _check(alias, "tag_aliases", "alias", "character", canonical)
+        for locale, display_name in char.get("localizations", {}).items():
+            if locale.startswith("_"):
+                continue
+            _check(display_name, "tag_localizations", "display_name",
+                   "character", canonical, locale=locale)
+
+    return strong_hits, weak_hits
+
+
+def _apply_pack_lint(data: dict, *, pack_label: str = "") -> set[str]:
+    """Run mojibake lint on *data* and raise or warn as appropriate.
+
+    Parameters
+    ----------
+    data:
+        Parsed JSON dict (series + characters).
+    pack_label:
+        Human-readable identifier for log messages.
+
+    Returns
+    -------
+    set of ``(table, field, value)`` tuples that should be **skipped**
+    (weak signals only).  Callers compare each row against this set.
+
+    Raises
+    ------
+    TagPackImportBlockedError
+        When at least one strong signal is found.
+    """
+    strong_hits, weak_hits = _lint_pack_data(data)
+
+    if strong_hits:
+        reasons_summary = {"strong": len(strong_hits), "weak": len(weak_hits)}
+        raise TagPackImportBlockedError(reasons_summary, strong_hits[:5])
+
+    skip_values: set[str] = set()
+    for hit in weak_hits:
+        val = hit["value"]
+        skip_values.add(val)
+        logger.warning(
+            "tag pack lint 경고 (%s): field=%s value=%r reasons=%s — 해당 row 건너뜀",
+            pack_label, hit["field"], val, hit["reasons"],
+        )
+
+    return skip_values
 
 
 def load_tag_pack(path: Union[str, Path]) -> dict:
@@ -67,6 +219,9 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
     source = f"built_in_pack:{pack_id}"
     now = datetime.now(timezone.utc).isoformat()
 
+    # PR-6: mojibake lint — strong 신호 발견 시 즉시 중단, weak 신호는 skip 목록 반환
+    skip_values = _apply_pack_lint(pack, pack_label=pack_id)
+
     series_count = 0
     char_count = 0
     loc_count = 0
@@ -77,6 +232,8 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
         media_type = series.get("media_type", "")
 
         for alias in series.get("aliases", []):
+            if alias in skip_values:
+                continue
             try:
                 existing = conn.execute(
                     "SELECT canonical FROM tag_aliases "
@@ -107,6 +264,8 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
                 logger.debug("series alias 삽입 실패 (%s): %s", alias, exc)
 
         for locale, display_name in series.get("localizations", {}).items():
+            if display_name in skip_values:
+                continue
             try:
                 lid = str(uuid.uuid4())
                 conn.execute(
@@ -126,6 +285,8 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
         parent_series = character.get("parent_series", "")
 
         for alias in character.get("aliases", []):
+            if alias in skip_values:
+                continue
             try:
                 existing = conn.execute(
                     "SELECT canonical FROM tag_aliases "
@@ -156,6 +317,8 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
                 logger.debug("character alias 삽입 실패 (%s): %s", alias, exc)
 
         for locale, display_name in character.get("localizations", {}).items():
+            if display_name in skip_values:
+                continue
             try:
                 lid = str(uuid.uuid4())
                 conn.execute(
@@ -297,6 +460,11 @@ def import_localized_tag_pack(
     source = "imported_localized_pack"
     now = datetime.now(timezone.utc).isoformat()
 
+    # PR-6: mojibake lint — DB 쓰기 전 전체 scan.
+    # Strong 신호 발견 시 TagPackImportBlockedError raise → DB 무변화 보장.
+    # Weak 신호는 skip_values에 포함 → 해당 row만 건너뜀.
+    skip_values = _apply_pack_lint(data, pack_label=pack_id)
+
     series_count = 0
     char_count = 0
     loc_count = 0
@@ -323,6 +491,8 @@ def import_localized_tag_pack(
             )
 
         for alias in s.get("aliases", []):
+            if alias in skip_values:
+                continue
             try:
                 conn.execute(
                     """INSERT OR IGNORE INTO tag_aliases
@@ -337,6 +507,8 @@ def import_localized_tag_pack(
 
         for locale, display_name in s.get("localizations", {}).items():
             if not display_name or locale.startswith("_"):
+                continue
+            if display_name in skip_values:
                 continue
             lc, conf = _upsert_localization(
                 conn, canonical, "series", "", locale, display_name, source, now
@@ -363,6 +535,8 @@ def import_localized_tag_pack(
             )
 
         for alias in char.get("aliases", []):
+            if alias in skip_values:
+                continue
             try:
                 conn.execute(
                     """INSERT OR IGNORE INTO tag_aliases
@@ -377,6 +551,8 @@ def import_localized_tag_pack(
 
         for locale, display_name in char.get("localizations", {}).items():
             if not display_name or locale.startswith("_"):
+                continue
+            if display_name in skip_values:
                 continue
             lc, conf = _upsert_localization(
                 conn, canonical, "character", parent_series, locale,
@@ -426,7 +602,10 @@ def _upsert_localization(
     ).fetchone()
 
     if existing:
-        if existing["source"] in ("user", "user_import") and existing["display_name"] != display_name:
+        if (
+            existing["source"] in ("user", "user_import", "user_confirmed")
+            and existing["display_name"] != display_name
+        ):
             return 0, {
                 "canonical": canonical,
                 "locale": locale,

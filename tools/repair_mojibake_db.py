@@ -46,8 +46,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-# Re-use the heuristic from diagnose_mojibake without modification.
-from tools.diagnose_mojibake import is_suspected_mojibake
+# Heuristic logic is centralised in core/mojibake_heuristics.py (PR-6).
+# Importing directly from core avoids a tools→tools dependency.
+from core.mojibake_heuristics import is_suspected_mojibake
 
 
 # ---------------------------------------------------------------------------
