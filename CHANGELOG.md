@@ -5,6 +5,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.1] — 2026-05-01
+
+### Added
+
+- Gallery 우클릭 컨텍스트 메뉴에 "🔄 새로고침" 액션 추가.
+- Metadata enrichment mode split:
+  - "🔄 No Metadata만 보강" — `metadata_missing`만 처리 (기존 동작).
+  - "🔁 Pixiv ID 있는 모든 항목 재시도" — `metadata_missing` / `metadata_write_failed` / `xmp_write_failed` / `json_only` 재처리.
+- 파일 무결성 검사 (`🛡 파일 무결성 검사`):
+  - 외부에서 삭제된 파일을 감지해 DB의 `file_status`를 `missing`으로 표시.
+  - dry-run → confirm → apply 흐름.
+  - 실제 파일 삭제는 수행하지 않음.
+
+### Changed
+
+- 사용자-facing "Inbox 스캔" 라벨을 "이미지 스캔"으로 통일 (toolbar / 로그 / 안내 문구 / Workflow Wizard Step 2).
+- Gallery 목록과 sidebar 카운트가 `file_status='present'` 파일이 있는 group만 표시하도록 정리.
+- 전체 보강 재시도 대상에서 `full` / `source_unavailable` / `pending`을 제외 (Pixiv 404 영구 마커 보존, 이미 완료된 항목 재처리 방지).
+
+### Fixed
+
+- 외부 Explorer 등에서 삭제된 파일이 Gallery에 계속 남는 문제를 missing 마킹 + present-only 표시 정책으로 완화.
+- `missing` / `deleted` / `moved` / `orphan`만 남은 빈 group 카드가 Gallery 및 sidebar 카운트에 남던 stale 표시 문제 해결.
+
+### Tests
+
+- Gallery refresh action 회귀 테스트 추가.
+- Metadata enrichment queue mode (missing_only / all_pixiv) 단위 테스트 추가.
+- File integrity scanner 단위 테스트 + confirm dialog 회귀 테스트 추가.
+- Gallery present-only SQL 필터 회귀 테스트 추가.
+
+### Internal
+
+- `core.metadata_enricher.build_enrichment_queue(conn, *, mode)` 신규 — 큐 SQL을 함수로 분리.
+- `core.integrity_scanner` 모듈 신규 — `find_missing_files`, `mark_files_as_missing`, `run_integrity_scan`.
+- Gallery SQL에 `_PRESENT_EXISTS_FRAGMENT` 모듈 상수 도입, `_GALLERY_BASE` / `_GALLERY_WHERE` / `_COUNT_SQL` / `_refresh_gallery_item` 일관 적용.
+
+---
+
 ## [0.4.0] — 2026-05-01
 
 ### Added
