@@ -5,6 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.6.0] — 2026-05-01
+
+### Added
+
+**누락 파일 확인 UX — Sidebar "⚠ 누락 파일" 카테고리 (PR #50)**
+- Sidebar/Explorer에 "⚠ 누락 파일" 카테고리 추가 — `file_status='missing'` 항목만 필터링하는 전용 진입점.
+- 카테고리 클릭 시 누락 파일 수(count)를 표시하며, 현재 경로에서 찾을 수 없는 파일임을 tooltip으로 안내 ("DB에는 기록되어 있지만 현재 경로에서 찾을 수 없는 파일").
+- `_GALLERY_MISSING_SQL` 전용 조회 경로 추가 — 기존 `present`-only gallery query와 충돌 없이 독립 동작.
+
+**누락 파일 자동 복원 — 파일 무결성 검사 복원 로직 (PR #51)**
+- 파일 무결성 검사 실행 시, `file_status='missing'`으로 기록된 항목의 같은 경로에 파일이 다시 존재하면 `file_status='present'`로 자동 복원.
+- `run_integrity_scan()` 반환 결과에 `restored_count` / `restored_files` / `restore_updated` 필드 추가.
+- MainWindow 무결성 검사 완료 메시지에 "누락으로 표시: X건 / 다시 확인됨: Y건" 요약 표시.
+- `last_seen_at` 갱신(기존 컬럼 UPDATE only) — DB schema 변경 없음.
+
+### Notes
+
+- 실제 파일 삭제·복사·이동 로직 변경 없음.
+- InboxScanner 정책 변경 없음.
+- 이름 변경(renamed/moved) 파일의 자동 복원은 미구현 — 후속 PR 예정.
+- hash mismatch 경고·차단 정책은 미구현 — 후속 PR 예정.
+- 수동 복원 UI는 미구현 — 후속 PR 예정.
+
+---
+
 ## [0.5.1] — 2026-05-01
 
 ### Changed
