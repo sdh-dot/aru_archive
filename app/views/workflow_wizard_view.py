@@ -1219,6 +1219,44 @@ class _Step6Retag(_StepPanel):
 
 # ── Step 7: Classification Preview ──────────────────────────────────────────
 
+def _is_preview_item_needs_review(item: dict) -> bool:
+    """preview_item dict에서 '확인 필요' 여부를 판정한다.
+
+    True 조건 (OR):
+    - classification_info.classification_reason 이 분류 불완전을 나타내는 값
+      ("series_detected_but_character_missing", "series_and_character_missing")
+    - destinations 중 하나라도 used_fallback=True
+
+    UI에서만 사용되는 표시 판정이며 DB/core 로직을 변경하지 않는다.
+    """
+    ci = item.get("classification_info") or {}
+    reason = ci.get("classification_reason", "")
+    if reason in (
+        "series_detected_but_character_missing",
+        "series_and_character_missing",
+    ):
+        return True
+    for dest in item.get("destinations", []):
+        if dest.get("used_fallback"):
+            return True
+    return False
+
+
+def _is_preview_item_manual_override(item: dict) -> bool:
+    """preview_item dict에서 manual override 적용 여부를 판정한다.
+
+    True 조건: destinations 중 하나라도
+    - override_note == "manual_override"  (apply_override_to_preview_item 마커)
+    - rule_type == "manual_override"
+    """
+    for dest in item.get("destinations", []):
+        if dest.get("override_note") == "manual_override":
+            return True
+        if dest.get("rule_type") == "manual_override":
+            return True
+    return False
+
+
 class _Step7Preview(_StepPanel):
     preview_ready = Signal(dict)   # batch_preview 전달
 
@@ -1228,6 +1266,7 @@ class _Step7Preview(_StepPanel):
         self._preview_rows: list[dict] = []   # {source_path, group_id, title} per table row
         self._preview_items: dict[str, dict] = {}  # group_id → preview item (override 재참조)
         self._thumb_cache = PreviewThumbnailCache(max_items=200)
+        self._filter_mode: str = "all"  # "all" | "needs_review" | "manual_override"
 
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
@@ -1274,9 +1313,19 @@ class _Step7Preview(_StepPanel):
         layout.addWidget(summary_frame)
 
         btn_row = QHBoxLayout()
-        self._btn_preview = QPushButton("📋 미리보기 생성")
+        self._btn_preview = QPushButton("미리보기 생성")
         self._btn_preview.clicked.connect(self._on_preview)
         btn_row.addWidget(self._btn_preview)
+
+        btn_row.addSpacing(16)
+        btn_row.addWidget(QLabel("필터:"))
+        self._filter_combo = QComboBox()
+        self._filter_combo.addItem("전체", "all")
+        self._filter_combo.addItem("확인 필요", "needs_review")
+        self._filter_combo.addItem("수동 보정됨", "manual_override")
+        self._filter_combo.currentIndexChanged.connect(self._on_filter_changed)
+        btn_row.addWidget(self._filter_combo)
+
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
@@ -1284,9 +1333,9 @@ class _Step7Preview(_StepPanel):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         layout.addWidget(splitter, 1)
 
-        self._preview_table = QTableWidget(0, 6)
+        self._preview_table = QTableWidget(0, 7)
         self._preview_table.setHorizontalHeaderLabels(
-            ["파일", "제목", "분류대상", "분류규칙", "분류사유·비고", "분류 경로"]
+            ["파일", "제목", "분류대상", "분류규칙", "분류사유·비고", "분류 경로", "상태"]
         )
         hdr = self._preview_table.horizontalHeader()
         hdr.setStretchLastSection(False)
@@ -1296,7 +1345,8 @@ class _Step7Preview(_StepPanel):
         self._preview_table.setColumnWidth(2, 70)
         self._preview_table.setColumnWidth(3, 110)
         self._preview_table.setColumnWidth(4, 130)
-        self._preview_table.setMinimumWidth(760)
+        self._preview_table.setColumnWidth(6, 90)
+        self._preview_table.setMinimumWidth(860)
         self._preview_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._preview_table.setAlternatingRowColors(True)
@@ -1470,6 +1520,9 @@ class _Step7Preview(_StepPanel):
                 else ""
             )
 
+            # 상태 컬럼 값 결정 (preview 단위)
+            item_status, item_status_tip = self._compute_item_status(preview)
+
             for dest in preview.get("destinations", []):
                 dest_path = dest.get("dest_path", "")
                 rule_type = dest.get("rule_type", "")
@@ -1493,21 +1546,27 @@ class _Step7Preview(_StepPanel):
                     "title":       title,
                 })
 
-                for col, val in enumerate([
-                    filename,
-                    title,
+                base_tooltip = (
+                    f"파일: {filename}\n제목: {title}\n"
+                    f"규칙: {rule_type}\n분류사유·비고: {warn_str}\n"
+                    f"분류 경로: {dest_path}"
+                )
+                col_values = [
+                    filename, title,
                     "분류됨" if will_copy else "제외",
-                    rule_type,
-                    warn_str,
-                    dest_path,
-                ]):
-                    item = QTableWidgetItem(val)
-                    item.setToolTip(
-                        f"파일: {filename}\n제목: {title}\n"
-                        f"규칙: {rule_type}\n분류사유·비고: {warn_str}\n"
-                        f"분류 경로: {dest_path}"
-                    )
-                    self._preview_table.setItem(row, col, item)
+                    rule_type, warn_str, dest_path,
+                    item_status,
+                ]
+                for col, val in enumerate(col_values):
+                    it = QTableWidgetItem(val)
+                    if col == 6:
+                        it.setToolTip(item_status_tip)
+                    else:
+                        it.setToolTip(base_tooltip)
+                    self._preview_table.setItem(row, col, it)
+
+        # 필터 재적용 (populate 후 현재 필터 모드 반영)
+        self._apply_filter(self._filter_mode)
 
     # ------------------------------------------------------------------
     # 수동 분류 지정 (우클릭 컨텍스트 메뉴)
@@ -1634,6 +1693,7 @@ class _Step7Preview(_StepPanel):
         source_path = updated_item.get("source_path", "")
         filename    = Path(source_path).name
         title       = updated_item.get("artwork_title", "")
+        item_status, item_status_tip = self._compute_item_status(updated_item)
 
         for row in range(len(self._preview_rows)):
             if self._preview_rows[row].get("group_id") != group_id:
@@ -1656,31 +1716,91 @@ class _Step7Preview(_StepPanel):
                 warn_parts.append(dest["override_note"])
             warn_str = ", ".join(warn_parts)
 
-            for col, val in enumerate([
-                filename,
-                title,
+            base_tooltip = (
+                f"파일: {filename}\n제목: {title}\n"
+                f"규칙: {rule_type}\n분류사유·비고: {warn_str}\n"
+                f"분류 경로: {dest_path}"
+            )
+            col_values = [
+                filename, title,
                 "분류됨" if will_copy else "제외",
-                rule_type,
-                warn_str,
-                dest_path,
-            ]):
+                rule_type, warn_str, dest_path,
+                item_status,
+            ]
+            for col, val in enumerate(col_values):
                 existing = self._preview_table.item(row, col)
-                new_text = val
                 if existing:
-                    existing.setText(new_text)
-                    existing.setToolTip(
-                        f"파일: {filename}\n제목: {title}\n"
-                        f"규칙: {rule_type}\n분류사유·비고: {warn_str}\n"
-                        f"분류 경로: {dest_path}"
-                    )
+                    existing.setText(val)
+                    existing.setToolTip(item_status_tip if col == 6 else base_tooltip)
                 else:
-                    it = QTableWidgetItem(new_text)
-                    it.setToolTip(
-                        f"파일: {filename}\n제목: {title}\n"
-                        f"규칙: {rule_type}\n분류사유·비고: {warn_str}\n"
-                        f"분류 경로: {dest_path}"
-                    )
+                    it = QTableWidgetItem(val)
+                    it.setToolTip(item_status_tip if col == 6 else base_tooltip)
                     self._preview_table.setItem(row, col, it)
+
+        # 필터 재적용 (override 이후 상태 변경 반영)
+        self._apply_filter(self._filter_mode)
+
+    # ------------------------------------------------------------------
+    # 필터 + 상태 컬럼 helper
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _compute_item_status(item: dict) -> tuple[str, str]:
+        """preview_item의 상태 텍스트와 tooltip을 반환한다.
+
+        Returns:
+            (status_text, tooltip)
+        """
+        if _is_preview_item_manual_override(item):
+            return "수동 보정", "사용자 지정 분류가 적용됨"
+        if _is_preview_item_needs_review(item):
+            ci = item.get("classification_info") or {}
+            reason = ci.get("classification_reason", "")
+            tip_map = {
+                "series_detected_but_character_missing": "시리즈 감지됨, 캐릭터 미분류",
+                "series_and_character_missing": "시리즈/캐릭터 모두 미분류",
+            }
+            tip = tip_map.get(reason, "분류 정보 확인 필요")
+            # destinations에 used_fallback이 있는 경우 추가 설명
+            for dest in item.get("destinations", []):
+                if dest.get("used_fallback"):
+                    tip = tip + " (표시명 fallback 사용)" if reason else "표시명 fallback 사용"
+                    break
+            return "확인 필요", tip
+        return "", ""
+
+    def _on_filter_changed(self, _index: int) -> None:
+        """필터 ComboBox 선택 변경 시 호출."""
+        mode = self._filter_combo.currentData() or "all"
+        self._filter_mode = mode
+        self._apply_filter(mode)
+
+    def _apply_filter(self, mode: str) -> None:
+        """현재 mode에 맞는 row만 표시, 나머지는 숨긴다.
+
+        setRowHidden 방식을 사용하므로 row index 와 _preview_rows / _preview_items
+        의 mapping이 그대로 유지된다.
+        """
+        for row_idx in range(self._preview_table.rowCount()):
+            if row_idx >= len(self._preview_rows):
+                self._preview_table.setRowHidden(row_idx, True)
+                continue
+            group_id = self._preview_rows[row_idx].get("group_id", "")
+            item = self._preview_items.get(group_id)
+            if item is None:
+                self._preview_table.setRowHidden(row_idx, mode != "all")
+                continue
+
+            if mode == "all":
+                visible = True
+            elif mode == "needs_review":
+                visible = _is_preview_item_needs_review(item)
+            elif mode == "manual_override":
+                visible = _is_preview_item_manual_override(item)
+            else:
+                visible = True
+
+            self._preview_table.setRowHidden(row_idx, not visible)
 
 
 # ── Step 8: Execute Classification ──────────────────────────────────────────
