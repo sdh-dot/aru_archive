@@ -59,3 +59,20 @@ browser-extension/**/node_modules/
 browser-extension/**/dist/
 browser-extension/**/*.crx
 browser-extension/**/*.zip
+
+# ===== Local research / diagnosis artifacts =====
+mojibake_report*.json
+repair_plan*.json
+
+# ===== External-derived dataset samples =====
+docs/data/**/*.sample.json
+docs/data/**/full/
+docs/data/**/raw/
+
+# ===== Local research / scratch workspace =====
+.research/
+.scratch/
+
+# ===== Tool smoke outputs =====
+build/hitomi_catalog_check/
+build/mojibake_*/

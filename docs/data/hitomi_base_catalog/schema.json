@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Hitomi base catalog sample item",
+  "description": "One item extracted from hitomi_data/tags.txt. Represents a canonical slug as used by Hitomi.la.",
+  "type": "object",
+  "properties": {
+    "canonical": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Canonical slug/name as stored in Hitomi catalog"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of galleries tagged with this entry"
+    },
+    "source_category": {
+      "type": "string",
+      "enum": [
+        "series",
+        "character",
+        "female",
+        "male"
+      ],
+      "description": "Source category in tags.txt"
+    },
+    "source": {
+      "type": "string",
+      "const": "hitomi_tags_txt",
+      "description": "Identifier for the data origin"
+    },
+    "filtered_subset": {
+      "type": "string",
+      "description": "Present on female/male samples only. Value 'non_adult_descriptive' indicates this sample was filtered through ADULT_DENYLIST to exclude adult/explicit content tags."
+    }
+  },
+  "required": [
+    "canonical",
+    "count",
+    "source_category",
+    "source"
+  ]
+}
