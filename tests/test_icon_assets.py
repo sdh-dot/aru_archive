@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.parent
 
 class TestIconFilesExist:
     def test_source_icon(self):
-        assert (ROOT / "docs" / "icon_1.png").is_file()
+        assert (ROOT / "assets" / "icon" / "source" / "icon_1.png").is_file()
 
     def test_master_png(self):
         assert (ROOT / "assets" / "icon" / "aru_archive_icon_master.png").is_file()
