@@ -4,6 +4,7 @@ WAL 모드, NORMAL 동기화, FK 활성화.
 """
 from __future__ import annotations
 
+import shutil
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -41,6 +42,30 @@ def initialize_database(db_path: str, schema_path: str | None = None) -> sqlite3
     execute_script_file(conn, schema_path)
     _migrate_schema(conn)
     return conn
+
+
+def backup_database(src_path: str, backup_path: str) -> bool:
+    """DB 파일을 backup_path에 복사한다.
+
+    - backup_path가 이미 존재하면 덮어쓰지 않고 False 반환.
+    - src_path가 존재하지 않으면 False 반환.
+    - IO 오류 시 False 반환.
+    - 성공 시 True 반환.
+
+    원본 DB와 연관 WAL/SHM 파일은 복사하지 않는다.
+    호출 전 DB 연결을 닫거나 WAL 체크포인트를 완료하는 것을 권장한다.
+    """
+    src = Path(src_path)
+    dst = Path(backup_path)
+    if dst.exists():
+        return False
+    if not src.exists():
+        return False
+    try:
+        shutil.copy2(src, dst)
+        return True
+    except OSError:
+        return False
 
 
 def _table_columns(conn: sqlite3.Connection, table: str) -> list[sqlite3.Row]:

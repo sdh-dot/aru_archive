@@ -69,10 +69,23 @@ def test_main_window_toolbar_buttons(qt_app, tmp_config, tmp_path):
 
 
 def test_main_window_db_init(qt_app, tmp_config, tmp_path):
-    """DB 초기화 버튼 클릭이 예외 없이 처리된다."""
+    """DB 초기화 버튼 클릭이 예외 없이 처리된다.
+
+    DatabaseResetConfirmDialog를 Rejected로 패치하여 실제 초기화는 실행하지 않는다.
+    (dialog가 없으면 offscreen 환경에서 blocking됨)
+    """
+    from unittest.mock import patch
+
+    from PyQt6.QtWidgets import QDialog
+
     from app.main_window import MainWindow
+
     win = MainWindow(tmp_config, config_path=str(tmp_path / "cfg.json"))
-    win._on_db_init()
+    with patch(
+        "app.main_window.DatabaseResetConfirmDialog.exec",
+        return_value=QDialog.DialogCode.Rejected,
+    ):
+        win._on_db_init()
     win.close()
 
 
