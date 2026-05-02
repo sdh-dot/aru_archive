@@ -15,6 +15,9 @@ a = Analysis(
         (str(ROOT / "config.example.json"), "."),
         (str(ROOT / "assets" / "icon"), "assets/icon"),
         (str(ROOT / "assets" / "splash"), "assets/splash"),
+        # LoadingOverlayDialog 좌측 메인 이미지/하단 아이콘
+        # frozen 환경에서 sys._MEIPASS/assets/loading/* 로 로드된다
+        (str(ROOT / "assets" / "loading"), "assets/loading"),
         # Bundled ExifTool — Windows portable 배포에 포함
         # onedir: dist/aru_archive/tools/exiftool/
         # onefile: sys._MEIPASS/tools/exiftool/ (임시 압축 해제)

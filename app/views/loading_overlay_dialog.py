@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import sys
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -17,6 +17,10 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from app.resources import loading_icon_path, loading_image_path
+
+logger = logging.getLogger(__name__)
 
 class LoadingOverlayDialog(QDialog):
     """Shared loading/progress dialog for long-running app tasks.
@@ -35,8 +39,8 @@ class LoadingOverlayDialog(QDialog):
         self.setMinimumSize(900, 580)
         self._apply_initial_size()
 
-        self._main_image_path = self._resolve_temp_asset("loading_01.png")
-        self._mini_icon_path = self._resolve_temp_asset("icon_05.png")
+        self._main_image_path = self._resolve_asset(loading_image_path(), "loading_01.png")
+        self._mini_icon_path = self._resolve_asset(loading_icon_path(), "icon_05.png")
 
         self._build_ui()
         self.set_title_text("작업 진행 중")
@@ -44,15 +48,15 @@ class LoadingOverlayDialog(QDialog):
         self.set_task_message("", "")
         self.update_progress(0, 0)
 
-    def _project_root(self) -> Path:
-        if getattr(sys, "frozen", False):
-            return Path(sys._MEIPASS)  # type: ignore[attr-defined]
-        return Path(__file__).resolve().parents[2]
-
-    def _resolve_temp_asset(self, filename: str) -> Optional[Path]:
-        # TODO: temp/ 경로는 배포 리소스 위치로 재정리하는 편이 안전하다.
-        candidate = self._project_root() / "temp" / filename
-        return candidate if candidate.exists() else None
+    def _resolve_asset(self, raw: Optional[str], label: str) -> Optional[Path]:
+        if not raw:
+            logger.warning("LoadingOverlayDialog asset missing: %s (resolver returned None)", label)
+            return None
+        candidate = Path(raw)
+        if not candidate.exists():
+            logger.warning("LoadingOverlayDialog asset not found on disk: %s", candidate)
+            return None
+        return candidate
 
     def _apply_initial_size(self) -> None:
         parent = self.parentWidget()
@@ -439,6 +443,7 @@ class LoadingOverlayDialog(QDialog):
             return None
         pixmap = QPixmap(str(path))
         if pixmap.isNull():
+            logger.warning("LoadingOverlayDialog pixmap failed to decode: %s", path)
             return None
         return pixmap.scaled(
             width,
@@ -458,10 +463,11 @@ class LoadingOverlayDialog(QDialog):
     ) -> None:
         pixmap = self._load_pixmap(path, width, height)
         if pixmap is None:
-            label.setText(fallback_text)
+            # QLabel.setPixmap()는 기존 text 를 덮어쓰므로, 빈 pixmap 으로 먼저 비운 뒤 fallback text 를 마지막에 설정해야
+            # 실제 화면에 안내 문구가 표시된다.
             label.setPixmap(QPixmap())
+            label.setText(fallback_text)
             return
-        label.setText("")
         label.setPixmap(pixmap)
 
     def set_title_text(self, text: str) -> None:
