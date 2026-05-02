@@ -52,6 +52,7 @@ CREATE INDEX IF NOT EXISTS idx_artwork_groups_artist     ON artwork_groups(artis
 CREATE INDEX IF NOT EXISTS idx_artwork_groups_status     ON artwork_groups(status);
 CREATE INDEX IF NOT EXISTS idx_artwork_groups_sync       ON artwork_groups(metadata_sync_status);
 CREATE INDEX IF NOT EXISTS idx_artwork_groups_downloaded ON artwork_groups(downloaded_at);
+CREATE INDEX IF NOT EXISTS idx_artwork_groups_indexed_at ON artwork_groups(indexed_at DESC);
 
 
 -- ============================================================
@@ -90,6 +91,8 @@ CREATE INDEX IF NOT EXISTS idx_artwork_files_group  ON artwork_files(group_id);
 CREATE INDEX IF NOT EXISTS idx_artwork_files_role   ON artwork_files(file_role);
 CREATE INDEX IF NOT EXISTS idx_artwork_files_status ON artwork_files(file_status);
 CREATE INDEX IF NOT EXISTS idx_artwork_files_hash   ON artwork_files(file_hash);
+CREATE INDEX IF NOT EXISTS idx_artwork_files_group_status    ON artwork_files(group_id, file_status);
+CREATE INDEX IF NOT EXISTS idx_artwork_files_group_role_page ON artwork_files(group_id, file_role, page_index);
 
 
 -- ============================================================
