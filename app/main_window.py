@@ -42,6 +42,20 @@ from app.views.gallery_view import GalleryView
 from app.views.loading_overlay_dialog import LoadingOverlayDialog
 from app.views.no_metadata_view import NoMetadataView
 from app.views.path_setup_dialog import PathSetupDialog
+from app.ui_action_text import (
+    EXPLORER_META_REPAIR_SELECTED_LABEL,
+    EXPLORER_META_REPAIR_TOOLTIP,
+    PIXIV_META_LABEL,
+    PIXIV_META_TOOLTIP,
+    READ_EMBEDDED_META_LABEL,
+    READ_EMBEDDED_META_TOOLTIP,
+    SCAN_MENU_LABEL,
+    SCAN_TOOLTIP,
+    XMP_RETRY_ALL_LABEL,
+    XMP_RETRY_LABEL,
+    XMP_RETRY_SELECTED_LABEL,
+    XMP_RETRY_TOOLTIP,
+)
 from app.widgets.log_panel import LogPanel
 from app.widgets.sidebar import SidebarWidget
 from core.config_manager import (
@@ -907,7 +921,8 @@ class MainWindow(QMainWindow):
 
         # ── 스캔 ▼ ───────────────────────────────────────────────────────
         scan_menu = QMenu(self)
-        self._act_inbox_scan  = scan_menu.addAction("🔍 이미지 스캔")
+        self._act_inbox_scan  = scan_menu.addAction(SCAN_MENU_LABEL)
+        self._act_inbox_scan.setToolTip(SCAN_TOOLTIP)
         self._act_refresh     = scan_menu.addAction("🔄 갱신")
         self._act_refresh.setToolTip("갤러리와 사이드바 카운트를 새로고침합니다.")
         scan_menu.addSeparator()
@@ -928,17 +943,18 @@ class MainWindow(QMainWindow):
 
         # ── 메타데이터 ▼ ─────────────────────────────────────────────────
         meta_menu = QMenu(self)
-        self._act_read_meta   = meta_menu.addAction("📄 파일 내 메타데이터 읽기")
-        self._act_pixiv_meta  = meta_menu.addAction("🖼 Pixiv 메타데이터 가져오기")
+        self._act_read_meta   = meta_menu.addAction(READ_EMBEDDED_META_LABEL)
+        self._act_read_meta.setToolTip(READ_EMBEDDED_META_TOOLTIP)
+        self._act_pixiv_meta  = meta_menu.addAction(PIXIV_META_LABEL)
+        self._act_pixiv_meta.setToolTip(PIXIV_META_TOOLTIP)
         meta_menu.addSeparator()
-        self._act_explorer_meta_repair = meta_menu.addAction("🛠 선택 Explorer 메타 복구")
-        self._act_xmp_sel     = meta_menu.addAction("🔄 선택 XMP 재처리")
-        self._act_xmp_all     = meta_menu.addAction("🔄 전체 XMP 재처리")
-        self._act_explorer_meta_repair.setToolTip(
-            "Windows 탐색기에서 보이는 제목, 태그, 만든 이를 선택 항목 기준으로 다시 기록합니다."
-        )
+        self._act_explorer_meta_repair = meta_menu.addAction(EXPLORER_META_REPAIR_SELECTED_LABEL)
+        self._act_xmp_sel     = meta_menu.addAction(XMP_RETRY_SELECTED_LABEL)
+        self._act_xmp_all     = meta_menu.addAction(XMP_RETRY_ALL_LABEL)
+        self._act_explorer_meta_repair.setToolTip(EXPLORER_META_REPAIR_TOOLTIP)
+        self._act_xmp_sel.setToolTip(XMP_RETRY_TOOLTIP)
         self._act_xmp_all.setToolTip(
-            "모든 항목의 XMP 메타데이터를 다시 기록합니다. 시간이 오래 걸릴 수 있습니다."
+            f"{XMP_RETRY_TOOLTIP}\n모든 항목에 적용하므로 시간이 오래 걸릴 수 있습니다."
         )
         _add_tb_menu(tb, "메타데이터 ▼", meta_menu)
 
