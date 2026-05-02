@@ -1680,20 +1680,30 @@ class MainWindow(QMainWindow):
                 f"[INFO] Pixiv fetch 시작: artwork_id={parsed.artwork_id}"
             )
 
-            thread = EnrichThread(
-                file_id, self._db_path(),
-                exiftool_path=self._exiftool_path(),
-                parent=self,
+            self._start_pixiv_enrich_thread(
+                file_id=file_id,
+                on_done=lambda res, gid=group_id: self._on_enrich_done(res, gid),
             )
-            thread.log_msg.connect(self._log.append)
-            thread.enrich_done.connect(
-                lambda res, gid=group_id: self._on_enrich_done(res, gid)
-            )
-            thread.start()
-            self._enrich_thread = thread
 
         except Exception as exc:
             self._log.append(f"[ERROR] Pixiv 메타데이터 가져오기 실패: {exc}")
+
+    def _start_pixiv_enrich_thread(self, *, file_id: str, on_done) -> None:
+        """Shared single-file Pixiv enrichment entrypoint used across UI surfaces.
+
+        Top Menu / DetailView / No Metadata 패널의 단건 Pixiv 보강이 모두
+        이 helper 를 통해 같은 EnrichThread 생성/연결/시작 경로를 사용한다.
+        """
+        thread = EnrichThread(
+            file_id,
+            self._db_path(),
+            exiftool_path=self._exiftool_path(),
+            parent=self,
+        )
+        thread.log_msg.connect(self._log.append)
+        thread.enrich_done.connect(on_done)
+        thread.start()
+        self._enrich_thread = thread
 
     def _on_enrich_done(self, result: dict, group_id: str) -> None:
         msg = result.get("message", "")
@@ -2396,18 +2406,11 @@ class MainWindow(QMainWindow):
                 f"[INFO] No Metadata 재시도: {Path(q_row['file_path']).name}"
             )
 
-            thread = EnrichThread(
-                file_id, self._db_path(),
-                exiftool_path=self._exiftool_path(),
-                parent=self,
+            self._start_pixiv_enrich_thread(
+                file_id=file_id,
+                on_done=lambda res, gid=group_id, qid=queue_id:
+                    self._on_nm_enrich_done(res, gid, qid),
             )
-            thread.log_msg.connect(self._log.append)
-            thread.enrich_done.connect(
-                lambda res, gid=group_id, qid=queue_id:
-                    self._on_nm_enrich_done(res, gid, qid)
-            )
-            thread.start()
-            self._enrich_thread = thread
 
         except Exception as exc:
             self._log.append(f"[ERROR] 재시도 실패: {exc}")
