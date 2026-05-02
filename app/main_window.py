@@ -256,6 +256,54 @@ class XmpRetryThread(QThread):
             conn.close()
 
 
+class ExplorerMetaRepairThread(QThread):
+    log_msg = Signal(str)
+    progress = Signal(int, int, str, str)
+    done = Signal(dict)
+
+    def __init__(
+        self,
+        group_ids: list[str],
+        db_path: str,
+        exiftool_path: Optional[str],
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self._group_ids = group_ids
+        self._db_path = db_path
+        self._exiftool_path = exiftool_path
+
+    def run(self) -> None:
+        conn = initialize_database(self._db_path)
+        try:
+            from core.explorer_meta_repair import repair_explorer_meta_for_groups
+
+            result = repair_explorer_meta_for_groups(
+                conn,
+                self._group_ids,
+                self._exiftool_path,
+                progress_fn=lambda done, total, gid, status: self.progress.emit(
+                    done, total, gid, status
+                ),
+            )
+            self.done.emit(result)
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] Explorer metadata repair exception: {exc}")
+            self.done.emit(
+                {
+                    "total": len(self._group_ids),
+                    "success": 0,
+                    "failed": len(self._group_ids),
+                    "skipped": 0,
+                    "errors": [str(exc)],
+                    "group_ids": list(self._group_ids),
+                    "exception": str(exc),
+                }
+            )
+        finally:
+            conn.close()
+
+
 class ClassifyThread(QThread):
     """사용자 승인 후 execute_classify_preview()를 별도 스레드에서 실행한다."""
 
@@ -441,6 +489,7 @@ class MainWindow(QMainWindow):
         self.config = config
         self._config_path = config_path
         self._scan_thread: Optional[ScanThread] = None
+        self._explorer_meta_thread: Optional[QThread] = None
         self._current_category = "all"
         self._initial_workspace_prompt_scheduled = False
         self._initial_workspace_prompt_attempted = False
@@ -539,6 +588,10 @@ class MainWindow(QMainWindow):
         self._act_read_meta   = meta_menu.addAction("📄 파일 내 메타데이터 읽기")
         self._act_pixiv_meta  = meta_menu.addAction("🖼 Pixiv 메타데이터 가져오기")
         meta_menu.addSeparator()
+        self._act_explorer_meta_repair = meta_menu.addAction("🛠 선택 Explorer 메타 복구")
+        self._act_explorer_meta_repair.setToolTip(
+            "Windows 탐색기에서 보이는 제목, 태그, 만든 이를 선택 항목 기준으로 다시 기록합니다."
+        )
         self._act_xmp_sel     = meta_menu.addAction("🔄 선택 XMP 재처리")
         self._act_xmp_all     = meta_menu.addAction("🔄 전체 XMP 재처리")
         self._act_xmp_all.setToolTip(
@@ -658,6 +711,7 @@ class MainWindow(QMainWindow):
         # 툴바 — 메타데이터 메뉴
         self._act_read_meta.triggered.connect(self._on_read_meta_selected)
         self._act_pixiv_meta.triggered.connect(self._on_pixiv_meta_selected)
+        self._act_explorer_meta_repair.triggered.connect(self._on_explorer_meta_repair_selected)
         self._act_xmp_sel.triggered.connect(self._on_xmp_retry_selected)
         self._act_xmp_all.triggered.connect(self._on_xmp_retry_all)
 
@@ -691,6 +745,7 @@ class MainWindow(QMainWindow):
         self._detail.read_meta_requested  .connect(self._on_read_meta)
         self._detail.pixiv_meta_requested .connect(self._on_pixiv_meta)
         self._detail.xmp_retry_requested  .connect(self._on_xmp_retry)
+        self._detail.explorer_meta_repair_requested.connect(self._on_explorer_meta_repair_selected)
         self._detail.regen_thumb_requested.connect(self._on_regen_thumb)
         self._detail.bmp_convert_requested.connect(self._on_bmp_convert)
         self._detail.gif_convert_requested.connect(self._on_gif_convert)
@@ -1516,6 +1571,76 @@ class MainWindow(QMainWindow):
             )
             for err in result.get("errors", [])[:5]:
                 self._log.append(f"[WARN] {err}")
+
+        for done_gid in result.get("group_ids", []):
+            self._refresh_gallery_item(done_gid)
+        gid = self._gallery.get_selected_group_id()
+        if gid:
+            self._refresh_detail(gid)
+        self._refresh_counts()
+
+    def _on_explorer_meta_repair_selected(self) -> None:
+        group_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
+        if not group_ids:
+            current_id = self._gallery.get_selected_group_id()
+            if current_id:
+                group_ids = [current_id]
+        if not group_ids:
+            self._log.append("[WARN] Explorer 메타 복구할 파일을 먼저 선택해주세요")
+            return
+
+        et = self._exiftool_path()
+        if not et:
+            self._log.append(
+                "[WARN] ExifTool 경로가 설정되어 있지 않습니다. "
+                "config.json의 exiftool_path를 확인해주세요."
+            )
+            return
+
+        if self._explorer_meta_thread and self._explorer_meta_thread.isRunning():
+            self._log.append("[WARN] 이미 Explorer 메타 복구 작업이 진행 중입니다")
+            return
+
+        total = len(group_ids)
+        self._log.append(f"[INFO] Explorer 메타 복구 시작: {total}개 그룹")
+
+        thread = ExplorerMetaRepairThread(group_ids, self._db_path(), et, parent=self)
+        thread.log_msg.connect(self._log.append)
+        thread.progress.connect(self._on_explorer_meta_repair_progress)
+        thread.done.connect(self._on_explorer_meta_repair_done)
+        thread.start()
+        self._explorer_meta_thread = thread
+
+    def _on_explorer_meta_repair_progress(
+        self,
+        done: int,
+        total: int,
+        group_id: str,
+        status: str,
+    ) -> None:
+        status_labels = {
+            "running": "처리 중",
+            "success": "완료",
+            "skipped": "건너뜀",
+            "failed": "실패",
+            "no_target": "대상 파일 없음",
+            "no_exiftool": "ExifTool 없음",
+        }
+        label = status_labels.get(status, status)
+        self._log.append(
+            f"[INFO] Explorer 메타 복구 진행 ({done}/{total}) {group_id[:8]}… {label}"
+        )
+
+    def _on_explorer_meta_repair_done(self, result: dict) -> None:
+        total = result.get("total", 0)
+        success = result.get("success", 0)
+        failed = result.get("failed", 0)
+        skipped = result.get("skipped", 0)
+        self._log.append(
+            f"[INFO] Explorer 메타 복구 완료 — 전체: {total} 성공: {success} 실패: {failed} 건너뜀: {skipped}"
+        )
+        for err in result.get("errors", [])[:5]:
+            self._log.append(f"[WARN] {err}")
 
         for done_gid in result.get("group_ids", []):
             self._refresh_gallery_item(done_gid)

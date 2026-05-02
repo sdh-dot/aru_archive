@@ -96,6 +96,7 @@ class DetailView(QWidget):
     sidecar_requested     = Signal(str)
     reindex_requested     = Signal()
     xmp_retry_requested   = Signal(str)
+    explorer_meta_repair_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -234,11 +235,16 @@ class DetailView(QWidget):
             "json_only / xmp_write_failed 상태에서 사용합니다."
         )
 
+        self._btn_explorer_meta = _btn(
+            "Explorer 메타 복구",
+            "Windows 탐색기용 제목, 태그, 만든 이를 다시 기록합니다."
+        )
+
         for b in [
             self._btn_read_meta, self._btn_pixiv_meta,
             self._btn_regen_thumb, self._btn_bmp,
             self._btn_gif, self._btn_sidecar,
-            self._btn_xmp_retry, self._btn_reindex,
+            self._btn_xmp_retry, self._btn_explorer_meta, self._btn_reindex,
         ]:
             action_vl.addWidget(b)
 
@@ -262,6 +268,9 @@ class DetailView(QWidget):
         )
         self._btn_xmp_retry  .clicked.connect(
             lambda: self._emit_if_selected(self.xmp_retry_requested)
+        )
+        self._btn_explorer_meta.clicked.connect(
+            self.explorer_meta_repair_requested.emit
         )
         self._btn_reindex    .clicked.connect(self.reindex_requested.emit)
 
@@ -322,7 +331,7 @@ class DetailView(QWidget):
         for b in [
             self._btn_read_meta, self._btn_pixiv_meta, self._btn_regen_thumb,
             self._btn_bmp, self._btn_gif, self._btn_sidecar,
-            self._btn_xmp_retry, self._btn_reindex,
+            self._btn_xmp_retry, self._btn_explorer_meta, self._btn_reindex,
         ]:
             b.setEnabled(False)
         self._pixiv_box.hide()
@@ -407,6 +416,7 @@ class DetailView(QWidget):
         self._btn_read_meta  .setEnabled(True)
         self._btn_regen_thumb.setEnabled(True)
         self._btn_reindex    .setEnabled(True)
+        self._btn_explorer_meta.setEnabled(True)
 
         # BMP → PNG
         bmp_ok = has_bmp and not has_managed
