@@ -5,6 +5,75 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.6.3] — 2026-05-02
+
+### Added
+
+**Tag pack mojibake import lint (PR #65)**
+- mojibake가 포함된 tag pack의 DB 재import를 차단하는 lint 도입.
+- strong 신호(`?-runs`, `replacement-char`, `underscore-placeholder`, `punctuation-heavy`) → import 전면 abort.
+- weak 신호(`latin1-mojibake`, `locale-mismatch`) → 해당 row skip + 경고.
+- 보호 source(`user_confirmed` / `built_in_pack:%` / `external:safebooru` / NULL) 무수정 유지.
+
+**Explorer metadata repair (PR #68)**
+- Windows Explorer가 인식 못 하거나 누락된 metadata를 다시 처리하는 repair action 추가.
+- `core/explorer_meta_repair.py` + `IntegrityRestoreHoldDialog` UI 진입점.
+- 성공 시 `metadata_sync_status='full'`, ExifTool 실패 시 `'xmp_write_failed'`로 기록.
+- 실제 파일 mutation 없음 — DB status field만 갱신.
+
+**Loading overlay/modal (PR #69)**
+- 장시간 작업 중 사용자에게 진행 상태를 안내하는 PyQt6 dialog 추가 (`app/views/loading_overlay_dialog.py`).
+- 주요 작업 흐름에 연결 — main window의 inbox scan / xmp retry / explorer metadata repair / duplicate check, workflow wizard의 scan / enrich / retag / preview / execute step.
+- 취소가 아닌 "백그라운드로 실행" 버튼 (hide만, 작업은 계속).
+- 4개 신규 thread 클래스 (`RichXmpRetryThread`, `ReindexThread`, `ExactDuplicateCheckThread`, `VisualDuplicateCheckThread`, `_LocalMetadataImportThread`).
+
+**DB reset safety guard (PR #71)**
+- 전체 DB 초기화 액션 2단계 안전장치 — 위험 안내 dialog + "전체 초기화" typed confirmation.
+- 자동 backup (`_before_reset_YYYYMMDD_HHMMSS.db` timestamp suffix) — 백업 path 충돌 시 거부.
+- dialog cancel / 잘못된 confirmation / 백업 실패 시 abort (DB 무변경).
+- 액션 라벨 `"DB 초기화"` → `"⚠ 전체 DB 초기화"` + 툴팁에 삭제 범위 명시.
+
+**Ruliweb comment source caption (PR #70)**
+- `aru-source-captioner` browser extension이 Ruliweb 게시글 read page 댓글/대댓글 영역에서도 출처 기입 지원.
+- 파일 첨부 시 image의 Aru Archive metadata(artwork_url 등)를 추출해 자동 caption 삽입.
+- "출처 추가" button (수동 backup) — 저장된 source 없으면 안내, 페이지 URL fallback 안 함.
+- 중복 삽입 방지 + 다른 출처 자동 덮어쓰기 금지 + maxLength 검사.
+
+### Changed
+
+**XMP/ExifTool encoding fix (PR #66)**
+- Windows Explorer / XMP 경로에서 한글·일본어 태그/제목/설명 인코딩 개선.
+- 파일 서명 기반 format sniffing (`_sniff_file_format`), UTF-16LE 직접 쓰기, ExifTool 우선 fallback, mismatch 시 XMP skip.
+- `core/exiftool.py`의 `_is_ascii_only` helper, non-ASCII XMP 필드 clear, XPKeywords 단일 string으로 변경.
+- `core/xmp_retry.py`에 `detect_header_extension_mismatch` 추가 — mismatch 시 retry skip.
+- enrichment 시작 전 missing file 조기 리턴.
+
+**DB startup/gallery query indexes (PR #67)**
+- 시작/갤러리 갱신 시 자주 사용되는 query를 위한 idempotent index 3개 추가:
+  - `idx_artwork_groups_indexed_at` on `artwork_groups(indexed_at DESC)`
+  - `idx_artwork_files_group_status` on `artwork_files(group_id, file_status)`
+  - `idx_artwork_files_group_role_page` on `artwork_files(group_id, file_role, page_index)`
+- `_ensure_startup_query_indexes()` helper — 기존 DB에서도 누락 인덱스를 idempotent하게 생성.
+- DB schema 변경 없음 (`CREATE INDEX IF NOT EXISTS` 사용).
+
+**Loading postprocess timing instrumentation (PR #72)**
+- `_TimingPhase` / `_log_phase` helper + `aru.timing` logger 추가.
+- 계측 phase: `loading.show/hide`, `gallery_refresh`, `sidebar_counts`, `detail_refresh`, `worker.done`, `postprocess.start/end`, `refresh_main.emit`.
+- 사후 로딩 병목 식별을 위한 timing 데이터 수집 — modal lifecycle 자체는 변경 없음.
+
+### Notes
+
+- 전체 DB 초기화의 선택형 세분화(캐시만 / 분류 결과만 / 사용자 사전만)는 미구현.
+- Loading modal lifecycle fix는 미구현 — PR #72의 timing 데이터 분석 후 별도 PR.
+- Postprocess 최적화 (`gallery_refresh` SQL 등)는 미구현.
+- duplicate awareness in classification은 미구현.
+- `retag_before_batch_preview` default=True는 미구현.
+- Step 6 Observation 저장은 미구현.
+- Browser extension store submission은 미진행.
+- Windows build packaging PR은 다음 단계.
+
+---
+
 ## [0.6.2] — 2026-05-02
 
 ### Added
