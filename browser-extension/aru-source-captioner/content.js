@@ -764,14 +764,21 @@
   // .common_img_button 위치 기준으로 button을 주입하므로 게시글 본문 textarea 등이
   // 잘못 매칭되더라도 wrapper에 .common_img_button이 없으면 영향 적다.
   const COMMENT_TEXTAREA_SELECTOR = [
+    // 일반 댓글
     'textarea[name="comment_input"]',
     'textarea[id="comment_input"]',
     'textarea[class~="comment_input"]',
-    'textarea[name^="comment_input"]',     // 대댓글: comment_input_<id>
+    'textarea[name^="comment_input"]',     // comment_input_<id>
     'textarea[id^="comment_input"]',
-    'textarea[name^="re_comment_input"]',  // 대댓글: re_comment_input_*
-    'textarea[id^="re_comment_input"]',
     'textarea[class*="comment_input"]',    // class에 comment_input 부분 매칭
+    // 대댓글 (Ruliweb: name="reply_input", class="common_input reply_input")
+    'textarea[name="reply_input"]',
+    'textarea[name^="reply_input"]',       // reply_input_<id>
+    'textarea[class~="reply_input"]',
+    'textarea[class*="reply_input"]',
+    // 다른 변형 패턴 (보존)
+    'textarea[name^="re_comment_input"]',
+    'textarea[id^="re_comment_input"]',
     'textarea[class*="re_comment"]',
   ].join(", ");
   const COMMENT_IMG_BUTTON_SELECTOR = ".common_img_button";
