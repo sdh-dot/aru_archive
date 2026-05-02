@@ -111,13 +111,16 @@ class TestStepNavigation:
         wizard._go_to_step(0)   # restore
 
     def test_step_title_updates_on_navigation(self, wizard):
+        # 사용자에게 보이는 번호 기준 (hidden step 인 internal idx 5 가 빠진 1..8 numbering).
+        # internal idx 0 → visible "단계 1 / 8"
+        # internal idx 4 → visible "단계 5 / 8"
         wizard._go_to_step(0)
         title_0 = wizard._step_title.text()
         wizard._go_to_step(4)
         title_4 = wizard._step_title.text()
         assert title_0 != title_4
-        assert "Step 1" in title_0
-        assert "Step 5" in title_4
+        assert "단계 1 / 8" in title_0
+        assert "단계 5 / 8" in title_4
         wizard._go_to_step(0)   # restore
 
 
