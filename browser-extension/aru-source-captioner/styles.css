@@ -12,3 +12,35 @@
  * 사용자 본문과의 시각적 충돌을 막기 위해 모든 셀렉터는 위 클래스에 한정합니다.
  * 전역 셀렉터(예: p, a 등 단독)는 사용하지 않습니다.
  */
+
+/*
+ * Read 페이지 댓글 영역의 "출처 추가" 버튼 스타일.
+ *
+ * 사이트 기본 스타일을 최대한 따르되, 사용자 본문/사이트 위젯과 시각적으로
+ * 분리되도록 최소한의 표시만 추가한다. 모든 셀렉터는 본 클래스에 한정한다.
+ */
+.aru-source-caption-comment-button {
+  margin-left: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid #b3b3b3;
+  border-radius: 3px;
+  background: #f5f5f5;
+  color: #333;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.aru-source-caption-comment-button:hover {
+  background: #e9e9e9;
+}
+
+.aru-source-caption-comment-button:active {
+  background: #dcdcdc;
+}
+
+.aru-source-caption-comment-button:focus {
+  outline: 2px solid #5b9dd9;
+  outline-offset: 1px;
+}
