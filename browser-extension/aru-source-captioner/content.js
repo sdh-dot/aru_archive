@@ -691,22 +691,54 @@
   //   - 한 wrapper당 한 번만 주입 (data-aru-source-comment-bound guard).
   //   - 기존 onclick / onchange / onkeydown / .common_img_button 이벤트는 절대 손대지 않는다.
 
-  const COMMENT_WRAPPER_SELECTOR = ".border_box.after_clear";
-  const COMMENT_TEXTAREA_SELECTOR = 'textarea[name="comment_input"]';
+  const COMMENT_TEXTAREA_SELECTOR =
+    'textarea[name="comment_input"], textarea#comment_input, textarea.comment_input';
+  const COMMENT_WRAPPER_FALLBACK_SELECTOR =
+    ".border_box, .border_box.after_clear, .common_input_wrapper, form, fieldset";
   const COMMENT_IMG_BUTTON_SELECTOR = ".common_img_button";
   const COMMENT_BOUND_DATASET_KEY = "aruSourceCommentBound";
   const COMMENT_BUTTON_CLASS = "aru-source-caption-comment-button";
   const COMMENT_SOURCE_PREFIX = "출처:";
 
+  // 진단: textarea 우선 탐색 후 wrapper를 closest()로 추정한다. 사용자가 제공한
+  // HTML 샘플과 실제 Ruliweb DOM 구조가 다를 가능성에 대비해 다양한 fallback
+  // selector를 시도하고, 단계별 결과를 콘솔에 남겨 현장 디버깅을 가능케 한다.
   function findCommentInputWrappers() {
-    const wrappers = document.querySelectorAll(COMMENT_WRAPPER_SELECTOR);
-    const out = [];
-    for (const w of wrappers) {
-      if (!(w instanceof HTMLElement)) continue;
-      if (!w.querySelector(COMMENT_TEXTAREA_SELECTOR)) continue;
-      out.push(w);
+    const textareas = document.querySelectorAll(COMMENT_TEXTAREA_SELECTOR);
+    console.log(
+      `[Aru Source Captioner] scan: found ${textareas.length} comment textarea candidates`
+    );
+
+    const wrappers = new Set();
+    for (const textarea of textareas) {
+      if (!(textarea instanceof HTMLTextAreaElement)) continue;
+      const wrapper =
+        textarea.closest(COMMENT_WRAPPER_FALLBACK_SELECTOR) ||
+        textarea.parentElement?.parentElement ||
+        textarea.parentElement;
+      if (wrapper instanceof HTMLElement) {
+        wrappers.add(wrapper);
+      }
     }
-    return out;
+
+    const result = [];
+    for (const wrapper of wrappers) {
+      const hasTextarea = wrapper.querySelector(COMMENT_TEXTAREA_SELECTOR);
+      if (!hasTextarea) continue;
+      const imgButton = wrapper.querySelector(COMMENT_IMG_BUTTON_SELECTOR);
+      result.push(wrapper);
+      if (!imgButton) {
+        console.log(
+          "[Aru Source Captioner] scan: wrapper has textarea but no .common_img_button — will use textarea position",
+          wrapper
+        );
+      }
+    }
+
+    console.log(
+      `[Aru Source Captioner] scan: ${result.length} comment wrappers identified`
+    );
+    return result;
   }
 
   function buildCommentSourceText(sourceUrl) {
@@ -789,14 +821,24 @@
   function injectCommentSourceButton(wrapper) {
     if (!(wrapper instanceof HTMLElement)) return false;
 
-    const textarea = wrapper.querySelector(COMMENT_TEXTAREA_SELECTOR);
-    if (!(textarea instanceof HTMLTextAreaElement)) return false;
+    if (wrapper.dataset[COMMENT_BOUND_DATASET_KEY] === "1") {
+      console.log("[Aru Source Captioner] inject: skipped (already bound)", wrapper);
+      return false;
+    }
 
-    const imgButton = wrapper.querySelector(COMMENT_IMG_BUTTON_SELECTOR);
-    if (!(imgButton instanceof HTMLElement)) return false;
+    const textarea = wrapper.querySelector(COMMENT_TEXTAREA_SELECTOR);
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      console.log("[Aru Source Captioner] inject: skipped (no textarea)", wrapper);
+      return false;
+    }
 
     // 이미 동일 wrapper에 주입된 적이 있으면 (DOM 재구성 등) 추가 주입 방지.
-    if (wrapper.querySelector("." + COMMENT_BUTTON_CLASS)) return false;
+    if (wrapper.querySelector("." + COMMENT_BUTTON_CLASS)) {
+      console.log("[Aru Source Captioner] inject: skipped (button already present)", wrapper);
+      return false;
+    }
+
+    const imgButton = wrapper.querySelector(COMMENT_IMG_BUTTON_SELECTOR);
 
     const button = document.createElement("button");
     button.type = "button";
@@ -813,23 +855,46 @@
     });
 
     try {
-      imgButton.insertAdjacentElement("afterend", button);
+      // 1순위: .common_img_button 옆에 삽입.
+      // 2순위: textarea 직후에 삽입 (Ruliweb DOM 변형 대응).
+      if (imgButton instanceof HTMLElement) {
+        imgButton.after(button);
+      } else {
+        textarea.after(button);
+        console.log(
+          "[Aru Source Captioner] inject: used textarea fallback (no .common_img_button)",
+          { wrapper, textarea }
+        );
+      }
     } catch (err) {
       console.debug("[Aru Source Captioner] comment button insert failed:", err);
       return false;
     }
+
+    console.log("[Aru Source Captioner] inject: button added", { wrapper });
     return true;
   }
 
   function setupCommentSourceCaptioner() {
     if (!isReadPage()) return;
     const wrappers = findCommentInputWrappers();
+    let injected = 0;
     for (const wrapper of wrappers) {
       if (wrapper.dataset[COMMENT_BOUND_DATASET_KEY] === "1") continue;
       const ok = injectCommentSourceButton(wrapper);
       if (ok) {
         wrapper.dataset[COMMENT_BOUND_DATASET_KEY] = "1";
+        injected++;
       }
+    }
+    if (wrappers.length === 0) {
+      console.log(
+        "[Aru Source Captioner] setup: no comment wrapper found yet (may load later)"
+      );
+    } else if (injected > 0) {
+      console.log(
+        `[Aru Source Captioner] setup: injected ${injected} new buttons`
+      );
     }
   }
 
@@ -870,6 +935,30 @@
     if (document.body) {
       commentObserver.observe(document.body, { childList: true, subtree: true });
     }
+
+    // Polling fallback: MutationObserver만으로는 일부 동적 로딩 케이스에서
+    // 댓글 영역을 놓칠 수 있다. 15초 동안 500ms 간격으로 한 번 더 scan을 돌려
+    // 네트워크 지연/AJAX 로딩으로 늦게 도착하는 댓글 wrapper를 잡는다.
+    let attempts = 0;
+    const maxAttempts = 30;  // 30 * 500ms = 15s
+    const pollIntervalId = setInterval(() => {
+      attempts++;
+      try {
+        setupCommentSourceCaptioner();
+      } catch (err) {
+        console.debug("[Aru Source Captioner] poll setup failed:", err);
+      }
+      if (attempts >= maxAttempts) {
+        clearInterval(pollIntervalId);
+        console.log(
+          "[Aru Source Captioner] poll: stopping after 15s (still scanning via MutationObserver)"
+        );
+      }
+    }, 500);
+
+    console.log(
+      "[Aru Source Captioner] observer: started (polling 15s + MutationObserver)"
+    );
     return commentObserver;
   }
 
