@@ -119,6 +119,13 @@ def enrich_file_from_pixiv(
     page_index  = row["page_index"] or 0
     _file_basename = Path(file_path).name
 
+    if not Path(file_path).exists():
+        _set_file_missing(conn, file_id)
+        return _finish(
+            "missing_file", None,
+            f"file missing on disk: {_file_basename}",
+        )
+
     # 2. 파일명에서 artwork_id 추출
     parsed = parse_pixiv_filename(file_path)
     _mark("parse_filename")
@@ -252,6 +259,14 @@ def _set_file_embedded(conn: sqlite3.Connection, file_id: str, embedded: int) ->
     )
 
 
+def _set_file_missing(conn: sqlite3.Connection, file_id: str) -> None:
+    conn.execute(
+        "UPDATE artwork_files SET file_status = 'missing' WHERE file_id = ?",
+        (file_id,),
+    )
+    conn.commit()
+
+
 def _update_group_from_meta(
     conn: sqlite3.Connection,
     group_id: str,
@@ -356,12 +371,13 @@ def build_enrichment_queue(
         )
 
     sql = (
-        "SELECT af.file_id FROM artwork_files af "
+        "SELECT af.file_id, af.file_path FROM artwork_files af "
         "JOIN artwork_groups ag ON ag.group_id = af.group_id "
         f"WHERE {status_filter} "
         "AND (ag.artwork_id IS NOT NULL AND ag.artwork_id != '') "
         "AND af.file_role = 'original' "
+        "AND af.file_status = 'present' "
         "ORDER BY ag.indexed_at DESC"
     )
     rows = conn.execute(sql).fetchall()
-    return [r["file_id"] for r in rows]
+    return [r["file_id"] for r in rows if Path(r["file_path"]).exists()]

@@ -135,7 +135,26 @@ def retry_xmp_for_group(
     metadata  = _read_metadata_for_xmp(conn, group_id)
     file_path = target["file_path"]
 
-    from core.metadata_writer import XmpWriteError, write_xmp_metadata_with_exiftool
+    from core.metadata_writer import (
+        XmpWriteError,
+        detect_header_extension_mismatch,
+        write_xmp_metadata_with_exiftool,
+    )
+
+    mismatch = detect_header_extension_mismatch(file_path)
+    if mismatch is not None:
+        path_fmt, actual_fmt = mismatch
+        logger.warning(
+            "XMP skipped due to header/extension mismatch (group=%s): %s ext=%s actual=%s",
+            group_id, file_path, path_fmt, actual_fmt,
+        )
+        return {
+            "status": "skipped",
+            "message": (
+                f"header/extension mismatch: ext={path_fmt} actual={actual_fmt} "
+                f"({file_path})"
+            ),
+        }
 
     try:
         ok = write_xmp_metadata_with_exiftool(file_path, metadata, exiftool_path)

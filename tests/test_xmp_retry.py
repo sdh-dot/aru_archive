@@ -263,6 +263,22 @@ def test_retry_group_xmp_write_failed_can_recover_to_full():
     assert row[0] == "full"
 
 
+def test_retry_group_header_extension_mismatch_is_skipped_and_keeps_status():
+    conn = _make_conn()
+    _insert_group(conn, status="json_only")
+    _insert_file(conn, file_format="jpg", file_path="/tmp/mismatch.jpg")
+    with patch(
+        "core.metadata_writer.detect_header_extension_mismatch",
+        return_value=("jpg", "webp"),
+    ):
+        result = retry_xmp_for_group(conn, "g1", exiftool_path="/usr/bin/exiftool")
+    assert result["status"] == "skipped"
+    row = conn.execute(
+        "SELECT metadata_sync_status FROM artwork_groups WHERE group_id='g1'"
+    ).fetchone()
+    assert row[0] == "json_only"
+
+
 # ---------------------------------------------------------------------------
 # retry_xmp_for_all
 # ---------------------------------------------------------------------------
