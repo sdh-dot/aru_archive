@@ -1,0 +1,141 @@
+{
+  "pack_id": "trickcal_revive",
+  "name": "Trickcal Re:VIVE",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Trickcal Re:VIVE",
+      "media_type": "game",
+      "aliases": [
+        "Trickcal Re:VIVE",
+        "Trickcal: Re:VIVE",
+        "Trickcal Re:vive",
+        "Trickcal Revive",
+        "trickcal revive",
+        "Trickcal",
+        "trickcal",
+        "트릭컬 리바이브",
+        "트릭컬 RE:VIVE",
+        "트릭컬",
+        "トリッカル・もちもちほっペ大作戦",
+        "トリッカル"
+      ],
+      "localizations": {
+        "ko": "트릭컬 리바이브",
+        "ja": "トリッカル・もちもちほっペ大作戦",
+        "en": "Trickcal Re:VIVE"
+      }
+    }
+  ],
+  "characters": [
+    {
+      "canonical": "에르핀",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["에르핀"],
+      "localizations": { "ko": "에르핀" }
+    },
+    {
+      "canonical": "에슈르",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["에슈르"],
+      "localizations": { "ko": "에슈르" }
+    },
+    {
+      "canonical": "네르",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["네르"],
+      "localizations": { "ko": "네르" }
+    },
+    {
+      "canonical": "버터",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["버터"],
+      "localizations": { "ko": "버터" }
+    },
+    {
+      "canonical": "코미",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["코미"],
+      "localizations": { "ko": "코미" }
+    },
+    {
+      "canonical": "요미",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["요미"],
+      "localizations": { "ko": "요미" }
+    },
+    {
+      "canonical": "클로에",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["클로에"],
+      "localizations": { "ko": "클로에" }
+    },
+    {
+      "canonical": "델리아",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["델리아"],
+      "localizations": { "ko": "델리아" }
+    },
+    {
+      "canonical": "아라그니아",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["아라그니아"],
+      "localizations": { "ko": "아라그니아" }
+    },
+    {
+      "canonical": "리코타",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["리코타"],
+      "localizations": { "ko": "리코타" }
+    },
+    {
+      "canonical": "이드",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["이드"],
+      "localizations": { "ko": "이드" }
+    },
+    {
+      "canonical": "아멜리아",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["아멜리아"],
+      "localizations": { "ko": "아멜리아" }
+    },
+    {
+      "canonical": "티그",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["티그"],
+      "localizations": { "ko": "티그" }
+    },
+    {
+      "canonical": "하이디",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["하이디"],
+      "localizations": { "ko": "하이디" }
+    },
+    {
+      "canonical": "시저",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["시저"],
+      "localizations": { "ko": "시저" }
+    },
+    {
+      "canonical": "헤일리",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["헤일리"],
+      "localizations": { "ko": "헤일리" }
+    },
+    {
+      "canonical": "아사나",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["아사나", "Asana"],
+      "localizations": { "ko": "아사나", "en": "Asana" }
+    },
+    {
+      "canonical": "뮤트",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["뮤트", "Mute"],
+      "localizations": { "ko": "뮤트", "en": "Mute" }
+    }
+  ]
+}
