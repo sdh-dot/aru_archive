@@ -52,23 +52,48 @@
 
   function loadConfig() {
     return new Promise((resolve) => {
-      chrome.storage.sync.get(null, (items) => {
-        if (chrome.runtime.lastError) {
+      // Defensive: chrome.storage.sync may be undefined in the content script
+      // context if the "storage" permission was revoked at runtime, if the
+      // extension was reloaded but the page wasn't, or if a transient race
+      // strips chrome.storage before init runs. In any such case we fall back
+      // to defaults so init() never throws and the rest of the captioner
+      // (button injection, observers) keeps working.
+      try {
+        if (
+          typeof chrome === "undefined" ||
+          typeof chrome?.storage?.sync?.get !== "function"
+        ) {
           console.warn(
-            "[Aru Source Captioner] storage.get failed, falling back to defaults:",
-            chrome.runtime.lastError.message
+            "[Aru Source Captioner] chrome.storage.sync unavailable — using default options"
           );
           resolve({ ...DEFAULT_OPTIONS });
           return;
         }
-        const merged = { ...DEFAULT_OPTIONS };
-        for (const key of Object.keys(DEFAULT_OPTIONS)) {
-          if (key in items) {
-            merged[key] = items[key];
+        chrome.storage.sync.get(null, (items) => {
+          if (chrome.runtime?.lastError) {
+            console.warn(
+              "[Aru Source Captioner] storage.get failed, falling back to defaults:",
+              chrome.runtime.lastError.message
+            );
+            resolve({ ...DEFAULT_OPTIONS });
+            return;
           }
-        }
-        resolve(merged);
-      });
+          const merged = { ...DEFAULT_OPTIONS };
+          const safeItems = items && typeof items === "object" ? items : {};
+          for (const key of Object.keys(DEFAULT_OPTIONS)) {
+            if (key in safeItems) {
+              merged[key] = safeItems[key];
+            }
+          }
+          resolve(merged);
+        });
+      } catch (err) {
+        console.warn(
+          "[Aru Source Captioner] loadConfig threw, falling back to defaults:",
+          err
+        );
+        resolve({ ...DEFAULT_OPTIONS });
+      }
     });
   }
 
