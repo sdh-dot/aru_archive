@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -57,6 +58,43 @@ from app.views.database_reset_confirm_dialog import DatabaseResetConfirmDialog
 from db.database import backup_database, initialize_database
 
 logger = logging.getLogger(__name__)
+
+# ------------------------------------------------------------------
+# Timing instrumentation helpers
+# ------------------------------------------------------------------
+
+_TIMING_LOG = logging.getLogger("aru.timing")
+
+
+def _log_phase(phase: str, elapsed_ms: float, **extra) -> None:
+    """Emit a [TIMING] line for a single phase. Never raises."""
+    try:
+        suffix = " ".join(f"{k}={v}" for k, v in extra.items())
+        msg = f"[TIMING] {phase} elapsed_ms={elapsed_ms:.1f}"
+        if suffix:
+            msg += " " + suffix
+        _TIMING_LOG.debug(msg)
+    except Exception:
+        pass  # timing must never break the app
+
+
+class _TimingPhase:
+    """Context manager that logs elapsed time for a named phase."""
+
+    def __init__(self, phase: str, **extra):
+        self.phase = phase
+        self.extra = extra
+        self.t0 = 0.0
+
+    def __enter__(self):
+        self.t0 = time.perf_counter()
+        return self
+
+    def __exit__(self, *exc):
+        elapsed_ms = (time.perf_counter() - self.t0) * 1000
+        _log_phase(self.phase, elapsed_ms, **self.extra)
+        return False  # never swallow exceptions
+
 
 # ------------------------------------------------------------------
 # DB 쿼리 상수
@@ -778,6 +816,7 @@ class MainWindow(QMainWindow):
         total: Optional[int] = None,
         current: int = 0,
     ) -> None:
+        _t0 = time.perf_counter()
         dialog = self._ensure_loading_dialog()
         dialog.set_title_text(title)
         dialog.set_message_text(message)
@@ -790,6 +829,7 @@ class MainWindow(QMainWindow):
         dialog.raise_()
         dialog.activateWindow()
         QApplication.processEvents()
+        _log_phase("loading.show", (time.perf_counter() - _t0) * 1000, title=title)
 
     def _update_loading(
         self,
@@ -812,7 +852,9 @@ class MainWindow(QMainWindow):
     def _hide_loading(self) -> None:
         if self._loading_dialog is None:
             return
+        _t0 = time.perf_counter()
         self._loading_dialog.hide()
+        _log_phase("loading.hide", (time.perf_counter() - _t0) * 1000)
 
     def _mirror_loading_log(self, message: str) -> None:
         dialog = self._loading_dialog
@@ -1156,10 +1198,12 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _refresh_gallery(self) -> None:
+        _t0 = time.perf_counter()
         cat = self._current_category
         if cat == "no_metadata":
             self._stack.setCurrentIndex(_NO_META_IDX)
             self._load_no_metadata_panel()
+            _log_phase("gallery_refresh", (time.perf_counter() - _t0) * 1000, cat=cat)
             return
 
         self._stack.setCurrentIndex(_GALLERY_IDX)
@@ -1179,6 +1223,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             logger.warning("갤러리 로드 실패: %s", exc)
             self._gallery.load_groups([])
+        _log_phase("gallery_refresh", (time.perf_counter() - _t0) * 1000, cat=cat)
 
     def _refresh_gallery_item(self, group_id: str) -> None:
         sql = _GALLERY_BASE + " AND g.group_id = ?"
@@ -1192,6 +1237,7 @@ class MainWindow(QMainWindow):
             pass
 
     def _refresh_counts(self) -> None:
+        _t0 = time.perf_counter()
         try:
             conn   = self._get_conn()
             counts = {
@@ -1202,6 +1248,7 @@ class MainWindow(QMainWindow):
             self._sidebar.update_counts(counts)
         except Exception as exc:
             logger.warning("카운트 로드 실패: %s", exc)
+        _log_phase("sidebar_counts", (time.perf_counter() - _t0) * 1000)
 
     def _load_no_metadata_panel(self) -> None:
         try:
@@ -1217,6 +1264,7 @@ class MainWindow(QMainWindow):
             self._no_meta.load_queue([])
 
     def _refresh_detail(self, group_id: str) -> None:
+        _t0 = time.perf_counter()
         try:
             conn = self._get_conn()
             g    = conn.execute(
@@ -1233,6 +1281,7 @@ class MainWindow(QMainWindow):
                 self._detail.show_group(dict(g), [dict(f) for f in files])
         except Exception as exc:
             logger.warning("상세 정보 로드 실패: %s", exc)
+        _log_phase("detail_refresh", (time.perf_counter() - _t0) * 1000)
 
     # ------------------------------------------------------------------
     # 툴바 핸들러
@@ -2730,14 +2779,18 @@ class MainWindow(QMainWindow):
         self._scan_thread.start()
 
     def _on_scan_done(self, result: ScanResult) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="scan")
         self._act_inbox_scan.setEnabled(True)
         self._hide_loading()
         self._log.append(
             f"[INFO] 스캔 완료 — 신규: {result.new}, "
             f"스킵: {result.skipped}, 실패: {result.failed}"
         )
+        _log_phase("postprocess.start", 0.0, op="scan")
         self._refresh_gallery()
         self._refresh_counts()
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="scan")
 
     def _on_reindex(self) -> None:
         group_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
@@ -2785,12 +2838,15 @@ class MainWindow(QMainWindow):
         self._reindex_thread = thread
 
     def _on_reindex_done(self, result: dict) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="reindex")
         self._hide_loading()
         group_ids = result.get("group_ids", [])
         if not result.get("success"):
             self._log.append(f"[ERROR] 재색인 실패: {result.get('error', '')}")
             return
 
+        _log_phase("postprocess.start", 0.0, op="reindex")
         total = len(group_ids)
         if total == 1 and group_ids:
             self._refresh_gallery_item(group_ids[0])
@@ -2801,6 +2857,7 @@ class MainWindow(QMainWindow):
             if current_id:
                 self._refresh_detail(current_id)
         self._refresh_counts()
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="reindex")
         if total > 1:
             self._log.append(f"[INFO] DB 재색인 완료: {total}개 그룹")
 
@@ -2907,6 +2964,8 @@ class MainWindow(QMainWindow):
         )
 
     def _on_xmp_done(self, result: dict) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="xmp")
         self._hide_loading()
         mode = result.get("mode", "single")
         if mode == "single":
@@ -2933,12 +2992,14 @@ class MainWindow(QMainWindow):
             for err in result.get("errors", [])[:5]:
                 self._log.append(f"[WARN] {err}")
 
+        _log_phase("postprocess.start", 0.0, op="xmp")
         for done_gid in result.get("group_ids", []):
             self._refresh_gallery_item(done_gid)
         gid = self._gallery.get_selected_group_id()
         if gid:
             self._refresh_detail(gid)
         self._refresh_counts()
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="xmp")
 
     def _on_explorer_meta_repair_selected(self) -> None:
         group_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
@@ -3004,6 +3065,8 @@ class MainWindow(QMainWindow):
         )
 
     def _on_explorer_meta_repair_done(self, result: dict) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="explorer_meta_repair")
         self._hide_loading()
 
         total = result.get("total", 0)
@@ -3016,12 +3079,14 @@ class MainWindow(QMainWindow):
         for err in result.get("errors", [])[:5]:
             self._log.append(f"[WARN] {err}")
 
+        _log_phase("postprocess.start", 0.0, op="explorer_meta_repair")
         for done_gid in result.get("group_ids", []):
             self._refresh_gallery_item(done_gid)
         gid = self._gallery.get_selected_group_id()
         if gid:
             self._refresh_detail(gid)
         self._refresh_counts()
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="explorer_meta_repair")
 
     def _on_exact_duplicate_check(self) -> None:
         try:

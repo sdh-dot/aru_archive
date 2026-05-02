@@ -144,6 +144,18 @@ def _make_step8(app, conn_factory=None):
             # stub: wizard step navigation not needed in unit tests
             pass
 
+        def _hide_loading(self):
+            # stub: loading dialog not used in unit tests
+            pass
+
+        def _update_loading(self, **kwargs):
+            # stub: loading dialog not used in unit tests
+            pass
+
+        def _mirror_loading_log(self, message: str):
+            # stub: no-op in unit tests
+            pass
+
     stub = _WizardStub()
     step = _Step8Execute(stub)
     return step
