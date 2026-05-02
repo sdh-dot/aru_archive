@@ -81,5 +81,7 @@ build/mojibake_*/
 temp/
 
 # ===== Build artifacts =====
-dist/
-release/
+# Anchored with leading '/' so they only match the top-level build output dirs,
+# not subpaths like docs/release/.
+/dist/
+/release/
