@@ -649,6 +649,230 @@
     return p;
   }
 
+  // ---------------- 페이지 종류 감지 ----------------
+  //
+  // 글쓰기 페이지(write)와 일반 게시글 조회 페이지(read)는 manifest matches가 모두
+  // 매칭되지만 동작이 다르다. URL pathname으로 명확히 분기한다.
+  //
+  //   write: /community/board/{boardId}/write 등
+  //   read:  /community/board/{boardId}/read/{postId}
+  //
+  // read 페이지에서는 write용 file input / editor observer를 띄우지 않고,
+  // 댓글 영역에 "출처 추가" 버튼만 주입한다.
+
+  const READ_PATH_PATTERN = /^\/community\/board\/[^/]+\/read\/[^/?]+/;
+
+  function isReadPage() {
+    try {
+      return READ_PATH_PATTERN.test(location.pathname);
+    } catch {
+      return false;
+    }
+  }
+
+  // 글쓰기 페이지는 별도 selector 검사 없이 isReadPage()의 음수로 정의한다.
+  // (manifest matches가 이미 루리웹 게시판으로 좁혀져 있다.)
+
+  // ---------------- 댓글 영역 출처 버튼 (read 페이지) ----------------
+  //
+  // 댓글 textarea(textarea[name="comment_input"])를 가진 .border_box.after_clear
+  // wrapper를 찾아 .common_img_button 바로 다음에 "출처 추가" 버튼을 주입한다.
+  //
+  // 정책:
+  //   - 출처 URL은 현재 read 페이지의 location.href를 사용한다 (게시글 자체가 출처).
+  //   - 삽입 텍스트 형식: "출처: {url}\n\n" — 마지막 빈 줄을 두어 사용자가 그 아래
+  //     댓글 본문을 바로 이어 작성할 수 있게 한다.
+  //   - 빈 textarea: 출처 텍스트만 삽입.
+  //   - 기존 내용 있음: existing.trimEnd() + "\n\n" + 출처 텍스트.
+  //   - 동일 출처가 이미 있으면 skip (중복 방지).
+  //   - 다른 출처 라인("출처: ..." 다른 URL)이 이미 있으면 skip (자동 덮어쓰기 금지).
+  //   - textarea.maxLength 초과 시 skip.
+  //   - 커서를 마지막 빈 줄에 위치시키고 input/change 이벤트 dispatch.
+  //   - 한 wrapper당 한 번만 주입 (data-aru-source-comment-bound guard).
+  //   - 기존 onclick / onchange / onkeydown / .common_img_button 이벤트는 절대 손대지 않는다.
+
+  const COMMENT_WRAPPER_SELECTOR = ".border_box.after_clear";
+  const COMMENT_TEXTAREA_SELECTOR = 'textarea[name="comment_input"]';
+  const COMMENT_IMG_BUTTON_SELECTOR = ".common_img_button";
+  const COMMENT_BOUND_DATASET_KEY = "aruSourceCommentBound";
+  const COMMENT_BUTTON_CLASS = "aru-source-caption-comment-button";
+  const COMMENT_SOURCE_PREFIX = "출처:";
+
+  function findCommentInputWrappers() {
+    const wrappers = document.querySelectorAll(COMMENT_WRAPPER_SELECTOR);
+    const out = [];
+    for (const w of wrappers) {
+      if (!(w instanceof HTMLElement)) continue;
+      if (!w.querySelector(COMMENT_TEXTAREA_SELECTOR)) continue;
+      out.push(w);
+    }
+    return out;
+  }
+
+  function buildCommentSourceText(sourceUrl) {
+    return `${COMMENT_SOURCE_PREFIX} ${sourceUrl}\n\n`;
+  }
+
+  function logCommentInsertSkip(reason, detail) {
+    // 사용자 페이지 콘솔 오염을 피하기 위해 console.debug만 사용한다.
+    console.debug("[Aru Source Captioner] comment insert skipped:", reason, detail || "");
+  }
+
+  function insertSourceIntoCommentTextarea(textarea, sourceText) {
+    if (!(textarea instanceof HTMLTextAreaElement)) return false;
+
+    const existing = typeof textarea.value === "string" ? textarea.value : "";
+    const sourceLine = sourceText.split("\n")[0];  // "출처: {url}"
+
+    // 동일 출처 중복 방지.
+    if (existing.includes(sourceLine)) {
+      try { textarea.focus(); } catch { /* noop */ }
+      logCommentInsertSkip("duplicate_source_line");
+      return false;
+    }
+
+    // 다른 출처가 이미 존재하면 자동 덮어쓰기 금지.
+    if (/(^|\n)\s*출처\s*:\s*\S/.test(existing)) {
+      try { textarea.focus(); } catch { /* noop */ }
+      logCommentInsertSkip("other_source_present");
+      return false;
+    }
+
+    let newValue;
+    if (existing.trim().length === 0) {
+      newValue = sourceText;
+    } else {
+      newValue = existing.replace(/\s+$/u, "") + "\n\n" + sourceText;
+    }
+
+    const maxLen = typeof textarea.maxLength === "number" ? textarea.maxLength : -1;
+    if (maxLen > 0 && newValue.length > maxLen) {
+      logCommentInsertSkip("maxlength_exceeded", { maxLen, newLen: newValue.length });
+      return false;
+    }
+
+    textarea.value = newValue;
+
+    const cursorPos = newValue.length;
+    try {
+      textarea.focus();
+      textarea.setSelectionRange(cursorPos, cursorPos);
+    } catch {
+      // 일부 브라우저/상태에서 setSelectionRange가 throw할 수 있다 — 무시.
+    }
+
+    // 사이트가 textarea 변화를 감지할 수 있도록 표준 이벤트 dispatch.
+    try {
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      textarea.dispatchEvent(new Event("change", { bubbles: true }));
+    } catch (err) {
+      console.debug("[Aru Source Captioner] event dispatch failed:", err);
+    }
+
+    return true;
+  }
+
+  function handleCommentSourceButtonClick(textarea) {
+    if (!(textarea instanceof HTMLTextAreaElement)) return;
+    let sourceUrl;
+    try {
+      sourceUrl = location.href;
+    } catch {
+      return;
+    }
+    if (typeof sourceUrl !== "string" || sourceUrl.length === 0) return;
+
+    const sourceText = buildCommentSourceText(sourceUrl);
+    insertSourceIntoCommentTextarea(textarea, sourceText);
+  }
+
+  function injectCommentSourceButton(wrapper) {
+    if (!(wrapper instanceof HTMLElement)) return false;
+
+    const textarea = wrapper.querySelector(COMMENT_TEXTAREA_SELECTOR);
+    if (!(textarea instanceof HTMLTextAreaElement)) return false;
+
+    const imgButton = wrapper.querySelector(COMMENT_IMG_BUTTON_SELECTOR);
+    if (!(imgButton instanceof HTMLElement)) return false;
+
+    // 이미 동일 wrapper에 주입된 적이 있으면 (DOM 재구성 등) 추가 주입 방지.
+    if (wrapper.querySelector("." + COMMENT_BUTTON_CLASS)) return false;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = COMMENT_BUTTON_CLASS;
+    button.textContent = "출처 추가";
+    button.title = "현재 게시글 URL을 댓글에 출처로 추가합니다";
+    button.dataset.aruSourceCommentButton = "1";
+
+    button.addEventListener("click", (ev) => {
+      // 사이트의 form submit / 다른 핸들러 트리거를 막는다.
+      try { ev.preventDefault(); } catch { /* noop */ }
+      try { ev.stopPropagation(); } catch { /* noop */ }
+      handleCommentSourceButtonClick(textarea);
+    });
+
+    try {
+      imgButton.insertAdjacentElement("afterend", button);
+    } catch (err) {
+      console.debug("[Aru Source Captioner] comment button insert failed:", err);
+      return false;
+    }
+    return true;
+  }
+
+  function setupCommentSourceCaptioner() {
+    if (!isReadPage()) return;
+    const wrappers = findCommentInputWrappers();
+    for (const wrapper of wrappers) {
+      if (wrapper.dataset[COMMENT_BOUND_DATASET_KEY] === "1") continue;
+      const ok = injectCommentSourceButton(wrapper);
+      if (ok) {
+        wrapper.dataset[COMMENT_BOUND_DATASET_KEY] = "1";
+      }
+    }
+  }
+
+  let commentObserver = null;
+  let commentObserverScheduled = false;
+
+  function scheduleCommentSetup() {
+    if (commentObserverScheduled) return;
+    commentObserverScheduled = true;
+    // microtask로 모아서 단일 실행 — MutationObserver 폭주 방지.
+    Promise.resolve().then(() => {
+      commentObserverScheduled = false;
+      try {
+        setupCommentSourceCaptioner();
+      } catch (err) {
+        console.debug("[Aru Source Captioner] comment setup failed:", err);
+      }
+    });
+  }
+
+  function startCommentObserver() {
+    if (!isReadPage()) return null;
+    if (commentObserver) return commentObserver;
+
+    commentObserver = new MutationObserver((mutations) => {
+      // 우리가 주입한 버튼 / dataset 변경은 무한 루프 위험이 있으니
+      // 단순히 추가 노드 발생 여부만 확인하고 idempotent setup을 schedule한다.
+      // dataset.aruSourceCommentBound guard가 중복 주입을 막는다.
+      for (const mut of mutations) {
+        if (mut.type !== "childList") continue;
+        if (mut.addedNodes && mut.addedNodes.length > 0) {
+          scheduleCommentSetup();
+          return;
+        }
+      }
+    });
+
+    if (document.body) {
+      commentObserver.observe(document.body, { childList: true, subtree: true });
+    }
+    return commentObserver;
+  }
+
   // ---------------- 부트스트랩 ----------------
 
   async function init() {
@@ -656,6 +880,18 @@
 
     if (!config.enabled) {
       console.info("[Aru Source Captioner] disabled — skipping content script");
+      return;
+    }
+
+    // 페이지 종류별로 분기:
+    //   - read 페이지: 댓글 영역 "출처 추가" 버튼만 주입. 글쓰기용 editor / file input 로직은 띄우지 않는다.
+    //   - write 페이지(=non-read): 기존 글쓰기 캡션 자동 삽입 동작 그대로 유지.
+    if (isReadPage()) {
+      setupCommentSourceCaptioner();
+      startCommentObserver();
+      console.info(
+        "[Aru Source Captioner] read page active — comment source button enabled"
+      );
       return;
     }
 
