@@ -19,6 +19,13 @@ a = Analysis(
         # onedir: dist/aru_archive/tools/exiftool/
         # onefile: sys._MEIPASS/tools/exiftool/ (임시 압축 해제)
         (str(ROOT / "tools" / "exiftool"), "tools/exiftool"),
+        # Built-in tag packs (ko/ja localization, source priority 등)
+        # frozen 환경에서 sys._MEIPASS/resources/tag_packs/* 로 로드된다
+        (str(ROOT / "resources"), "resources"),
+        # ExifTool license attribution + 프로젝트 문서
+        (str(ROOT / "LICENSES"), "LICENSES"),
+        (str(ROOT / "README.md"), "."),
+        (str(ROOT / "CHANGELOG.md"), "."),
     ],
     hiddenimports=[
         "piexif",
@@ -29,6 +36,10 @@ a = Analysis(
         "PIL.WebPImagePlugin",
         "PIL.GifImagePlugin",
         "PIL.BmpImagePlugin",
+        # core.adapters: 정적 import (importlib 미사용)이지만
+        # PyInstaller가 from core.adapters import * 패턴을 놓치지 않도록 명시
+        "core.adapters",
+        "core.adapters.base",
         "core.adapters.pixiv",
     ],
     hookspath=[],

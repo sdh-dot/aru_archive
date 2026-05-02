@@ -5,7 +5,7 @@ Aru Archive 버전 상수.
     from core.version import APP_VERSION
 """
 
-APP_VERSION                  = "0.3.0"
+APP_VERSION                  = "0.6.3"
 EXTENSION_VERSION            = "0.3.0"   # extension/manifest.json 과 일치
 NATIVE_PROTOCOL_VERSION      = 2          # native_host/host.py 프로토콜 버전
 DB_SCHEMA_VERSION            = 1          # db/schema.sql 스키마 세대
