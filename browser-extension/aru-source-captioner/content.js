@@ -679,7 +679,16 @@
   // wrapper를 찾아 .common_img_button 바로 다음에 "출처 추가" 버튼을 주입한다.
   //
   // 정책:
-  //   - 출처 URL은 현재 read 페이지의 location.href를 사용한다 (게시글 자체가 출처).
+  //   - 출처 URL은 사용자가 댓글에 첨부한 이미지의 Aru Archive metadata에서 추출한
+  //     artwork_url(또는 source_url / Source / Identifier 등 write 페이지와 동일
+  //     우선순위)을 사용한다. 게시글의 location.href는 절대 fallback으로 쓰지 않는다
+  //     (search_type / #cmt 등 변동 fragment를 출처로 박는 사고 방지).
+  //   - 파일 첨부 시 file input의 change 이벤트를 addEventListener로만 hook해서
+  //     첫 번째 image의 metadata를 parseSourceFromFile + sanitizeSourceUrl로 검증한 뒤
+  //     wrapperSourceMap에 저장하고 textarea에 자동 삽입한다.
+  //     기존 onchange inline 핸들러(app.comment_img / app.comment_img_drop)는 가로채지 않는다.
+  //   - "출처 추가" 버튼은 저장된 source가 있으면 그 값으로 재삽입(중복 시 skip)을
+  //     시도하고, 없으면 alert으로 안내만 한다 (page URL fallback 금지).
   //   - 삽입 텍스트 형식: "출처: {url}\n\n" — 마지막 빈 줄을 두어 사용자가 그 아래
   //     댓글 본문을 바로 이어 작성할 수 있게 한다.
   //   - 빈 textarea: 출처 텍스트만 삽입.
@@ -689,14 +698,28 @@
   //   - textarea.maxLength 초과 시 skip.
   //   - 커서를 마지막 빈 줄에 위치시키고 input/change 이벤트 dispatch.
   //   - 한 wrapper당 한 번만 주입 (data-aru-source-comment-bound guard).
+  //   - 한 file input당 한 번만 hook (data-aru-source-file-bound guard).
   //   - 기존 onclick / onchange / onkeydown / .common_img_button 이벤트는 절대 손대지 않는다.
 
   const COMMENT_TEXTAREA_SELECTOR =
     'textarea[name="comment_input"], textarea#comment_input, textarea.comment_input';
   const COMMENT_IMG_BUTTON_SELECTOR = ".common_img_button";
+  const COMMENT_FILE_INPUT_SELECTOR = "input.common_img_input, input[type='file']";
   const COMMENT_BOUND_DATASET_KEY = "aruSourceCommentBound";
+  const COMMENT_FILE_BOUND_DATASET_KEY = "aruSourceFileBound";
   const COMMENT_BUTTON_CLASS = "aru-source-caption-comment-button";
   const COMMENT_SOURCE_PREFIX = "출처:";
+
+  // wrapper(HTMLElement) -> 가장 최근에 추출/검증 통과한 source URL(string).
+  // 파일 input이 다시 변경되면 갱신된다. Map이 아니라 WeakMap이라 wrapper가
+  // DOM에서 사라지면 자동으로 GC된다.
+  const wrapperSourceMap = new WeakMap();
+
+  // read 페이지에서 init() 이후 setup/observer/poll/click handler가 모두 같은
+  // config를 사용해야 한다. 매 호출마다 config를 다시 로드하지 않도록 모듈 스코프에
+  // 캐시한다 (DEFAULT_OPTIONS와 동일한 shape — sanitizeSourceUrl이 사용하는
+  // allowHttp / strictAllowlist / allowedHosts만 의미가 있다).
+  let readPageConfig = null;
 
   // textarea로부터 외곽 wrapper(.common_img_button을 sibling으로 가진 컨테이너)를
   // 우선순위대로 단계별 closest()로 찾는다. closest()를 OR로 묶으면 .common_input_wrapper
@@ -886,20 +909,28 @@
       return;
     }
 
-    let sourceUrl;
-    try {
-      sourceUrl = location.href;
-    } catch {
-      console.warn("[Aru Source Captioner] click: location.href read failed");
-      return;
-    }
-    if (typeof sourceUrl !== "string" || sourceUrl.length === 0) {
-      console.warn("[Aru Source Captioner] click: empty source url");
-      return;
-    }
-    console.log("[Aru Source Captioner] click: source =", sourceUrl);
+    // 정책: 출처는 첨부 이미지의 Aru Archive 메타데이터(artwork_url 등)에서만 가져온다.
+    // 게시글 page URL(location.href)은 fallback으로 사용하지 않는다.
+    // (search_type, #cmt 등 변동 fragment를 출처로 박는 사고 방지)
+    const wrapper = resolveCommentWrapperForTextarea(textarea);
+    const savedSource = wrapper ? wrapperSourceMap.get(wrapper) : null;
 
-    const sourceText = buildCommentSourceText(sourceUrl);
+    if (!savedSource) {
+      console.log(
+        "[Aru Source Captioner] click: no extracted source — image not attached or has no Aru metadata"
+      );
+      try {
+        alert(
+          "이미지에 출처 metadata가 없습니다.\nAru Archive로 처리한 이미지를 댓글에 첨부해 주세요."
+        );
+      } catch {
+        /* noop — 일부 브라우저/iframe 환경에서 alert이 차단될 수 있다 */
+      }
+      return;
+    }
+
+    console.log("[Aru Source Captioner] click: using stored source =", savedSource);
+    const sourceText = buildCommentSourceText(savedSource);
     const result = insertSourceIntoCommentTextarea(textarea, sourceText);
     console.log("[Aru Source Captioner] click: insertion result =", result);
   }
@@ -974,25 +1005,146 @@
     return true;
   }
 
-  function setupCommentSourceCaptioner() {
+  // 첨부된 이미지 file input에서 첫 번째 이미지의 Aru Archive metadata를 파싱하여
+  // 안전한 source URL로 정제한 뒤 wrapperSourceMap에 저장하고, textarea에 자동으로
+  // 출처 caption을 삽입한다. 글쓰기 페이지의 parseSourceFromFile + sanitizeSourceUrl
+  // 경로를 그대로 재사용한다 (재발명 금지).
+  //
+  // 주의:
+  //   - 기존 onchange inline 핸들러(app.comment_img / app.comment_img_drop 트리거)는
+  //     절대 가로채지 않는다 — addEventListener("change", ...)로만 추가한다.
+  //   - 같은 file input에 중복 hook을 막기 위해 dataset 가드를 사용한다.
+  //   - 파일 input이 동적으로 교체될 수 있어 wrapper 단위로 매번 다시 시도한다 —
+  //     dataset 가드가 같은 input에 두 번 붙는 것은 막아준다.
+  function hookCommentFileInput(wrapper, config) {
+    if (!(wrapper instanceof HTMLElement)) return false;
+
+    const fileInput = wrapper.querySelector(COMMENT_FILE_INPUT_SELECTOR);
+    if (!(fileInput instanceof HTMLInputElement)) {
+      console.log(
+        "[Aru Source Captioner] file: no file input in wrapper",
+        wrapper
+      );
+      return false;
+    }
+    if (fileInput.type !== "file") {
+      // common_img_input이 아닌 다른 input이 잡힌 경우 (예: 검색 input).
+      return false;
+    }
+    if (fileInput.dataset[COMMENT_FILE_BOUND_DATASET_KEY] === "1") {
+      return false;
+    }
+    fileInput.dataset[COMMENT_FILE_BOUND_DATASET_KEY] = "1";
+
+    fileInput.addEventListener("change", async (event) => {
+      const target = event.target;
+      const files = target instanceof HTMLInputElement ? target.files : null;
+      if (!files || files.length === 0) return;
+
+      // 첫 번째 image file만 source 추출 대상으로 사용한다.
+      let imageFile = null;
+      for (const f of files) {
+        if (f && typeof f.type === "string" && f.type.startsWith("image/")) {
+          imageFile = f;
+          break;
+        }
+      }
+      if (!imageFile) {
+        console.log("[Aru Source Captioner] file: no image in selection");
+        return;
+      }
+
+      console.log(
+        "[Aru Source Captioner] file: extracting metadata from",
+        imageFile.name
+      );
+
+      let sourceInfo;
+      try {
+        sourceInfo = await parseSourceFromFile(imageFile);
+      } catch (err) {
+        console.warn(
+          "[Aru Source Captioner] file: metadata extraction threw",
+          err
+        );
+        return;
+      }
+
+      if (sourceInfo?.status !== "ok" || !sourceInfo.url) {
+        console.log(
+          "[Aru Source Captioner] file: no Aru source metadata found in image",
+          { reason: sourceInfo?.reason }
+        );
+        return;
+      }
+
+      const safeUrl = sanitizeSourceUrl(sourceInfo.url, config);
+      if (!safeUrl) {
+        console.log(
+          "[Aru Source Captioner] file: extracted source rejected by sanitizer",
+          { rawUrl: sourceInfo.url }
+        );
+        return;
+      }
+
+      console.log(
+        "[Aru Source Captioner] file: extracted source =",
+        safeUrl
+      );
+      wrapperSourceMap.set(wrapper, safeUrl);
+
+      const textarea = wrapper.querySelector(COMMENT_TEXTAREA_SELECTOR);
+      if (textarea instanceof HTMLTextAreaElement) {
+        const sourceText = buildCommentSourceText(safeUrl);
+        const result = insertSourceIntoCommentTextarea(textarea, sourceText);
+        console.log(
+          "[Aru Source Captioner] file: auto insertion result =",
+          result
+        );
+      } else {
+        console.log(
+          "[Aru Source Captioner] file: source stored, but no textarea found for auto insert",
+          wrapper
+        );
+      }
+    });
+
+    console.log(
+      "[Aru Source Captioner] file: hooked file input change",
+      { wrapper, fileInput }
+    );
+    return true;
+  }
+
+  function setupCommentSourceCaptioner(config) {
     if (!isReadPage()) return;
+    // config 인자가 없으면 init()에서 캐시한 readPageConfig를 사용한다.
+    // 둘 다 없으면 file input hook은 skip되지만 button 주입은 진행한다.
+    const effectiveConfig = config || readPageConfig;
     const wrappers = findCommentInputWrappers();
     let injected = 0;
+    let hookedFileInputs = 0;
     for (const wrapper of wrappers) {
-      if (wrapper.dataset[COMMENT_BOUND_DATASET_KEY] === "1") continue;
-      const ok = injectCommentSourceButton(wrapper);
-      if (ok) {
-        wrapper.dataset[COMMENT_BOUND_DATASET_KEY] = "1";
-        injected++;
+      // 출처 추가 button 주입 — 한 wrapper당 1회.
+      if (wrapper.dataset[COMMENT_BOUND_DATASET_KEY] !== "1") {
+        const ok = injectCommentSourceButton(wrapper);
+        if (ok) {
+          wrapper.dataset[COMMENT_BOUND_DATASET_KEY] = "1";
+          injected++;
+        }
+      }
+      // file input change hook — wrapper 안의 file input마다 dataset 가드로 1회.
+      if (effectiveConfig && hookCommentFileInput(wrapper, effectiveConfig)) {
+        hookedFileInputs++;
       }
     }
     if (wrappers.length === 0) {
       console.log(
         "[Aru Source Captioner] setup: no comment wrapper found yet (may load later)"
       );
-    } else if (injected > 0) {
+    } else if (injected > 0 || hookedFileInputs > 0) {
       console.log(
-        `[Aru Source Captioner] setup: injected ${injected} new buttons`
+        `[Aru Source Captioner] setup: injected ${injected} new buttons, hooked ${hookedFileInputs} new file inputs`
       );
     }
   }
@@ -1084,10 +1236,14 @@
     //   - read 페이지: 댓글 영역 "출처 추가" 버튼만 주입. 글쓰기용 editor / file input 로직은 띄우지 않는다.
     //   - write 페이지(=non-read): 기존 글쓰기 캡션 자동 삽입 동작 그대로 유지.
     if (isReadPage()) {
-      setupCommentSourceCaptioner();
+      // file input change hook이 metadata 추출 후 sanitizeSourceUrl(rawUrl, config)을
+      // 호출하므로 read 페이지에서도 config를 반드시 캐시한다.
+      readPageConfig = config;
+      setupCommentSourceCaptioner(config);
       startCommentObserver();
       console.info(
-        "[Aru Source Captioner] read page active — comment source button enabled"
+        "[Aru Source Captioner] read page active — comment source button enabled",
+        { strictAllowlist: config.strictAllowlist, allowHttp: config.allowHttp }
       );
       return;
     }
