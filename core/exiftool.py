@@ -29,6 +29,14 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+def _is_ascii_only(value: str) -> bool:
+    try:
+        value.encode("ascii")
+        return True
+    except UnicodeEncodeError:
+        return False
+
+
 def validate_exiftool_path(exiftool_path: Optional[str]) -> bool:
     """exiftool_path가 실행 가능한지 확인한다."""
     if not exiftool_path:
@@ -67,6 +75,8 @@ def build_exiftool_xmp_args(
     file_path: str,
     metadata: dict,
     user_facing_summary: str = "",
+    *,
+    include_exif_description: bool = True,
 ) -> list[str]:
     """
     ExifTool XMP 기록용 CLI 인자 리스트를 생성한다.
@@ -92,11 +102,17 @@ def build_exiftool_xmp_args(
 
     title = (metadata.get("artwork_title") or "").strip()
     if title:
-        args.append(f"-XMP-dc:Title={title}")
+        if _is_ascii_only(title):
+            args.append(f"-XMP-dc:Title={title}")
+        else:
+            args.append("-XMP-dc:Title=")
 
     artist = (metadata.get("artist_name") or "").strip()
     if artist:
-        args.append(f"-XMP-dc:Creator={artist}")
+        if _is_ascii_only(artist):
+            args.append(f"-XMP-dc:Creator={artist}")
+        else:
+            args.append("-XMP-dc:Creator=")
 
     # Subject: tags + series_tags + character_tags 합집합
     subjects: list[str] = []
@@ -104,8 +120,12 @@ def build_exiftool_xmp_args(
         val = metadata.get(key)
         if isinstance(val, list):
             subjects.extend(v for v in val if v and str(v).strip())
-    for subj in subjects:
-        args.append(f"-XMP-dc:Subject={subj}")
+    if subjects:
+        if all(_is_ascii_only(str(subj)) for subj in subjects):
+            for subj in subjects:
+                args.append(f"-XMP-dc:Subject={subj}")
+        else:
+            args.append("-XMP-dc:Subject=")
 
     artwork_url = (metadata.get("artwork_url") or "").strip()
     if artwork_url:
@@ -115,7 +135,10 @@ def build_exiftool_xmp_args(
         metadata.get("description") or metadata.get("custom_notes") or ""
     ).strip()
     if description:
-        args.append(f"-XMP-dc:Description={description}")
+        if _is_ascii_only(description):
+            args.append(f"-XMP-dc:Description={description}")
+        else:
+            args.append("-XMP-dc:Description=")
 
     artwork_id = (metadata.get("artwork_id") or "").strip()
     if artwork_id:
@@ -140,7 +163,7 @@ def build_exiftool_xmp_args(
     # EXIF:ImageDescription을 우선 표시하므로, 여기에 사람이 읽을 수 있는
     # 요약을 기록해 JSON dump가 description 열에 노출되는 것을 방지한다.
     summary = user_facing_summary.strip()
-    if summary:
+    if include_exif_description and summary:
         args.append(f"-EXIF:ImageDescription={summary}")
 
     args.append("-overwrite_original")
@@ -194,13 +217,11 @@ def build_exiftool_xp_args(
     if artist:
         args.append(f"-EXIF:XPAuthor={artist}")
 
-    subjects: list[str] = []
-    for key in ("tags", "series_tags", "character_tags"):
-        val = metadata.get(key)
-        if isinstance(val, list):
-            subjects.extend(v for v in val if v and str(v).strip())
-    for subj in subjects:
-        args.append(f"-EXIF:XPKeywords={subj}")
+    tag_values = metadata.get("tags")
+    if isinstance(tag_values, list):
+        keywords = [str(v).strip() for v in tag_values if str(v).strip()]
+        if keywords:
+            args.append(f"-EXIF:XPKeywords={';'.join(dict.fromkeys(keywords))}")
 
     # XPComment: 탐색기 "설명/주석" 열 — 사용자-facing 짧은 설명
     comment = xp_comment.strip()

@@ -165,6 +165,11 @@ class TestWebp:
         # 쓰기 단계에서 예외가 없으면 통과 (read는 None 허용)
         # 실제 환경에서는 유효한 WebP가 필요
 
+    def test_misnamed_webp_jpg_uses_sniffed_format(self, tmp_path: Path) -> None:
+        pytest.importorskip("piexif")
+        p = _make_webp(tmp_path / "img.jpg")
+        write_aru_metadata(str(p), SAMPLE_META, "jpg")
+
 
 # ---------------------------------------------------------------------------
 # GIF (sidecar)

@@ -68,6 +68,150 @@ def _log_exiftool_call(
     )
 
 
+def _normalize_format_name(file_format: str) -> str:
+    fmt = (file_format or "").lower().lstrip(".")
+    return "jpg" if fmt == "jpeg" else fmt
+
+
+def _sniff_file_format(file_path: str) -> Optional[str]:
+    """Best-effort signature sniffing for metadata write routing."""
+    try:
+        with open(file_path, "rb") as f:
+            header = f.read(16)
+    except OSError:
+        return None
+
+    if header.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if header.startswith((b"GIF87a", b"GIF89a")):
+        return "gif"
+    if header.startswith(b"BM"):
+        return "bmp"
+    if header.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")):
+        return "zip"
+    if len(header) >= 12 and header.startswith(b"RIFF") and header[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+def _resolve_effective_metadata_format(file_path: str, file_format: str) -> str:
+    """Prefer file signature over the caller-provided format when they disagree."""
+    requested = _normalize_format_name(file_format)
+    actual = _sniff_file_format(file_path)
+    if actual and actual != requested:
+        logger.warning(
+            "metadata format mismatch detected: path=%s requested=%s actual=%s",
+            file_path, requested, actual,
+        )
+        return actual
+    return requested
+
+
+def detect_header_extension_mismatch(file_path: str) -> tuple[str, str] | None:
+    """Return (path_format, actual_format) when extension and file signature differ."""
+    actual_fmt = _sniff_file_format(file_path)
+    path_fmt = _normalize_format_name(Path(file_path).suffix)
+    if actual_fmt and path_fmt and actual_fmt != path_fmt:
+        return path_fmt, actual_fmt
+    return None
+
+
+def _encode_xp_field(value: str) -> bytes:
+    """Encode a Windows XP EXIF field as UTF-16LE with a null terminator."""
+    return value.encode("utf-16-le") + b"\x00\x00"
+
+
+def _ascii_image_description(metadata: dict) -> str:
+    """Build an ASCII-safe EXIF ImageDescription to avoid JSON dump in Explorer."""
+    source_site = (metadata.get("source_site") or "").strip()
+    artwork_id = (metadata.get("artwork_id") or "").strip()
+    if source_site and artwork_id:
+        return f"Aru Archive: {source_site} artwork {artwork_id}"
+    if artwork_id:
+        return f"Aru Archive artwork {artwork_id}"
+    if source_site:
+        return f"Aru Archive: {source_site}"
+    return "Aru Archive"
+
+
+def _is_ascii_only(value: str) -> bool:
+    try:
+        value.encode("ascii")
+        return True
+    except UnicodeEncodeError:
+        return False
+
+
+def _write_windows_exif_fields_direct(file_path: str, metadata: dict) -> None:
+    """Write Explorer-facing XP fields directly to EXIF using UTF-16LE bytes."""
+    try:
+        import piexif
+    except ImportError as exc:
+        raise XmpWriteError("piexif package is required for Windows EXIF XP fields") from exc
+
+    try:
+        exif_dict = piexif.load(file_path)
+    except Exception:
+        exif_dict = {"0th": {}, "Exif": {}, "GPS": {}, "1st": {}}
+
+    zeroth = exif_dict.setdefault("0th", {})
+
+    title = (metadata.get("artwork_title") or "").strip()
+    artist = (metadata.get("artist_name") or "").strip()
+    summary = _build_user_facing_summary(metadata).strip()
+
+    tag_values = metadata.get("tags")
+    keywords: list[str] = []
+    if isinstance(tag_values, list):
+        keywords.extend(str(v).strip() for v in tag_values if str(v).strip())
+    keywords_text = ";".join(dict.fromkeys(keywords))
+
+    updates = {
+        0x9C9B: title,         # XPTitle
+        0x9C9F: title,         # XPSubject
+        0x9C9D: artist,        # XPAuthor
+        0x9C9E: keywords_text, # XPKeywords
+        0x9C9C: summary,       # XPComment
+    }
+    for tag_id, text in updates.items():
+        if text:
+            zeroth[tag_id] = _encode_xp_field(text)
+        else:
+            zeroth.pop(tag_id, None)
+
+    # ASCII-only fallback so Explorer prefers a short description over JSON dump.
+    zeroth[piexif.ImageIFD.ImageDescription] = _ascii_image_description(metadata)
+
+    try:
+        exif_bytes = piexif.dump(exif_dict)
+        piexif.insert(exif_bytes, file_path)
+    except Exception as exc:
+        raise XmpWriteError(f"Windows EXIF XP field write failed: {exc}") from exc
+
+
+def _write_windows_exif_fields_best_effort(
+    file_path: str,
+    metadata: dict,
+    exiftool_path: Optional[str],
+) -> None:
+    """
+    Prefer ExifTool for Explorer-facing XP fields and fall back to direct write.
+
+    Explorer compatibility is better when XP fields are written by ExifTool.
+    The direct piexif path is kept as a fallback for environments where
+    ExifTool is unavailable after XMP was already written.
+    """
+    if exiftool_path:
+        try:
+            if write_windows_exif_fields(file_path, metadata, exiftool_path=exiftool_path):
+                return
+        except XmpWriteError as exc:
+            logger.warning("ExifTool XP field write failed, falling back to direct EXIF write: %s", exc)
+    _write_windows_exif_fields_direct(file_path, metadata)
+
+
 def write_aru_metadata(file_path: str, metadata: dict, file_format: str) -> None:
     """
     파일 형식에 따라 AruArchive JSON 메타데이터를 삽입한다.
@@ -77,7 +221,7 @@ def write_aru_metadata(file_path: str, metadata: dict, file_format: str) -> None
 
     실패 시 예외 발생 → 호출자: metadata_write_failed 처리.
     """
-    fmt = file_format.lower().lstrip(".")
+    fmt = _resolve_effective_metadata_format(file_path, file_format)
     if fmt in ("jpg", "jpeg"):
         _write_exif_user_comment(file_path, metadata)
     elif fmt == "png":
@@ -331,7 +475,6 @@ def write_xmp_metadata_with_exiftool(
 
     from core.exiftool import (
         build_exiftool_xmp_args,
-        build_exiftool_xp_args,
         validate_exiftool_path,
     )
 
@@ -339,30 +482,28 @@ def write_xmp_metadata_with_exiftool(
         logger.warning("ExifTool 실행 불가: %s", exiftool_path)
         return False
 
+    mismatch = detect_header_extension_mismatch(file_path)
+    effective_include_xp = include_xp_fields
+    include_exif_description = True
+
+    if mismatch is not None:
+        path_fmt, actual_fmt = mismatch
+        logger.warning(
+            "XMP target header/extension mismatch: path=%s ext=%s actual=%s",
+            file_path, path_fmt, actual_fmt,
+        )
+        return False
+
     # 사용자-facing 요약 문자열 생성 — XPSubject / XPComment / ImageDescription 공용
     summary = _build_user_facing_summary(metadata)
 
     # XMP 인자 (ImageDescription 포함, -overwrite_original과 file_path 포함)
-    xmp_args = build_exiftool_xmp_args(file_path, metadata, user_facing_summary=summary)
-
-    if include_xp_fields:
-        # XPSubject: artwork_title (탐색기 "주제" 열)
-        xp_subject = (metadata.get("artwork_title") or "").strip()
-        # XPComment: 사용자-facing 짧은 요약 (탐색기 "설명/주석" 열)
-        xp_comment = summary
-
-        # XP 인자에서 중복되는 -overwrite_original / file_path 제거 후 합침
-        xp_args = build_exiftool_xp_args(
-            file_path, metadata,
-            xp_subject=xp_subject,
-            xp_comment=xp_comment,
-        )
-        xp_tag_args = [
-            a for a in xp_args
-            if a not in ("-overwrite_original", file_path)
-        ]
-        # XMP 인자의 마지막 두 항목(-overwrite_original, file_path) 앞에 삽입
-        xmp_args = xmp_args[:-2] + xp_tag_args + xmp_args[-2:]
+    xmp_args = build_exiftool_xmp_args(
+        file_path,
+        metadata,
+        user_facing_summary=summary,
+        include_exif_description=include_exif_description,
+    )
 
     args = [exiftool_path] + xmp_args
     _t0 = time.perf_counter()
@@ -377,8 +518,14 @@ def write_xmp_metadata_with_exiftool(
                 f"ExifTool 실패 (returncode={result.returncode}): "
                 f"{stderr.strip() or stdout.strip()}"
             )
+        if effective_include_xp and Path(file_path).exists():
+            _write_windows_exif_fields_best_effort(
+                file_path,
+                metadata,
+                exiftool_path,
+            )
         logger.info("XMP%s 기록 완료: %s",
-                    "+XP" if include_xp_fields else "", file_path)
+                    "+XP" if effective_include_xp else "", file_path)
         _success = True
         return True
     except subprocess.TimeoutExpired:
