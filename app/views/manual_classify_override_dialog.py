@@ -17,7 +17,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Optional
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QModelIndex, Qt
+from PyQt6.QtGui import QStandardItem, QStandardItemModel
 from PyQt6.QtWidgets import (
     QCompleter,
     QDialog,
@@ -29,6 +30,10 @@ from PyQt6.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
 )
+
+# 다국어 자동완성 candidate 의 metadata 를 model item 에 보존하는 데이터 role.
+# Qt UserRole 이상은 사용자 정의 가능.
+CANDIDATE_DATA_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
 def _load_canonicals(conn: Optional[sqlite3.Connection], tag_type: str) -> list[str]:
@@ -91,6 +96,117 @@ def _load_character_labels(
     return labels, label_to_canonical
 
 
+class _AutocompleteController:
+    """``core.autocomplete_provider`` 결과를 ``QLineEdit`` 의 자동완성으로 surface 한다.
+
+    한국어 / 일본어 / 영어 입력 모두에 대해 후보를 띄우고, 선택 시 후보의 전체
+    ``TagAutocompleteCandidate`` metadata (canonical, tag_type, parent_series, …)
+    를 Qt UserRole 에 보존한다. 호출자는 ``selected_candidate()`` 로 마지막 선택을
+    조회해 canonical 을 정확히 추출할 수 있다.
+
+    사용자가 popup 에서 후보를 선택하지 않고 텍스트를 직접 편집하면 마지막 선택은
+    무효화돼 ``selected_candidate()`` 가 None 을 반환한다 — 호출자가 fallback
+    (텍스트 그대로 사용) 으로 자연스럽게 떨어진다.
+
+    Read-only: 어떤 DB write 도 발생시키지 않는다.
+    """
+
+    def __init__(
+        self,
+        line_edit: QLineEdit,
+        conn: Optional[sqlite3.Connection],
+        *,
+        tag_type: Optional[str] = None,
+        limit: int = 20,
+    ) -> None:
+        self._edit = line_edit
+        self._conn = conn
+        self._tag_type = tag_type
+        self._limit = limit
+        self._last_selected = None  # type: object | None
+
+        self._model = QStandardItemModel(line_edit)
+        self._completer = QCompleter(self._model, line_edit)
+        self._completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self._completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        # MatchContains: 입력이 후보 안 어디든 들어 있으면 표시. SmartContains 는 PyQt 미지원.
+        self._completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        line_edit.setCompleter(self._completer)
+
+        # 사용자가 텍스트를 직접 편집하면 후보 갱신 + 이전 선택 invalidate.
+        line_edit.textEdited.connect(self._on_text_edited)
+        # popup 에서 후보 선택 시 metadata 보존.
+        self._completer.activated[QModelIndex].connect(self._on_activated)
+
+    # ------------------------------------------------------------------
+    # Internal slots
+    # ------------------------------------------------------------------
+
+    def _on_text_edited(self, text: str) -> None:
+        """매 keystroke 마다 provider 를 재호출해 model 을 갱신한다."""
+        # 직접 편집 = 이전 popup 선택 무효화. 사용자 의도가 다른 candidate 일 수 있다.
+        self._last_selected = None
+
+        if self._conn is None:
+            return
+        query = (text or "").strip()
+        self._model.clear()
+        if not query:
+            return
+
+        try:
+            from core.autocomplete_provider import suggest_tag_completions
+            candidates = suggest_tag_completions(
+                self._conn, query, tag_type=self._tag_type, limit=self._limit,
+            )
+        except Exception:
+            return
+
+        for c in candidates:
+            item = QStandardItem(c.display_text)
+            item.setData(c, CANDIDATE_DATA_ROLE)
+            tooltip_lines = [c.display_text]
+            if c.secondary_text:
+                tooltip_lines.append(c.secondary_text)
+            item.setToolTip("\n".join(tooltip_lines))
+            self._model.appendRow(item)
+
+    def _on_activated(self, index: QModelIndex) -> None:
+        """popup 에서 후보 클릭 / Enter — metadata 를 보존."""
+        if not index.isValid():
+            return
+        item = self._model.itemFromIndex(index)
+        if item is None:
+            return
+        candidate = item.data(CANDIDATE_DATA_ROLE)
+        if candidate is None:
+            return
+        self._last_selected = candidate
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def selected_candidate(self):
+        """마지막으로 popup 에서 선택된 후보의 metadata.
+
+        텍스트가 그 후보의 ``display_text`` / ``insert_text`` 와 다르면 None 반환
+        (사용자가 선택 후 텍스트를 직접 수정한 케이스 — 의도가 바뀜).
+        """
+        if self._last_selected is None:
+            return None
+        text = (self._edit.text() or "").strip()
+        candidate = self._last_selected
+        # display_text 또는 insert_text 와 일치할 때만 valid
+        if text == getattr(candidate, "display_text", None):
+            return candidate
+        if text == getattr(candidate, "insert_text", None):
+            return candidate
+        # invalidate
+        self._last_selected = None
+        return None
+
+
 class ManualClassifyOverrideDialog(QDialog):
     """
     수동 분류 지정 다이얼로그.
@@ -121,8 +237,12 @@ class ManualClassifyOverrideDialog(QDialog):
         self._group_info = group_info
         self._conn       = conn
         self._result: Optional[dict] = None
-        # label → canonical 역매핑 (캐릭터 자동완성 label/value 분리)
+        # label → canonical 역매핑 (캐릭터 자동완성 label/value 분리, fallback 용)
         self._char_label_to_canonical: dict[str, str] = {}
+        # 다국어 자동완성 controller (series / character 각각).
+        # 사용자가 ko/ja/en 입력 시 후보 popup + 선택 시 canonical metadata 보존.
+        self._series_autocomplete: Optional[_AutocompleteController] = None
+        self._character_autocomplete: Optional[_AutocompleteController] = None
 
         self.setWindowTitle("수동 분류 지정")
         self.setMinimumWidth(560)
@@ -175,26 +295,23 @@ class ManualClassifyOverrideDialog(QDialog):
         override_form = QFormLayout(override_box)
         override_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
-        series_canonicals = _load_canonicals(self._conn, "series")
-        char_labels, self._char_label_to_canonical = _load_character_labels(self._conn)
+        # _load_character_labels 의 label → canonical dict 는 fallback 경로 (popup
+        # 미선택 + "X (Y)" 형식 직접 입력) 와 기존 회귀 테스트 호환을 위해 유지한다.
+        _, self._char_label_to_canonical = _load_character_labels(self._conn)
 
         self._series_edit = QLineEdit()
-        self._series_edit.setPlaceholderText("예: Blue Archive")
-        if series_canonicals:
-            c = QCompleter(series_canonicals, self)
-            c.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-            c.setFilterMode(Qt.MatchFlag.MatchContains)
-            self._series_edit.setCompleter(c)
+        self._series_edit.setPlaceholderText("예: Blue Archive / 블루 아카이브 / ブルーアーカイブ")
+        # 다국어 provider 기반 동적 자동완성 (ko / ja / en localized_name + alias + canonical).
+        self._series_autocomplete = _AutocompleteController(
+            self._series_edit, self._conn, tag_type="series",
+        )
         override_form.addRow("시리즈 이름:", self._series_edit)
 
         self._char_edit = QLineEdit()
-        self._char_edit.setPlaceholderText("예: 伊落マリー (Blue Archive)")
-        if char_labels:
-            c2 = QCompleter(char_labels, self)
-            c2.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-            c2.setFilterMode(Qt.MatchFlag.MatchContains)
-            # 자동완성 선택 시 label 전체를 LineEdit에 채움 (canonical 역조회는 OK 시 수행)
-            self._char_edit.setCompleter(c2)
+        self._char_edit.setPlaceholderText("예: 伊落マリー / 이오치 마리 / Itoraku Mari")
+        self._character_autocomplete = _AutocompleteController(
+            self._char_edit, self._conn, tag_type="character",
+        )
         override_form.addRow("캐릭터 이름:", self._char_edit)
 
         self._locale_edit = QLineEdit()
@@ -230,6 +347,9 @@ class ManualClassifyOverrideDialog(QDialog):
 
         자동완성 label "캐릭터명 (시리즈명)" 형식이면 역매핑 dict로 canonical 반환.
         매핑에 없으면 텍스트를 그대로 canonical로 사용 (직접 입력 허용).
+
+        호출 전 ``_resolve_canonical_from_autocomplete`` 가 우선 시도된다.
+        이 함수는 controller selection 이 없을 때의 fallback 경로다.
         """
         text = text.strip()
         if not text:
@@ -242,12 +362,38 @@ class ManualClassifyOverrideDialog(QDialog):
             return text[: text.rfind(" (")].strip()
         return text
 
+    def _resolve_canonical_from_autocomplete(
+        self, controller: Optional[_AutocompleteController]
+    ) -> Optional[str]:
+        """controller 의 마지막 선택이 valid 하면 그 candidate 의 canonical 반환.
+
+        - 사용자가 popup 에서 후보를 선택했고
+        - LineEdit 텍스트가 그 후보의 display/insert text 와 일치할 때만 valid
+        - 그 외에는 None — 호출자가 텍스트 기반 fallback 경로를 사용해야 한다
+        """
+        if controller is None:
+            return None
+        candidate = controller.selected_candidate()
+        if candidate is None:
+            return None
+        canonical = getattr(candidate, "canonical", None)
+        if not canonical:
+            return None
+        return str(canonical).strip() or None
+
     def _on_ok(self) -> None:
-        series    = self._series_edit.text().strip()
-        char_text = self._char_edit.text().strip()
-        character = self._resolve_character_canonical(char_text)
-        locale    = self._locale_edit.text().strip() or "canonical"
-        reason    = self._reason_edit.text().strip() or None
+        # 자동완성 선택이 있으면 candidate 의 canonical 우선 (한국어/일본어 입력 시
+        # display 가 canonical 과 다를 수 있으므로 텍스트 그대로 쓰면 잘못된 canonical
+        # 이 저장됨 — 예: "블루 아카이브" → canonical "Blue Archive").
+        series_from_pick = self._resolve_canonical_from_autocomplete(self._series_autocomplete)
+        character_from_pick = self._resolve_canonical_from_autocomplete(self._character_autocomplete)
+
+        series_text = self._series_edit.text().strip()
+        char_text   = self._char_edit.text().strip()
+        series      = series_from_pick if series_from_pick else series_text
+        character   = character_from_pick if character_from_pick else self._resolve_character_canonical(char_text)
+        locale      = self._locale_edit.text().strip() or "canonical"
+        reason      = self._reason_edit.text().strip() or None
 
         if not series and not character:
             # 둘 다 비어 있으면 입력 요청
