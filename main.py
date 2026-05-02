@@ -153,9 +153,11 @@ def run_gui(config: dict, config_path: str = "config.json") -> int:
         logging.critical("PyQt6가 설치되어 있지 않습니다.")
         return 1
 
+    from core.version import APP_VERSION
+
     app = QApplication(sys.argv)
     app.setApplicationName("Aru Archive")
-    app.setApplicationVersion("0.1.0")
+    app.setApplicationVersion(APP_VERSION)
 
     from PyQt6.QtGui import QIcon
     from app.resources import icon_path
