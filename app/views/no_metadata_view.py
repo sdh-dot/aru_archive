@@ -18,6 +18,8 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
+from app.ui_action_text import PIXIV_META_LABEL, PIXIV_META_TOOLTIP
+
 _FAIL_REASON_LABEL: dict[str, str] = {
     "no_dom_data":               "DOM 데이터 없음",
     "parse_error":               "파싱 오류",
@@ -101,7 +103,7 @@ class NoMetadataView(QWidget):
 
         # 버튼 행
         btn_row = QHBoxLayout()
-        self._btn_retry       = _btn("재시도",     "#3949ab", "fail_reason 재처리 (MVP-B)")
+        self._btn_retry       = _btn(PIXIV_META_LABEL, "#3949ab", PIXIV_META_TOOLTIP)
         self._btn_ignore      = _btn("무시",       "#555555", "resolved=1 처리")
         self._btn_open_file   = _btn("파일 열기",  "#2a5a2a", "파일을 기본 앱으로 열기")
         self._btn_open_folder = _btn("폴더 열기",  "#2a3a5a", "파일이 있는 폴더 열기")
