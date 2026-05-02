@@ -76,3 +76,6 @@ docs/data/**/raw/
 # ===== Tool smoke outputs =====
 build/hitomi_catalog_check/
 build/mojibake_*/
+
+# ===== Local temporary/design workspace =====
+temp/
