@@ -693,16 +693,55 @@
 
   const COMMENT_TEXTAREA_SELECTOR =
     'textarea[name="comment_input"], textarea#comment_input, textarea.comment_input';
-  const COMMENT_WRAPPER_FALLBACK_SELECTOR =
-    ".border_box, .border_box.after_clear, .common_input_wrapper, form, fieldset";
   const COMMENT_IMG_BUTTON_SELECTOR = ".common_img_button";
   const COMMENT_BOUND_DATASET_KEY = "aruSourceCommentBound";
   const COMMENT_BUTTON_CLASS = "aru-source-caption-comment-button";
   const COMMENT_SOURCE_PREFIX = "출처:";
 
-  // 진단: textarea 우선 탐색 후 wrapper를 closest()로 추정한다. 사용자가 제공한
-  // HTML 샘플과 실제 Ruliweb DOM 구조가 다를 가능성에 대비해 다양한 fallback
-  // selector를 시도하고, 단계별 결과를 콘솔에 남겨 현장 디버깅을 가능케 한다.
+  // textarea로부터 외곽 wrapper(.common_img_button을 sibling으로 가진 컨테이너)를
+  // 우선순위대로 단계별 closest()로 찾는다. closest()를 OR로 묶으면 .common_input_wrapper
+  // 같은 직계 부모에서 멈춰 .common_img_button(외곽 wrapper의 자식이며 inner wrapper의
+  // sibling)을 놓치는 문제가 있어 단계 분리가 필요하다.
+  function resolveCommentWrapperForTextarea(textarea) {
+    // 1순위: .border_box.after_clear (이미지 버튼을 포함하는 외곽 wrapper).
+    const outer = textarea.closest(".border_box.after_clear");
+    if (outer) return outer;
+
+    // 2순위: .border_box (after_clear 변형 — Ruliweb 일부 보드).
+    const borderBox = textarea.closest(".border_box");
+    if (borderBox) return borderBox;
+
+    // 3순위: form/fieldset (다른 댓글 form 구조).
+    const formish = textarea.closest("form, fieldset");
+    if (formish) return formish;
+
+    // 4순위: .common_input_wrapper의 부모 (image button이 sibling일 가능성).
+    const innerWrapper = textarea.closest(".common_input_wrapper");
+    if (innerWrapper?.parentElement) return innerWrapper.parentElement;
+
+    // 5순위: textarea 자체의 grandparent / parent.
+    return textarea.parentElement?.parentElement || textarea.parentElement || null;
+  }
+
+  // 단일 wrapper를 검증하고 진단 로그를 남긴 뒤 result에 추가한다.
+  function classifyAndPushWrapper(wrapper, result) {
+    const hasTextarea = wrapper.querySelector(COMMENT_TEXTAREA_SELECTOR);
+    if (!hasTextarea) return;
+    const imgButton = wrapper.querySelector(COMMENT_IMG_BUTTON_SELECTOR);
+    result.push(wrapper);
+    if (imgButton) {
+      console.log(
+        "[Aru Source Captioner] scan: wrapper OK (has textarea + .common_img_button)",
+        wrapper
+      );
+    } else {
+      console.log(
+        "[Aru Source Captioner] scan: wrapper has textarea but no .common_img_button — will use textarea position",
+        wrapper
+      );
+    }
+  }
+
   function findCommentInputWrappers() {
     const textareas = document.querySelectorAll(COMMENT_TEXTAREA_SELECTOR);
     console.log(
@@ -712,10 +751,7 @@
     const wrappers = new Set();
     for (const textarea of textareas) {
       if (!(textarea instanceof HTMLTextAreaElement)) continue;
-      const wrapper =
-        textarea.closest(COMMENT_WRAPPER_FALLBACK_SELECTOR) ||
-        textarea.parentElement?.parentElement ||
-        textarea.parentElement;
+      const wrapper = resolveCommentWrapperForTextarea(textarea);
       if (wrapper instanceof HTMLElement) {
         wrappers.add(wrapper);
       }
@@ -723,16 +759,7 @@
 
     const result = [];
     for (const wrapper of wrappers) {
-      const hasTextarea = wrapper.querySelector(COMMENT_TEXTAREA_SELECTOR);
-      if (!hasTextarea) continue;
-      const imgButton = wrapper.querySelector(COMMENT_IMG_BUTTON_SELECTOR);
-      result.push(wrapper);
-      if (!imgButton) {
-        console.log(
-          "[Aru Source Captioner] scan: wrapper has textarea but no .common_img_button — will use textarea position",
-          wrapper
-        );
-      }
+      classifyAndPushWrapper(wrapper, result);
     }
 
     console.log(
@@ -750,40 +777,51 @@
     console.debug("[Aru Source Captioner] comment insert skipped:", reason, detail || "");
   }
 
-  function insertSourceIntoCommentTextarea(textarea, sourceText) {
-    if (!(textarea instanceof HTMLTextAreaElement)) return false;
+  function focusTextareaSafe(textarea) {
+    try { textarea.focus(); } catch { /* noop */ }
+  }
 
-    const existing = typeof textarea.value === "string" ? textarea.value : "";
-    const sourceLine = sourceText.split("\n")[0];  // "출처: {url}"
-
-    // 동일 출처 중복 방지.
+  // 정상 케이스가 아닌 경우 (중복/다른 출처/길이 초과)를 검사하고
+  // 각각의 결과 문자열을 반환한다. null이면 정상 진행 가능.
+  function checkInsertSkipReason(textarea, existing, sourceLine, newValue) {
     if (existing.includes(sourceLine)) {
-      try { textarea.focus(); } catch { /* noop */ }
+      focusTextareaSafe(textarea);
+      console.log("[Aru Source Captioner] insert: same source already present — focus only");
       logCommentInsertSkip("duplicate_source_line");
-      return false;
+      return "duplicate";
     }
-
-    // 다른 출처가 이미 존재하면 자동 덮어쓰기 금지.
     if (/(^|\n)\s*출처\s*:\s*\S/.test(existing)) {
-      try { textarea.focus(); } catch { /* noop */ }
+      focusTextareaSafe(textarea);
+      console.log("[Aru Source Captioner] insert: different source already present — skipped");
       logCommentInsertSkip("other_source_present");
-      return false;
+      return "different-source";
     }
-
-    let newValue;
-    if (existing.trim().length === 0) {
-      newValue = sourceText;
-    } else {
-      newValue = existing.replace(/\s+$/u, "") + "\n\n" + sourceText;
-    }
-
     const maxLen = typeof textarea.maxLength === "number" ? textarea.maxLength : -1;
     if (maxLen > 0 && newValue.length > maxLen) {
+      console.warn("[Aru Source Captioner] insert: maxLength exceeded — skipped", {
+        newLength: newValue.length,
+        maxLength: maxLen,
+      });
       logCommentInsertSkip("maxlength_exceeded", { maxLen, newLen: newValue.length });
-      return false;
+      return "too-long";
     }
+    return null;
+  }
 
+  function buildMergedTextareaValue(existing, sourceText) {
+    if (existing.trim().length === 0) return sourceText;
+    return existing.replace(/\s+$/u, "") + "\n\n" + sourceText;
+  }
+
+  function applyTextareaValue(textarea, newValue) {
     textarea.value = newValue;
+
+    // 사이트가 textarea setter를 가로채는지(예: framework state 동기화) 검증한다.
+    console.log("[Aru Source Captioner] insert: value set", {
+      actualValue: typeof textarea.value === "string" ? textarea.value.slice(0, 50) : null,
+      valueMatches: textarea.value === newValue,
+      valueLength: typeof textarea.value === "string" ? textarea.value.length : -1,
+    });
 
     const cursorPos = newValue.length;
     try {
@@ -793,29 +831,77 @@
       // 일부 브라우저/상태에서 setSelectionRange가 throw할 수 있다 — 무시.
     }
 
-    // 사이트가 textarea 변화를 감지할 수 있도록 표준 이벤트 dispatch.
     try {
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
       textarea.dispatchEvent(new Event("change", { bubbles: true }));
     } catch (err) {
       console.debug("[Aru Source Captioner] event dispatch failed:", err);
     }
+  }
 
-    return true;
+  function insertSourceIntoCommentTextarea(textarea, sourceText) {
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      console.warn("[Aru Source Captioner] insert: not a textarea element");
+      return "not-textarea";
+    }
+
+    const existing = typeof textarea.value === "string" ? textarea.value : "";
+    const sourceLine = sourceText.split("\n")[0];  // "출처: {url}"
+
+    console.log("[Aru Source Captioner] insert: called", {
+      textareaExists: true,
+      inDOM: document.contains(textarea),
+      currentValue: existing.slice(0, 50),
+      maxLength: textarea.maxLength,
+    });
+
+    const newValue = buildMergedTextareaValue(existing, sourceText);
+    const skip = checkInsertSkipReason(textarea, existing, sourceLine, newValue);
+    if (skip) return skip;
+
+    applyTextareaValue(textarea, newValue);
+
+    console.log("[Aru Source Captioner] insert: completed successfully");
+    return "ok";
   }
 
   function handleCommentSourceButtonClick(textarea) {
-    if (!(textarea instanceof HTMLTextAreaElement)) return;
+    console.log("[Aru Source Captioner] click: button clicked");
+
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      console.warn("[Aru Source Captioner] click: textarea reference is not a textarea");
+      return;
+    }
+
+    // textarea가 detached됐는지 (DOM에서 사라졌다가 다시 생기는 케이스) 검증한다.
+    if (!document.contains(textarea)) {
+      console.warn(
+        "[Aru Source Captioner] click: textarea is detached from DOM, re-scanning..."
+      );
+      try {
+        setupCommentSourceCaptioner();
+      } catch (err) {
+        console.debug("[Aru Source Captioner] click: re-scan failed:", err);
+      }
+      return;
+    }
+
     let sourceUrl;
     try {
       sourceUrl = location.href;
     } catch {
+      console.warn("[Aru Source Captioner] click: location.href read failed");
       return;
     }
-    if (typeof sourceUrl !== "string" || sourceUrl.length === 0) return;
+    if (typeof sourceUrl !== "string" || sourceUrl.length === 0) {
+      console.warn("[Aru Source Captioner] click: empty source url");
+      return;
+    }
+    console.log("[Aru Source Captioner] click: source =", sourceUrl);
 
     const sourceText = buildCommentSourceText(sourceUrl);
-    insertSourceIntoCommentTextarea(textarea, sourceText);
+    const result = insertSourceIntoCommentTextarea(textarea, sourceText);
+    console.log("[Aru Source Captioner] click: insertion result =", result);
   }
 
   function injectCommentSourceButton(wrapper) {
@@ -835,6 +921,19 @@
     // 이미 동일 wrapper에 주입된 적이 있으면 (DOM 재구성 등) 추가 주입 방지.
     if (wrapper.querySelector("." + COMMENT_BUTTON_CLASS)) {
       console.log("[Aru Source Captioner] inject: skipped (button already present)", wrapper);
+      return false;
+    }
+
+    // 페이지 어딘가에 이미 살아있는 button이 있으면 다른 wrapper에는 추가하지 않는다.
+    // wrapper 탐색 우선순위 변경 / DOM 변형으로 인해 동일 textarea가 여러 wrapper로
+    // 다중 매핑될 가능성에 대비한 page-level guard.
+    const existingPageButton = document.querySelector("." + COMMENT_BUTTON_CLASS);
+    if (existingPageButton && document.contains(existingPageButton)) {
+      wrapper.dataset[COMMENT_BOUND_DATASET_KEY] = "1";
+      console.log(
+        "[Aru Source Captioner] inject: skipped (button already exists in page)",
+        wrapper
+      );
       return false;
     }
 
@@ -939,6 +1038,8 @@
     // Polling fallback: MutationObserver만으로는 일부 동적 로딩 케이스에서
     // 댓글 영역을 놓칠 수 있다. 15초 동안 500ms 간격으로 한 번 더 scan을 돌려
     // 네트워크 지연/AJAX 로딩으로 늦게 도착하는 댓글 wrapper를 잡는다.
+    // button이 한 번이라도 page에 주입되면 polling을 즉시 중단해 로그 spam을 줄인다
+    // (이후 변화는 MutationObserver가 계속 감지).
     let attempts = 0;
     const maxAttempts = 30;  // 30 * 500ms = 15s
     const pollIntervalId = setInterval(() => {
@@ -947,6 +1048,13 @@
         setupCommentSourceCaptioner();
       } catch (err) {
         console.debug("[Aru Source Captioner] poll setup failed:", err);
+      }
+      if (document.querySelector("." + COMMENT_BUTTON_CLASS)) {
+        clearInterval(pollIntervalId);
+        console.log(
+          "[Aru Source Captioner] poll: button injected, stopping polling"
+        );
+        return;
       }
       if (attempts >= maxAttempts) {
         clearInterval(pollIntervalId);
