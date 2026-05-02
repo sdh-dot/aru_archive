@@ -33,3 +33,22 @@ def splash_path() -> Optional[str]:
         base = Path(__file__).parent.parent.parent  # aru_archive 루트
     p = base / "assets" / "splash" / "splash.png"
     return str(p) if p.exists() else None
+
+
+def _assets_base() -> Path:
+    """frozen / source 양쪽에서 동일하게 동작하는 assets 루트."""
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).parent.parent.parent  # aru_archive 루트
+
+
+def loading_image_path() -> Optional[str]:
+    """LoadingOverlayDialog 좌측 메인 이미지 경로. 부재 시 None."""
+    p = _assets_base() / "assets" / "loading" / "loading_01.png"
+    return str(p) if p.exists() else None
+
+
+def loading_icon_path() -> Optional[str]:
+    """LoadingOverlayDialog 하단 mini icon 경로. 부재 시 None."""
+    p = _assets_base() / "assets" / "loading" / "icon_05.png"
+    return str(p) if p.exists() else None
