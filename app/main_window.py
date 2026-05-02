@@ -114,129 +114,18 @@ class _TimingPhase:
 # DB 쿼리 상수
 # ------------------------------------------------------------------
 
-_GALLERY_BASE = """
-    SELECT
-        g.group_id,
-        g.artwork_title,
-        g.artwork_id,
-        g.metadata_sync_status,
-        g.status,
-        g.source_site,
-        (SELECT af.file_format FROM artwork_files af
-         WHERE af.group_id = g.group_id AND af.file_role = 'original'
-         ORDER BY af.page_index LIMIT 1) AS file_format,
-        (SELECT tc.thumb_path
-         FROM artwork_files af2
-         JOIN thumbnail_cache tc ON tc.file_id = af2.file_id
-         WHERE af2.group_id = g.group_id
-         ORDER BY af2.page_index LIMIT 1) AS thumb_path,
-        (SELECT GROUP_CONCAT(DISTINCT af3.file_role)
-         FROM artwork_files af3
-         WHERE af3.group_id = g.group_id) AS role_summary
-    FROM artwork_groups g
-    WHERE EXISTS (
-        SELECT 1 FROM artwork_files af_present
-        WHERE af_present.group_id = g.group_id
-          AND af_present.file_status = 'present'
-    )
-"""
-
-_PRESENT_EXISTS_FRAGMENT = (
-    "EXISTS ("
-    "SELECT 1 FROM artwork_files af_present "
-    "WHERE af_present.group_id = g.group_id "
-    "AND af_present.file_status = 'present'"
-    ")"
+# Sidebar 필터 SQL / helper 는 app.widgets.sidebar_filters 로 중앙화됐다.
+# 기존 underscore-prefixed 별칭은 backward-compat (외부 테스트 import 등) 보존용.
+# 의미 / SQL 변경 없음 — 동작 보존 refactor.
+from app.widgets.sidebar_filters import (
+    COUNT_SQL_BY_CATEGORY     as _COUNT_SQL,
+    FAILED_STATUSES_SQL_LIST  as _FAILED_STATUSES,
+    GALLERY_BASE              as _GALLERY_BASE,
+    GALLERY_MISSING_SQL       as _GALLERY_MISSING_SQL,
+    GALLERY_WHERE_BY_CATEGORY as _GALLERY_WHERE,
+    MISSING_EXISTS_SQL_FRAGMENT as _MISSING_EXISTS_FRAGMENT,
+    PRESENT_EXISTS_SQL_FRAGMENT as _PRESENT_EXISTS_FRAGMENT,
 )
-
-# present-only base의 WHERE 조건을 missing 으로 뒤집은 미러 프래그먼트
-_MISSING_EXISTS_FRAGMENT = (
-    "EXISTS ("
-    "SELECT 1 FROM artwork_files af_missing "
-    "WHERE af_missing.group_id = g.group_id "
-    "AND af_missing.file_status = 'missing'"
-    ")"
-)
-
-# missing 카테고리 전용 Gallery SQL
-# _GALLERY_BASE 는 present 필터를 내장하므로 missing 카테고리에는 사용 불가 — 별도 정의
-_GALLERY_MISSING_SQL = """
-    SELECT
-        g.group_id,
-        g.artwork_title,
-        g.artwork_id,
-        g.metadata_sync_status,
-        g.status,
-        g.source_site,
-        (SELECT af.file_format FROM artwork_files af
-         WHERE af.group_id = g.group_id AND af.file_role = 'original'
-         ORDER BY af.page_index LIMIT 1) AS file_format,
-        (SELECT tc.thumb_path
-         FROM artwork_files af2
-         JOIN thumbnail_cache tc ON tc.file_id = af2.file_id
-         WHERE af2.group_id = g.group_id
-         ORDER BY af2.page_index LIMIT 1) AS thumb_path,
-        (SELECT GROUP_CONCAT(DISTINCT af3.file_role)
-         FROM artwork_files af3
-         WHERE af3.group_id = g.group_id) AS role_summary
-    FROM artwork_groups g
-    WHERE {missing_exists}
-    ORDER BY g.indexed_at DESC
-""".format(missing_exists=_MISSING_EXISTS_FRAGMENT)
-
-_FAILED_STATUSES = (
-    "'file_write_failed','convert_failed','metadata_write_failed',"
-    "'db_update_failed','needs_reindex'"
-)
-
-_GALLERY_WHERE: dict[str, str] = {
-    "all":         "",
-    "inbox":       "AND g.status = 'inbox'",
-    "managed": (
-        "AND EXISTS ("
-        "  SELECT 1 FROM artwork_files af "
-        "  WHERE af.group_id = g.group_id AND af.file_role = 'managed'"
-        ")"
-    ),
-    "no_metadata": "",
-    "warning":     "AND g.metadata_sync_status IN ('xmp_write_failed', 'json_only')",
-    "failed":      f"AND g.metadata_sync_status IN ({_FAILED_STATUSES})",
-}
-
-_COUNT_SQL: dict[str, str] = {
-    "all": (
-        "SELECT COUNT(*) FROM artwork_groups g "
-        f"WHERE {_PRESENT_EXISTS_FRAGMENT}"
-    ),
-    "inbox": (
-        "SELECT COUNT(*) FROM artwork_groups g "
-        f"WHERE {_PRESENT_EXISTS_FRAGMENT} AND g.status = 'inbox'"
-    ),
-    "managed": (
-        "SELECT COUNT(DISTINCT g.group_id) FROM artwork_groups g "
-        "JOIN artwork_files af ON af.group_id = g.group_id "
-        f"WHERE af.file_role = 'managed' AND {_PRESENT_EXISTS_FRAGMENT}"
-    ),
-    "no_metadata": (
-        "SELECT COUNT(*) FROM artwork_groups g "
-        f"WHERE g.metadata_sync_status = 'metadata_missing' "
-        f"AND {_PRESENT_EXISTS_FRAGMENT}"
-    ),
-    "warning": (
-        "SELECT COUNT(*) FROM artwork_groups g "
-        f"WHERE g.metadata_sync_status IN ('xmp_write_failed', 'json_only') "
-        f"AND {_PRESENT_EXISTS_FRAGMENT}"
-    ),
-    "failed": (
-        "SELECT COUNT(*) FROM artwork_groups g "
-        f"WHERE g.metadata_sync_status IN ({_FAILED_STATUSES}) "
-        f"AND {_PRESENT_EXISTS_FRAGMENT}"
-    ),
-    "missing": (
-        "SELECT COUNT(*) FROM artwork_groups g "
-        f"WHERE {_MISSING_EXISTS_FRAGMENT}"
-    ),
-}
 
 _NO_META_IDX = 1
 _GALLERY_IDX  = 0
