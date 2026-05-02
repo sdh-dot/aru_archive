@@ -21,6 +21,7 @@ import json
 import logging
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -39,6 +40,25 @@ from app.views.loading_overlay_dialog import LoadingOverlayDialog
 from app.views.path_setup_dialog import PathSetupDialog
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Timing instrumentation helpers (wizard-local)
+# ---------------------------------------------------------------------------
+
+_TIMING_LOG = logging.getLogger("aru.timing")
+
+
+def _log_phase(phase: str, elapsed_ms: float, **extra) -> None:
+    """Emit a [TIMING] line for a single phase. Never raises."""
+    try:
+        suffix = " ".join(f"{k}={v}" for k, v in extra.items())
+        msg = f"[TIMING] {phase} elapsed_ms={elapsed_ms:.1f}"
+        if suffix:
+            msg += " " + suffix
+        _TIMING_LOG.debug(msg)
+    except Exception:
+        pass  # timing must never break the app
+
 
 # ---------------------------------------------------------------------------
 # 썸네일 캐시
@@ -854,14 +874,20 @@ class _Step2Scan(_StepPanel):
         self._scan_thread.start()
 
     def _on_scan_done(self, result: dict) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="wizard.scan")
         self._hide_loading()
         self._btn_scan.setEnabled(True)
         self._btn_scan.setText("🔍 이미지 스캔 실행")
         self._last_result_lbl.setText(
             f"완료 — 신규: {result['new']}, 스킵: {result['skipped']}, 실패: {result['failed']}"
         )
+        _log_phase("postprocess.start", 0.0, op="wizard.scan")
         self.refresh()
+        _t_emit = time.perf_counter()
         self.refresh_main.emit()
+        _log_phase("refresh_main.emit", (time.perf_counter() - _t_emit) * 1000, op="wizard.scan")
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="wizard.scan")
 
 
 # ── Step 3: Metadata Check ──────────────────────────────────────────────────
@@ -1109,14 +1135,20 @@ class _Step4Enrich(_StepPanel):
         self._enrich_thread.start()
 
     def _on_enrich_done(self, result: dict) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="wizard.enrich_legacy")
         self._btn_enrich.setEnabled(True)
         self._btn_enrich_all.setEnabled(True)
         self._btn_enrich.setText("🔄 메타데이터 없는 항목만 보강")
         self._progress_lbl.setText(
             f"완료 — 성공: {result['success']}, 실패: {result['failed']}, 스킵: {result['skipped']}"
         )
+        _log_phase("postprocess.start", 0.0, op="wizard.enrich_legacy")
         self.refresh()
+        _t_emit = time.perf_counter()
         self.refresh_main.emit()
+        _log_phase("refresh_main.emit", (time.perf_counter() - _t_emit) * 1000, op="wizard.enrich_legacy")
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="wizard.enrich_legacy")
 
 
 # ── Step 5: 분류 기준 선택 ───────────────────────────────────────────────────
@@ -1334,6 +1366,8 @@ class _Step4EnrichModern(_StepPanel):
         self._refresh_status_cards(fs)
 
     def _on_enrich_done(self, result: dict) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="wizard.enrich_modern")
         self._enrich_thread = None
         self._set_actions_enabled(True)
         self._progress.hide()
@@ -1346,18 +1380,28 @@ class _Step4EnrichModern(_StepPanel):
             self._start_local_import(mode=followup_mode)
             return
         self._hide_loading()
+        _log_phase("postprocess.start", 0.0, op="wizard.enrich_modern")
         self.refresh()
+        _t_emit = time.perf_counter()
         self.refresh_main.emit()
+        _log_phase("refresh_main.emit", (time.perf_counter() - _t_emit) * 1000, op="wizard.enrich_modern")
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="wizard.enrich_modern")
 
     def _on_local_import_done(self, result: dict) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="wizard.local_import_modern")
         self._local_import_thread = None
         self._set_actions_enabled(True)
         self._progress.hide()
         self._progress_lbl.setText(
             f"XMP 데이터 입력 완료 — 전체: {result.get('total', 0)}, 성공: {result['success']}, 실패: {result['failed']}, 스킵: {result['skipped']}"
         )
+        _log_phase("postprocess.start", 0.0, op="wizard.local_import_modern")
         self.refresh()
+        _t_emit = time.perf_counter()
         self.refresh_main.emit()
+        _log_phase("refresh_main.emit", (time.perf_counter() - _t_emit) * 1000, op="wizard.local_import_modern")
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="wizard.local_import_modern")
 
         self._hide_loading()
 
@@ -1560,22 +1604,31 @@ class _Step4EnrichModern(_StepPanel):
         self._progress_lbl.setText(f"XMP 데이터 입력 진행 중… {done}/{total} ({group_id[:8]}…)")
 
     def _on_enrich_done(self, result: dict) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="wizard.enrich_modern2")
         self._enrich_thread = None
         self._set_actions_enabled(True)
         self._progress.hide()
         self._progress_lbl.setText(
             f"Pixiv 보강 완료 — 성공: {result['success']}, 실패: {result['failed']}, 건너뜀: {result['skipped']}"
         )
+        _log_phase("postprocess.start", 0.0, op="wizard.enrich_modern2")
         self.refresh()
+        _t_emit = time.perf_counter()
         self.refresh_main.emit()
+        _log_phase("refresh_main.emit", (time.perf_counter() - _t_emit) * 1000, op="wizard.enrich_modern2")
         if self._pending_bulk_followup:
             followup_mode = self._pending_bulk_followup
             self._pending_bulk_followup = None
             self._start_local_import(mode=followup_mode)
-                return
+            _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="wizard.enrich_modern2")
+            return
         self._hide_loading()
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="wizard.enrich_modern2")
 
     def _on_local_import_done(self, result: dict) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="wizard.local_import_modern2")
         self._local_import_thread = None
         self._set_actions_enabled(True)
         self._progress.hide()
@@ -1583,8 +1636,12 @@ class _Step4EnrichModern(_StepPanel):
             f"XMP 입력 완료 — 전체: {result.get('total', 0)}, 성공: {result['success']}, 실패: {result['failed']}, 건너뜀: {result['skipped']}"
         )
         self._hide_loading()
+        _log_phase("postprocess.start", 0.0, op="wizard.local_import_modern2")
         self.refresh()
+        _t_emit = time.perf_counter()
         self.refresh_main.emit()
+        _log_phase("refresh_main.emit", (time.perf_counter() - _t_emit) * 1000, op="wizard.local_import_modern2")
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="wizard.local_import_modern2")
 
     def _on_pixiv_progress(self, done: int, total: int) -> None:
         total = max(total, 1)
@@ -1831,12 +1888,18 @@ class _Step6Retag(_StepPanel):
         self._retag_thread.start()
 
     def _on_retag_done(self, results: list) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="wizard.retag")
         self._hide_loading()
         self._btn_retag.setEnabled(True)
         self._btn_retag.setText("🏷 전체 태그 재분석")
+        _log_phase("postprocess.start", 0.0, op="wizard.retag")
         self._populate_result_grid(results)
         self.refresh()
+        _t_emit = time.perf_counter()
         self.refresh_main.emit()
+        _log_phase("refresh_main.emit", (time.perf_counter() - _t_emit) * 1000, op="wizard.retag")
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="wizard.retag")
 
     def _populate_result_grid(self, results: list) -> None:
         total   = len(results)
@@ -2643,6 +2706,8 @@ class _Step8Execute(_StepPanel):
         )
 
     def _on_execute_done(self, result: dict) -> None:
+        _t_post = time.perf_counter()
+        _log_phase("worker.done", 0.0, op="wizard.execute")
         self._hide_loading()
         self._btn_execute.setEnabled(True)
         self._btn_execute.setText("▶ 분류 실행")
@@ -2666,7 +2731,11 @@ class _Step8Execute(_StepPanel):
                 f"❌ 실패: {result.get('error', '알 수 없는 오류')}"
             )
         self._progress_lbl.setText("완료")
+        _log_phase("postprocess.start", 0.0, op="wizard.execute")
+        _t_emit = time.perf_counter()
         self.refresh_main.emit()
+        _log_phase("refresh_main.emit", (time.perf_counter() - _t_emit) * 1000, op="wizard.execute")
+        _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="wizard.execute")
 
     def _query_json_only_count(self) -> int:
         """DB에서 metadata_sync_status='json_only' 그룹 수를 반환한다."""
@@ -2942,6 +3011,7 @@ class WorkflowWizardView(QDialog):
         total: Optional[int] = None,
         current: int = 0,
     ) -> None:
+        _t0 = time.perf_counter()
         dialog = self._ensure_loading_dialog()
         dialog.set_title_text(title)
         dialog.set_message_text(message)
@@ -2954,6 +3024,7 @@ class WorkflowWizardView(QDialog):
         dialog.raise_()
         dialog.activateWindow()
         QApplication.processEvents()
+        _log_phase("loading.show", (time.perf_counter() - _t0) * 1000, title=title)
 
     def _update_loading(
         self,
@@ -2976,7 +3047,9 @@ class WorkflowWizardView(QDialog):
     def _hide_loading(self) -> None:
         if self._loading_dialog is None:
             return
+        _t0 = time.perf_counter()
         self._loading_dialog.hide()
+        _log_phase("loading.hide", (time.perf_counter() - _t0) * 1000)
 
     def _mirror_loading_log(self, message: str) -> None:
         dialog = self._loading_dialog
