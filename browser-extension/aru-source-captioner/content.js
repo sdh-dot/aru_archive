@@ -726,8 +726,22 @@
   //   - 한 file input당 한 번만 hook (data-aru-source-file-bound guard).
   //   - 기존 onclick / onchange / onkeydown / .common_img_button 이벤트는 절대 손대지 않는다.
 
-  const COMMENT_TEXTAREA_SELECTOR =
-    'textarea[name="comment_input"], textarea#comment_input, textarea.comment_input';
+  // 일반 댓글: textarea[name="comment_input"] / textarea#comment_input
+  // 대댓글(reply): name/id가 comment_input_<commentId> 또는 re_comment_input_*
+  // 형태로 들어오는 경우가 있어, prefix 매칭과 class 부분 매칭을 함께 사용한다.
+  // .common_img_button 위치 기준으로 button을 주입하므로 게시글 본문 textarea 등이
+  // 잘못 매칭되더라도 wrapper에 .common_img_button이 없으면 영향 적다.
+  const COMMENT_TEXTAREA_SELECTOR = [
+    'textarea[name="comment_input"]',
+    'textarea[id="comment_input"]',
+    'textarea[class~="comment_input"]',
+    'textarea[name^="comment_input"]',     // 대댓글: comment_input_<id>
+    'textarea[id^="comment_input"]',
+    'textarea[name^="re_comment_input"]',  // 대댓글: re_comment_input_*
+    'textarea[id^="re_comment_input"]',
+    'textarea[class*="comment_input"]',    // class에 comment_input 부분 매칭
+    'textarea[class*="re_comment"]',
+  ].join(", ");
   const COMMENT_IMG_BUTTON_SELECTOR = ".common_img_button";
   const COMMENT_FILE_INPUT_SELECTOR = "input.common_img_input, input[type='file']";
   const COMMENT_BOUND_DATASET_KEY = "aruSourceCommentBound";
@@ -772,20 +786,27 @@
   }
 
   // 단일 wrapper를 검증하고 진단 로그를 남긴 뒤 result에 추가한다.
+  // textarea의 name/id/className을 함께 로그로 찍어 일반 댓글 / 대댓글 wrapper를
+  // 사용자가 콘솔에서 구분할 수 있도록 한다 (selector 적합성 검증 용도).
   function classifyAndPushWrapper(wrapper, result) {
-    const hasTextarea = wrapper.querySelector(COMMENT_TEXTAREA_SELECTOR);
-    if (!hasTextarea) return;
+    const textarea = wrapper.querySelector(COMMENT_TEXTAREA_SELECTOR);
+    if (!(textarea instanceof HTMLTextAreaElement)) return;
     const imgButton = wrapper.querySelector(COMMENT_IMG_BUTTON_SELECTOR);
     result.push(wrapper);
+    const textareaInfo = {
+      name: textarea.name,
+      id: textarea.id,
+      className: textarea.className,
+    };
     if (imgButton) {
       console.log(
         "[Aru Source Captioner] scan: wrapper OK (has textarea + .common_img_button)",
-        wrapper
+        { wrapper, textarea: textareaInfo }
       );
     } else {
       console.log(
         "[Aru Source Captioner] scan: wrapper has textarea but no .common_img_button — will use textarea position",
-        wrapper
+        { wrapper, textarea: textareaInfo }
       );
     }
   }
@@ -975,19 +996,13 @@
     }
 
     // 이미 동일 wrapper에 주입된 적이 있으면 (DOM 재구성 등) 추가 주입 방지.
+    // 일반 댓글과 대댓글은 각각 독립된 wrapper를 가지므로 page-level dedupe는
+    // 하지 않는다 — 첫 wrapper에 button이 들어가면 대댓글 wrapper가 영원히
+    // skip되는 사고를 막기 위함이다. wrapper-level guard만 유지한다.
     if (wrapper.querySelector("." + COMMENT_BUTTON_CLASS)) {
-      console.log("[Aru Source Captioner] inject: skipped (button already present)", wrapper);
-      return false;
-    }
-
-    // 페이지 어딘가에 이미 살아있는 button이 있으면 다른 wrapper에는 추가하지 않는다.
-    // wrapper 탐색 우선순위 변경 / DOM 변형으로 인해 동일 textarea가 여러 wrapper로
-    // 다중 매핑될 가능성에 대비한 page-level guard.
-    const existingPageButton = document.querySelector("." + COMMENT_BUTTON_CLASS);
-    if (existingPageButton && document.contains(existingPageButton)) {
       wrapper.dataset[COMMENT_BOUND_DATASET_KEY] = "1";
       console.log(
-        "[Aru Source Captioner] inject: skipped (button already exists in page)",
+        "[Aru Source Captioner] inject: skipped (button already in this wrapper)",
         wrapper
       );
       return false;
@@ -1215,8 +1230,9 @@
     // Polling fallback: MutationObserver만으로는 일부 동적 로딩 케이스에서
     // 댓글 영역을 놓칠 수 있다. 15초 동안 500ms 간격으로 한 번 더 scan을 돌려
     // 네트워크 지연/AJAX 로딩으로 늦게 도착하는 댓글 wrapper를 잡는다.
-    // button이 한 번이라도 page에 주입되면 polling을 즉시 중단해 로그 spam을 줄인다
-    // (이후 변화는 MutationObserver가 계속 감지).
+    // 첫 button 발견 시 polling을 중단하면 일반 댓글에 button이 들어간 직후 폴링이
+    // 멈춰 늦게 expand되는 대댓글 wrapper를 놓치게 되므로, 시간 기준(15s)으로만
+    // 종료한다. 이후 변화는 MutationObserver가 계속 감지하여 채워준다.
     let attempts = 0;
     const maxAttempts = 30;  // 30 * 500ms = 15s
     const pollIntervalId = setInterval(() => {
@@ -1226,17 +1242,10 @@
       } catch (err) {
         console.debug("[Aru Source Captioner] poll setup failed:", err);
       }
-      if (document.querySelector("." + COMMENT_BUTTON_CLASS)) {
-        clearInterval(pollIntervalId);
-        console.log(
-          "[Aru Source Captioner] poll: button injected, stopping polling"
-        );
-        return;
-      }
       if (attempts >= maxAttempts) {
         clearInterval(pollIntervalId);
         console.log(
-          "[Aru Source Captioner] poll: stopping after 15s (still scanning via MutationObserver)"
+          "[Aru Source Captioner] poll: stopping after 15s (MutationObserver continues)"
         );
       }
     }, 500);
