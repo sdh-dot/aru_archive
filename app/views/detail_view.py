@@ -18,6 +18,19 @@ from PyQt6.QtWidgets import (
     QScrollArea, QSizePolicy, QTextEdit, QVBoxLayout, QWidget,
 )
 
+from app.ui_action_text import (
+    EXPLORER_META_REPAIR_LABEL,
+    EXPLORER_META_REPAIR_TOOLTIP,
+    PIXIV_META_LABEL,
+    PIXIV_META_TOOLTIP,
+    PIXIV_META_TOOLTIP_MISSING,
+    READ_EMBEDDED_META_LABEL,
+    READ_EMBEDDED_META_TOOLTIP,
+    REINDEX_LABEL,
+    REINDEX_TOOLTIP,
+    XMP_RETRY_LABEL,
+    XMP_RETRY_TOOLTIP,
+)
 from core.filename_parser import parse_pixiv_filename
 
 _STATUS_DISPLAY: dict[str, str] = {
@@ -200,14 +213,12 @@ class DetailView(QWidget):
         action_vl.setSpacing(4)
 
         self._btn_read_meta   = _btn(
-            "파일 내 메타데이터 읽기",
-            "선택 파일의 AruArchive JSON / XMP 읽기"
+            READ_EMBEDDED_META_LABEL,
+            READ_EMBEDDED_META_TOOLTIP
         )
         self._btn_pixiv_meta  = _btn(
-            "🌐 Pixiv 메타데이터 가져오기",
-            "파일명에서 Pixiv ID를 추출하고 URL을 생성합니다.\n"
-            "실제 Pixiv 메타데이터 fetch는 아직 미구현입니다.\n"
-            "지원 형식: {artwork_id}_p{n}.ext"
+            PIXIV_META_LABEL,
+            PIXIV_META_TOOLTIP
         )
         self._btn_regen_thumb = _btn(
             "썸네일 재생성",
@@ -226,18 +237,17 @@ class DetailView(QWidget):
             "static GIF / ZIP용 .aru.json 생성"
         )
         self._btn_reindex     = _btn(
-            "DB 재색인",
-            "현재 선택 그룹 재처리 및 상태 갱신"
+            REINDEX_LABEL,
+            REINDEX_TOOLTIP
         )
         self._btn_xmp_retry   = _btn(
-            "🔄 XMP 재시도",
-            "ExifTool로 XMP 표준 필드를 재기록합니다.\n"
-            "json_only / xmp_write_failed 상태에서 사용합니다."
+            XMP_RETRY_LABEL,
+            XMP_RETRY_TOOLTIP
         )
 
         self._btn_explorer_meta = _btn(
-            "Explorer 메타 복구",
-            "Windows 탐색기용 제목, 태그, 만든 이를 다시 기록합니다."
+            EXPLORER_META_REPAIR_LABEL,
+            EXPLORER_META_REPAIR_TOOLTIP
         )
 
         for b in [
@@ -457,14 +467,9 @@ class DetailView(QWidget):
         )
         self._btn_pixiv_meta.setEnabled(has_pixiv)
         if not has_pixiv:
-            self._btn_pixiv_meta.setToolTip(
-                "파일명에서 Pixiv artwork_id를 추출할 수 없습니다.\n"
-                "지원 형식: {artwork_id}_p{n}.ext (예: 141100516_p0.jpg)"
-            )
+            self._btn_pixiv_meta.setToolTip(PIXIV_META_TOOLTIP_MISSING)
         else:
-            self._btn_pixiv_meta.setToolTip(
-                "파일명에서 Pixiv artwork_id 추출 후 URL 생성 및 메타데이터 조회"
-            )
+            self._btn_pixiv_meta.setToolTip(PIXIV_META_TOOLTIP)
 
         # XMP 재시도 — json_only / xmp_write_failed 상태에서 활성
         # (실제 ExifTool 가용 여부는 MainWindow에서 체크)
