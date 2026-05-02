@@ -491,6 +491,140 @@ class _RetagThread(QThread):
             conn.close()
 
 
+_INFERENCE_REASON_PREFIX = "[추론]"
+_INFERENCE_MAX_REASONS = 3
+
+
+def _format_inference_reason(candidate) -> str:
+    """단일 inference 후보를 짧은 reason 문자열로 변환한다.
+
+    표시 정책 예시:
+        [추론] 캐릭터 ワカモ → Blue Archive 후보 (high, built_in_pack:test)
+        [추론] 캐릭터 リクハチマ→ Blue Archive 후보 (medium, built_in) · 장음부호 variant
+        [추론] 캐릭터 리쿠하치마 아루 → Blue Archive 후보 (medium, imported_localized_pack) · ko localized
+    """
+    label = "high" if candidate.confidence == "high" else "medium"
+    src = candidate.source or "unknown"
+    base = (
+        f"{_INFERENCE_REASON_PREFIX} 캐릭터 {candidate.raw_tag} → "
+        f"{candidate.parent_series} 후보 ({label}, {src})"
+    )
+    kind = candidate.match_kind or ""
+    if "long_vowel" in kind:
+        base += " · 장음부호 variant"
+    elif candidate.locale:
+        base += f" · {candidate.locale} localized"
+    return base
+
+
+def _summarize_inference_for_preview(conn, raw_tags) -> list:
+    """raw_tags 에 대해 read-only character/series 추론 reason 문자열을 반환한다.
+
+    - 분류 결과나 destination path 를 절대 변경하지 않는다.
+    - high / medium confidence character 후보만 표시한다 (low 는 노이즈).
+    - 같은 (raw, parent_series) 중복 reason 은 1번만.
+    - 상위 ``_INFERENCE_MAX_REASONS`` 개를 표시하고 나머지는 "외 N건" 으로 요약.
+    - 같은 canonical 에 다른 parent_series 가 매칭되면 ambiguous 안내를 맨 위에.
+    - parent_series 가 비었지만 character 후보가 있으면 보조 안내 1줄 추가.
+    - 호출 실패는 silent fallback (preview 자체 실패는 막아야 함).
+    """
+    if not raw_tags:
+        return []
+    try:
+        from core.classification_inference import (
+            has_ambiguous_parent_series,
+            infer_character_series_candidates,
+        )
+        candidates = infer_character_series_candidates(conn, list(raw_tags))
+    except Exception:
+        return []
+
+    if not candidates:
+        return []
+
+    char_candidates = [c for c in candidates if c.tag_type == "character"]
+    if not char_candidates:
+        return []
+
+    reasons: list[str] = []
+
+    # 1. ambiguity 경고 — 자동 적용 막기 위한 사용자 안내.
+    if has_ambiguous_parent_series(char_candidates):
+        reasons.append(
+            f"{_INFERENCE_REASON_PREFIX} 서로 다른 parent_series 후보가 있어 자동 적용 보류"
+        )
+
+    # 2. 상위 후보 reason — high / medium 만, parent_series 가 있는 것만, 중복 제거.
+    qualifying = [
+        c for c in char_candidates
+        if c.confidence in ("high", "medium") and c.parent_series
+    ]
+    seen_keys: set = set()
+    shown = 0
+    extra = 0
+    for c in qualifying:
+        key = (c.raw_tag, c.parent_series)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        if shown >= _INFERENCE_MAX_REASONS:
+            extra += 1
+            continue
+        reasons.append(_format_inference_reason(c))
+        shown += 1
+
+    if extra > 0:
+        reasons.append(f"{_INFERENCE_REASON_PREFIX} 외 {extra}건")
+
+    # 3. parent_series 없는 character 후보만 있을 때 보조 안내.
+    if shown == 0 and any(
+        c.tag_type == "character"
+        and (not c.parent_series)
+        and c.confidence in ("high", "medium")
+        for c in char_candidates
+    ):
+        reasons.append(
+            f"{_INFERENCE_REASON_PREFIX} 캐릭터 후보는 있으나 parent_series 없음"
+        )
+
+    return reasons
+
+
+def _augment_previews_with_inference_reasons(conn, previews) -> None:
+    """preview 항목에 ``inference_reasons`` 필드를 in-place 로 주입한다.
+
+    각 preview 의 ``group_id`` 로 ``artwork_groups.tags_json`` 을 읽어
+    inference 를 수행한다. preview 의 destinations / classification_info 는
+    절대 수정하지 않는다. 호출 실패는 silent skip.
+    """
+    if not previews:
+        return
+    for preview in previews:
+        if not isinstance(preview, dict):
+            continue
+        if "inference_reasons" in preview:
+            continue  # 이미 주입돼 있으면 덮어쓰지 않음
+        group_id = preview.get("group_id")
+        if not group_id:
+            preview["inference_reasons"] = []
+            continue
+        raw_tags: list = []
+        try:
+            row = conn.execute(
+                "SELECT tags_json FROM artwork_groups WHERE group_id = ?",
+                (group_id,),
+            ).fetchone()
+            if row is not None:
+                raw_json = row["tags_json"] if hasattr(row, "keys") else row[0]
+                if raw_json:
+                    parsed = json.loads(raw_json)
+                    if isinstance(parsed, list):
+                        raw_tags = [str(t) for t in parsed if t]
+        except Exception:
+            raw_tags = []
+        preview["inference_reasons"] = _summarize_inference_for_preview(conn, raw_tags)
+
+
 class _PreviewThread(QThread):
     log_msg = Signal(str)
     done    = Signal(dict)
@@ -506,6 +640,12 @@ class _PreviewThread(QThread):
         conn = self._factory()
         try:
             result = build_classify_batch_preview(conn, self._group_ids, self._config)
+            # Read-only 추론 reason 을 preview dict 에 추가.
+            # destination path / classification_info / 실행 단계에 영향 없음.
+            try:
+                _augment_previews_with_inference_reasons(conn, result.get("previews", []))
+            except Exception as exc:
+                self.log_msg.emit(f"[WARN] 추론 reason 생성 실패: {exc}")
             self.done.emit(result)
         except Exception as exc:
             self.log_msg.emit(f"[ERROR] 미리보기 실패: {exc}")
@@ -2249,6 +2389,7 @@ class _Step7Preview(_StepPanel):
                 else "author_fallback"  if reason == "series_and_character_missing"
                 else ""
             )
+            inference_reasons = preview.get("inference_reasons") or []
 
             # 상태 컬럼 값 결정 (preview 단위)
             item_status, item_status_tip = self._compute_item_status(preview)
@@ -2265,6 +2406,10 @@ class _Step7Preview(_StepPanel):
                     warn_parts.append(str(dest.get("conflict")))
                 if ci_warn:
                     warn_parts.append(ci_warn)
+                # Read-only 추론 reason 은 destination 별이 아니라 group 별이므로,
+                # 같은 group 의 모든 destination row 에 동일하게 표시한다.
+                # destination path / 분류 결과 자체는 변경하지 않는다.
+                warn_parts.extend(inference_reasons)
                 warn_str = ", ".join(warn_parts)
 
                 row = self._preview_table.rowCount()
@@ -2454,6 +2599,7 @@ class _Step7Preview(_StepPanel):
         filename    = Path(source_path).name
         title       = updated_item.get("artwork_title", "")
         item_status, item_status_tip = self._compute_item_status(updated_item)
+        inference_reasons = updated_item.get("inference_reasons") or []
 
         for row in range(len(self._preview_rows)):
             if self._preview_rows[row].get("group_id") != group_id:
@@ -2474,6 +2620,8 @@ class _Step7Preview(_StepPanel):
                 warn_parts.append(str(dest.get("conflict")))
             if dest.get("override_note"):
                 warn_parts.append(dest["override_note"])
+            # 추론 reason 은 raw_tags 에서 도출되므로 override 후에도 변하지 않는다.
+            warn_parts.extend(inference_reasons)
             warn_str = ", ".join(warn_parts)
 
             base_tooltip = (
