@@ -1,12 +1,14 @@
-"""Sidebar 카테고리 라벨 한국어 친화 정리 + tooltip 회귀 테스트.
+"""Sidebar 카테고리 라벨 + 키 + tooltip 회귀 테스트.
 
-이번 PR (label-only refactor) 의 핵심 invariant 을 lock 한다:
-- category key 7개 모두 동일 (`all`/`inbox`/`managed`/`no_metadata`/`warning`/
-  `failed`/`missing`)
-- 라벨이 사용자 친화 한국어로 갱신됨 (`재시도 큐`/`주의 필요`/`등록 실패` 등)
+이번 sidebar semantic refactor 의 invariant 을 lock 한다:
+- 9개 카테고리 키 — task spec 순서 (all → work_target → unregistered → failed →
+  other → no_metadata → inbox → managed → missing)
+- ``warning`` 키는 제거됨
+- 새 라벨 3건 (작업 대상 / 메타데이터 미등록 / 기타 파일) + 기존 라벨 보존
 - 모든 카테고리에 tooltip 이 설정됨
-- 기존 회귀 테스트 (`test_sidebar_missing_category.py`) 가 그대로 통과하도록
-  missing 라벨 (`⚠ 누락 파일`) 은 보존
+- 기존 회귀 테스트 (``test_sidebar_missing_category.py``) 호환을 위해
+  missing 라벨 (``⚠ 누락 파일``) 은 보존
+- 모든 라벨은 한국어 (영어 알파벳 미포함)
 """
 from __future__ import annotations
 
@@ -18,6 +20,12 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 pytest.importorskip("PyQt6", reason="PyQt6 필요")
+
+
+EXPECTED_KEYS_IN_ORDER: list[str] = [
+    "all", "work_target", "unregistered", "failed", "other",
+    "no_metadata", "inbox", "managed", "missing",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -34,52 +42,49 @@ def qapp():
 # CATEGORIES key invariant
 # ---------------------------------------------------------------------------
 
-class TestCategoryKeysUnchanged:
-    def test_all_seven_keys_present(self):
+class TestCategoryKeysSemanticOrder:
+    def test_nine_keys_in_spec_order(self):
         from app.widgets.sidebar import CATEGORIES
         keys = [k for k, _ in CATEGORIES]
-        assert keys == [
-            "all", "inbox", "managed", "no_metadata",
-            "warning", "failed", "missing",
-        ]
+        assert keys == EXPECTED_KEYS_IN_ORDER
 
-    def test_no_extra_keys_added(self):
+    def test_total_count_is_nine(self):
         from app.widgets.sidebar import CATEGORIES
-        assert len(CATEGORIES) == 7
+        assert len(CATEGORIES) == 9
 
     def test_no_duplicate_keys(self):
         from app.widgets.sidebar import CATEGORIES
         keys = [k for k, _ in CATEGORIES]
         assert len(keys) == len(set(keys))
 
+    def test_warning_key_removed(self):
+        """``warning`` 키는 의미 분할 결과 제거되었다 — work_target / other 로 흡수."""
+        from app.widgets.sidebar import CATEGORIES
+        keys = [k for k, _ in CATEGORIES]
+        assert "warning" not in keys
+
 
 # ---------------------------------------------------------------------------
-# Label refresh
+# Label semantics
 # ---------------------------------------------------------------------------
 
-class TestNewLabels:
-    def test_no_metadata_label_renamed_to_retry_queue(self):
+class TestLabels:
+    def test_new_semantic_labels(self):
         from app.widgets.sidebar import CATEGORIES
         label_map = dict(CATEGORIES)
-        assert label_map["no_metadata"] == "재시도 큐"
+        assert label_map["work_target"] == "작업 대상"
+        assert label_map["unregistered"] == "메타데이터 미등록"
+        assert label_map["other"] == "기타 파일"
 
-    def test_warning_label_renamed_to_caution(self):
-        from app.widgets.sidebar import CATEGORIES
-        label_map = dict(CATEGORIES)
-        assert label_map["warning"] == "주의 필요"
-
-    def test_failed_label_renamed_to_registration_failure(self):
-        from app.widgets.sidebar import CATEGORIES
-        label_map = dict(CATEGORIES)
-        assert label_map["failed"] == "등록 실패"
-
-    def test_unchanged_labels_preserved(self):
-        """all / inbox / managed / missing 라벨은 변경되지 않는다."""
+    def test_preserved_labels(self):
+        """all / inbox / managed / failed / no_metadata / missing 라벨은 보존."""
         from app.widgets.sidebar import CATEGORIES
         label_map = dict(CATEGORIES)
         assert label_map["all"] == "전체 파일"
         assert label_map["inbox"] == "수신함"
         assert label_map["managed"] == "관리 중"
+        assert label_map["failed"] == "등록 실패"
+        assert label_map["no_metadata"] == "재시도 큐"
         # missing 은 기존 ⚠ prefix 보존 — 회귀 테스트 호환
         assert label_map["missing"] == "⚠ 누락 파일"
 
@@ -105,6 +110,13 @@ class TestTooltipsForAllCategories:
             assert _CATEGORY_TOOLTIPS[key].strip(), (
                 f"카테고리 {key!r} tooltip 이 빈 문자열"
             )
+
+    def test_no_orphan_tooltips(self):
+        """tooltip dict 에 sidebar 가 모르는 키가 남아있지 않아야 한다."""
+        from app.widgets.sidebar import CATEGORIES, _CATEGORY_TOOLTIPS
+        sidebar_keys = {k for k, _ in CATEGORIES}
+        extra = set(_CATEGORY_TOOLTIPS.keys()) - sidebar_keys
+        assert not extra, f"tooltip dict 에 unknown 키: {extra}"
 
     def test_tooltips_rendered_to_widget_items(self, qapp):
         from PyQt6.QtCore import Qt
@@ -132,9 +144,11 @@ class TestWidgetRendersNewLabels:
             key = item.data(Qt.ItemDataRole.UserRole)
             text_by_key[key] = item.text()
         # update_counts 호출 전 — 라벨 그대로 표시
-        assert text_by_key["no_metadata"] == "재시도 큐"
-        assert text_by_key["warning"] == "주의 필요"
+        assert text_by_key["work_target"] == "작업 대상"
+        assert text_by_key["unregistered"] == "메타데이터 미등록"
+        assert text_by_key["other"] == "기타 파일"
         assert text_by_key["failed"] == "등록 실패"
+        assert text_by_key["no_metadata"] == "재시도 큐"
         assert text_by_key["all"] == "전체 파일"
         assert text_by_key["missing"] == "⚠ 누락 파일"
 
@@ -143,8 +157,9 @@ class TestWidgetRendersNewLabels:
         from app.widgets.sidebar import SidebarWidget
         s = SidebarWidget()
         s.update_counts({
-            "all": 100, "inbox": 5, "managed": 3,
-            "no_metadata": 2, "warning": 7, "failed": 1, "missing": 4,
+            "all": 100, "work_target": 30, "unregistered": 8, "failed": 1,
+            "other": 4, "no_metadata": 2, "inbox": 5, "managed": 3,
+            "missing": 4,
         })
         text_by_key: dict[str, str] = {}
         for i in range(s._list.count()):
@@ -152,9 +167,11 @@ class TestWidgetRendersNewLabels:
             key = item.data(Qt.ItemDataRole.UserRole)
             text_by_key[key] = item.text()
         # 새 라벨 + 카운트 형식 그대로
-        assert text_by_key["no_metadata"] == "재시도 큐  (2)"
-        assert text_by_key["warning"] == "주의 필요  (7)"
+        assert text_by_key["work_target"] == "작업 대상  (30)"
+        assert text_by_key["unregistered"] == "메타데이터 미등록  (8)"
+        assert text_by_key["other"] == "기타 파일  (4)"
         assert text_by_key["failed"] == "등록 실패  (1)"
+        assert text_by_key["no_metadata"] == "재시도 큐  (2)"
         assert text_by_key["missing"] == "⚠ 누락 파일  (4)"
 
 
@@ -168,8 +185,8 @@ class TestSidebarBehaviorUnchanged:
         captured: list[str] = []
         s = SidebarWidget()
         s.category_selected.connect(lambda k: captured.append(k))
-        s.select_category("warning")
-        assert "warning" in captured
+        s.select_category("work_target")
+        assert "work_target" in captured
 
     def test_current_category_returns_key_not_label(self, qapp):
         from app.widgets.sidebar import SidebarWidget
@@ -177,3 +194,11 @@ class TestSidebarBehaviorUnchanged:
         s.select_category("failed")
         # current_category 는 항상 key 반환 (라벨 아님)
         assert s.current_category() == "failed"
+
+    def test_select_unknown_category_is_noop(self, qapp):
+        """``warning`` 같이 제거된 키를 선택해도 예외 없이 무시되어야 한다."""
+        from app.widgets.sidebar import SidebarWidget
+        s = SidebarWidget()
+        s.select_category("warning")  # 제거된 키
+        # current_category 는 변경되지 않음 (초기 setCurrentRow(0) 이후 'all')
+        assert s.current_category() == "all"

@@ -1,19 +1,32 @@
 """Explorer Sidebar 필터 SQL / helper 중앙화 모듈.
 
 기존에 ``app/main_window.py`` 내부에 흩어져 있던 sidebar 카테고리 필터 SQL 을
-한 곳에 모아둔다. 이번 모듈 분리는 **동작 보존 refactor** — SQL 의미와 카테고리
-매핑은 그대로 유지하며, 향후 사용자 의미 기준 재구성을 안전하게 진행할 수
-있도록 단일 진실 원천을 만든다.
+한 곳에 모아둔다. 본 모듈은 이제 **사용자 행동 의미 기반** 카테고리 분할을 정의
+한다 (PR #91 동작 보존 → semantic refactor 단계).
 
 이 모듈이 정의하는 invariant (회귀 테스트로 lock):
 - ``GALLERY_BASE`` — gallery SELECT base, ``WHERE EXISTS file_status='present'`` 내장
-- ``GALLERY_WHERE_BY_CATEGORY`` — 카테고리별 추가 ``AND ...`` 절 (no_metadata 는 의도적으로
-  empty string — 호출자가 panel swap 으로 처리)
+- ``GALLERY_WHERE_BY_CATEGORY`` — 카테고리별 추가 ``AND ...`` 절
+  (no_metadata 는 의도적으로 빈 문자열 — 호출자가 panel swap 으로 처리)
 - ``COUNT_SQL_BY_CATEGORY`` — 카테고리별 COUNT(*) SQL
+  (no_metadata 는 ``no_metadata_queue WHERE resolved = 0`` 카운트로 일치)
 - ``GALLERY_MISSING_SQL`` — missing 카테고리 전용 (present 필터 미사용, missing exists)
-- ``PRESENT_EXISTS_SQL_FRAGMENT`` — present-file EXISTS 절 fragment
-- ``MISSING_EXISTS_SQL_FRAGMENT`` — missing-file EXISTS 절 fragment
-- ``FAILED_STATUSES_SQL_LIST`` — failed 카테고리에 포함되는 metadata_sync_status 5종의 SQL list 표현
+- ``PRESENT_EXISTS_SQL_FRAGMENT`` / ``MISSING_EXISTS_SQL_FRAGMENT`` — 재사용 fragment
+- ``WORK_TARGET_STATUSES`` / ``WORK_TARGET_STATUSES_SQL_LIST`` — 분류 가능한 3종 상태
+  (``core.classifier.CLASSIFIABLE_STATUSES`` 와 동일해야 함)
+- ``OTHER_STATUSES_SQL_LIST`` — 분류 불가 + 비실패 3종 (pending/out_of_sync/source_unavailable)
+- ``FAILED_STATUSES_SQL_LIST`` — 5종 실패 상태
+
+카테고리 의미 (사용자 관점):
+- all          : 라이브러리 내 모든 present 파일
+- work_target  : 사용자가 분류/관리할 수 있는 상태 (full / json_only / xmp_write_failed)
+- unregistered : metadata 가 등록되지 않은 그룹 (metadata_missing) — present 기반 그룹 카운트
+- failed       : 5종 실패 상태 — 사용자 재처리 필요
+- other        : pending / out_of_sync / source_unavailable — 자동 처리 대기
+- no_metadata  : NoMetadataView panel — ``no_metadata_queue WHERE resolved = 0``
+- inbox        : 미분류 수신함
+- managed      : ``file_role = 'managed'`` 보유
+- missing      : DB 등록 + 현재 누락 (별도 SQL)
 
 사용처 (read-only):
 - ``app.main_window`` 가 import 후 backward-compat 한 underscore 별칭으로 사용
@@ -21,11 +34,8 @@
 
 이 모듈이 절대 하지 않는 것:
 - DB write 또는 schema 변경
-- 카테고리 의미 / 매핑 변경 (xmp_write_failed / pending / source_unavailable /
-  out_of_sync 위치 모두 기존 그대로)
-- no_metadata 의 GALLERY 빈 문자열 정책 변경 (분석에서 확인된 inconsistency 도
-  현재 PR 에서 보존 — 향후 별도 PR 에서 다룬다)
-- label 변경 (sidebar.py CATEGORIES 미터치)
+- ``no_metadata`` panel swap 회로 변경 (key/label 만 라우팅, 본 모듈 영역 외부)
+- label 변경 (sidebar.py CATEGORIES 가 담당)
 """
 from __future__ import annotations
 
@@ -115,9 +125,24 @@ GALLERY_MISSING_SQL: str = """
 
 
 # ---------------------------------------------------------------------------
-# failed 카테고리에 포함되는 metadata_sync_status 5종 — IN(...) SQL list 형식
+# 상태 그룹 — IN(...) SQL list 형식
 # ---------------------------------------------------------------------------
 
+# 분류/관리 가능한 상태. core.classifier.CLASSIFIABLE_STATUSES 와 일치해야 한다
+# (회귀 테스트: tests/test_sidebar_filter_semantics.py).
+WORK_TARGET_STATUSES: frozenset[str] = frozenset(
+    {"full", "json_only", "xmp_write_failed"}
+)
+WORK_TARGET_STATUSES_SQL_LIST: str = (
+    "'full','json_only','xmp_write_failed'"
+)
+
+# 분류 불가이면서 실패도 아닌 "기타" 상태. 사용자가 즉시 행동할 필요 없는 분류.
+OTHER_STATUSES_SQL_LIST: str = (
+    "'pending','out_of_sync','source_unavailable'"
+)
+
+# 5종 실패 상태 — 사용자가 재처리 / 재등록 검토 필요.
 FAILED_STATUSES_SQL_LIST: str = (
     "'file_write_failed','convert_failed','metadata_write_failed',"
     "'db_update_failed','needs_reindex'"
@@ -129,28 +154,31 @@ FAILED_STATUSES_SQL_LIST: str = (
 # ---------------------------------------------------------------------------
 # 주의:
 # - "no_metadata" 는 의도적으로 빈 문자열. 호출자가 panel swap (NoMetadataView)
-#   으로 처리하므로 GALLERY 자체는 사용되지 않는다. 향후 의미 변경 PR 에서 별도로
-#   재정의 가능.
-# - "missing" 은 GALLERY_MISSING_SQL 별도 사용.
+#   으로 처리하므로 GALLERY 자체는 사용되지 않는다.
+# - "missing" 은 GALLERY_MISSING_SQL 별도 사용 (이 dict 에 키 없음).
 
 GALLERY_WHERE_BY_CATEGORY: dict[str, str] = {
-    "all":         "",
-    "inbox":       "AND g.status = 'inbox'",
+    "all":          "",
+    "inbox":        "AND g.status = 'inbox'",
     "managed": (
         "AND EXISTS ("
         "  SELECT 1 FROM artwork_files af "
         "  WHERE af.group_id = g.group_id AND af.file_role = 'managed'"
         ")"
     ),
-    "no_metadata": "",
-    "warning":     "AND g.metadata_sync_status IN ('xmp_write_failed', 'json_only')",
-    "failed":      f"AND g.metadata_sync_status IN ({FAILED_STATUSES_SQL_LIST})",
+    "work_target":  f"AND g.metadata_sync_status IN ({WORK_TARGET_STATUSES_SQL_LIST})",
+    "unregistered": "AND g.metadata_sync_status = 'metadata_missing'",
+    "failed":       f"AND g.metadata_sync_status IN ({FAILED_STATUSES_SQL_LIST})",
+    "other":        f"AND g.metadata_sync_status IN ({OTHER_STATUSES_SQL_LIST})",
+    "no_metadata":  "",
 }
 
 
 # ---------------------------------------------------------------------------
 # 카테고리별 COUNT(*) SQL
 # ---------------------------------------------------------------------------
+# no_metadata 는 NoMetadataView 의 데이터 소스 (no_metadata_queue) 와 일치하도록
+# 큐 기반 카운트로 정의. 그 외는 artwork_groups 기반 + present-only 필터.
 
 COUNT_SQL_BY_CATEGORY: dict[str, str] = {
     "all": (
@@ -166,20 +194,28 @@ COUNT_SQL_BY_CATEGORY: dict[str, str] = {
         "JOIN artwork_files af ON af.group_id = g.group_id "
         f"WHERE af.file_role = 'managed' AND {PRESENT_EXISTS_SQL_FRAGMENT}"
     ),
-    "no_metadata": (
+    "work_target": (
         "SELECT COUNT(*) FROM artwork_groups g "
-        f"WHERE g.metadata_sync_status = 'metadata_missing' "
+        f"WHERE g.metadata_sync_status IN ({WORK_TARGET_STATUSES_SQL_LIST}) "
         f"AND {PRESENT_EXISTS_SQL_FRAGMENT}"
     ),
-    "warning": (
+    "unregistered": (
         "SELECT COUNT(*) FROM artwork_groups g "
-        f"WHERE g.metadata_sync_status IN ('xmp_write_failed', 'json_only') "
+        f"WHERE g.metadata_sync_status = 'metadata_missing' "
         f"AND {PRESENT_EXISTS_SQL_FRAGMENT}"
     ),
     "failed": (
         "SELECT COUNT(*) FROM artwork_groups g "
         f"WHERE g.metadata_sync_status IN ({FAILED_STATUSES_SQL_LIST}) "
         f"AND {PRESENT_EXISTS_SQL_FRAGMENT}"
+    ),
+    "other": (
+        "SELECT COUNT(*) FROM artwork_groups g "
+        f"WHERE g.metadata_sync_status IN ({OTHER_STATUSES_SQL_LIST}) "
+        f"AND {PRESENT_EXISTS_SQL_FRAGMENT}"
+    ),
+    "no_metadata": (
+        "SELECT COUNT(*) FROM no_metadata_queue WHERE resolved = 0"
     ),
     "missing": (
         "SELECT COUNT(*) FROM artwork_groups g "

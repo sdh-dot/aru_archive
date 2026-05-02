@@ -344,7 +344,7 @@ def test_sidebar_update_counts(qt_app):
     from app.widgets.sidebar import SidebarWidget
     s = SidebarWidget()
     s.update_counts({"all": 10, "inbox": 5, "managed": 3,
-                     "no_metadata": 2, "warning": 0, "failed": 1})
+                     "no_metadata": 2, "failed": 1})
     assert s.current_category() == "all"
 
 
