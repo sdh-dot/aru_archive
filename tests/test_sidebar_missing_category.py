@@ -40,7 +40,7 @@ def test_existing_category_keys_unchanged():
     """기존 카테고리 key가 변경되지 않아야 한다."""
     from app.widgets.sidebar import CATEGORIES
     keys = [k for k, _ in CATEGORIES]
-    for expected in ("all", "inbox", "managed", "no_metadata", "warning", "failed"):
+    for expected in ("all", "inbox", "managed", "no_metadata", "failed"):
         assert expected in keys, f"기존 key '{expected}'가 사라졌습니다."
 
 
@@ -79,7 +79,7 @@ def test_sidebar_update_counts_with_missing(qt_app):
     s = SidebarWidget()
     s.update_counts({
         "all": 20, "inbox": 5, "managed": 3,
-        "no_metadata": 2, "warning": 0, "failed": 1,
+        "no_metadata": 2, "failed": 1,
         "missing": 4,
     })
     # missing 아이템 텍스트에 카운트가 반영되었는지 확인

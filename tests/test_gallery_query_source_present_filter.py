@@ -35,10 +35,20 @@ class TestGalleryWhereUsesAnd:
 
 
 class TestCountSqlAppliesPresentFragment:
+    # 다음 카테고리는 의미상 present 필터 대상이 아님:
+    # - no_metadata : NoMetadataView 데이터 소스 (no_metadata_queue) 기반 카운트
+    #   — 큐 테이블에는 file_status 컬럼이 없다.
+    # - missing     : present 의 반대 의미 (MISSING_EXISTS_FRAGMENT 사용).
+    _COUNT_SQL_PRESENT_FILTER_EXEMPT: frozenset[str] = frozenset(
+        {"no_metadata", "missing"}
+    )
+
     def test_count_sql_entries_reference_present_filter(self):
         from app.main_window import _COUNT_SQL, _PRESENT_EXISTS_FRAGMENT
-        # 모든 카운터에 fragment가 포함되어야 함
+        # artwork_groups 기반 카운터에 fragment 가 포함되어야 함
         for cat, sql in _COUNT_SQL.items():
+            if cat in self._COUNT_SQL_PRESENT_FILTER_EXEMPT:
+                continue
             assert (
                 _PRESENT_EXISTS_FRAGMENT in sql
                 or "file_status = 'present'" in sql

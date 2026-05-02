@@ -176,22 +176,22 @@ class TestCountSqlFiltersToPresent:
         n = conn.execute(_COUNT_SQL["managed"]).fetchone()[0]
         assert n == 1
 
-    def test_count_no_metadata_excludes_missing_only(self, conn):
+    def test_count_unregistered_excludes_missing_only(self, conn):
         _add_group(conn, group_id="g1", metadata_sync_status="metadata_missing")
         _add_file(conn, file_id="f1", group_id="g1", file_status="present")
         _add_group(conn, group_id="g2", metadata_sync_status="metadata_missing")
         _add_file(conn, file_id="f2", group_id="g2", file_status="missing")
         conn.commit()
-        n = conn.execute(_COUNT_SQL["no_metadata"]).fetchone()[0]
+        n = conn.execute(_COUNT_SQL["unregistered"]).fetchone()[0]
         assert n == 1
 
-    def test_count_warning_excludes_missing_only(self, conn):
+    def test_count_work_target_excludes_missing_only(self, conn):
         _add_group(conn, group_id="g1", metadata_sync_status="json_only")
         _add_file(conn, file_id="f1", group_id="g1", file_status="present")
         _add_group(conn, group_id="g2", metadata_sync_status="xmp_write_failed")
         _add_file(conn, file_id="f2", group_id="g2", file_status="missing")
         conn.commit()
-        n = conn.execute(_COUNT_SQL["warning"]).fetchone()[0]
+        n = conn.execute(_COUNT_SQL["work_target"]).fetchone()[0]
         assert n == 1
 
     def test_count_failed_excludes_missing_only(self, conn):
