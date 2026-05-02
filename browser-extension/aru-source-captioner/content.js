@@ -50,6 +50,24 @@
 
   // ---------------- 옵션 로드 (Phase 2A 재사용) ----------------
 
+  // chrome.storage.sync 가용성 검증 — 모든 체인을 명시적 &&로 검증한다.
+  // optional chaining(`?.`)만으로는 일부 환경(특히 content script가 격리된
+  // realm에서 chrome 객체가 frozen / partial인 경우)에서 placement에 따라
+  // 여전히 throw할 수 있다는 보고가 있어, 한 단계씩 typeof + 명시적 &&로
+  // 검증하여 어느 한 단계라도 missing이면 false를 반환한다.
+  function isChromeStorageSyncAvailable() {
+    try {
+      if (typeof chrome === "undefined") return false;
+      if (!chrome) return false;
+      if (!chrome.storage) return false;
+      if (!chrome.storage.sync) return false;
+      if (typeof chrome.storage.sync.get !== "function") return false;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function loadConfig() {
     return new Promise((resolve) => {
       // Defensive: chrome.storage.sync may be undefined in the content script
@@ -59,10 +77,7 @@
       // to defaults so init() never throws and the rest of the captioner
       // (button injection, observers) keeps working.
       try {
-        if (
-          typeof chrome === "undefined" ||
-          typeof chrome?.storage?.sync?.get !== "function"
-        ) {
+        if (!isChromeStorageSyncAvailable()) {
           console.warn(
             "[Aru Source Captioner] chrome.storage.sync unavailable — using default options"
           );
@@ -70,22 +85,39 @@
           return;
         }
         chrome.storage.sync.get(null, (items) => {
-          if (chrome.runtime?.lastError) {
+          // chrome이 inject한 callback 내부에서 throw가 새어나가면 unhandled
+          // promise/error로 page에 노출되므로 callback 전체를 try/catch로 감싼다.
+          try {
+            // chrome.runtime이 없는 경우(예: extension context invalidated)에도
+            // throw하지 않도록 명시적 &&로 검증한다.
+            if (
+              typeof chrome !== "undefined" &&
+              chrome &&
+              chrome.runtime &&
+              chrome.runtime.lastError
+            ) {
+              console.warn(
+                "[Aru Source Captioner] storage.get failed, falling back to defaults:",
+                chrome.runtime.lastError.message
+              );
+              resolve({ ...DEFAULT_OPTIONS });
+              return;
+            }
+            const merged = { ...DEFAULT_OPTIONS };
+            const safeItems = items && typeof items === "object" ? items : {};
+            for (const key of Object.keys(DEFAULT_OPTIONS)) {
+              if (key in safeItems) {
+                merged[key] = safeItems[key];
+              }
+            }
+            resolve(merged);
+          } catch (callbackErr) {
             console.warn(
-              "[Aru Source Captioner] storage.get failed, falling back to defaults:",
-              chrome.runtime.lastError.message
+              "[Aru Source Captioner] storage.get callback threw, falling back to defaults:",
+              callbackErr
             );
             resolve({ ...DEFAULT_OPTIONS });
-            return;
           }
-          const merged = { ...DEFAULT_OPTIONS };
-          const safeItems = items && typeof items === "object" ? items : {};
-          for (const key of Object.keys(DEFAULT_OPTIONS)) {
-            if (key in safeItems) {
-              merged[key] = safeItems[key];
-            }
-          }
-          resolve(merged);
         });
       } catch (err) {
         console.warn(
