@@ -29,6 +29,8 @@ import zlib
 from pathlib import Path
 from typing import Optional
 
+from core.subprocess_util import no_window_kwargs
+
 logger = logging.getLogger(__name__)
 
 
@@ -420,7 +422,7 @@ def write_windows_exif_fields(
     _timeout = False
     _success = False
     try:
-        result = subprocess.run(args, capture_output=True, timeout=60)
+        result = subprocess.run(args, capture_output=True, timeout=60, **no_window_kwargs())
         if result.returncode != 0:
             stderr = result.stderr.decode("utf-8", errors="replace")
             stdout = result.stdout.decode("utf-8", errors="replace")
@@ -510,7 +512,7 @@ def write_xmp_metadata_with_exiftool(
     _timeout = False
     _success = False
     try:
-        result = subprocess.run(args, capture_output=True, timeout=60)
+        result = subprocess.run(args, capture_output=True, timeout=60, **no_window_kwargs())
         if result.returncode != 0:
             stderr = result.stderr.decode("utf-8", errors="replace")
             stdout = result.stdout.decode("utf-8", errors="replace")

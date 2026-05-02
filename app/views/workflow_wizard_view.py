@@ -25,6 +25,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from core.subprocess_util import no_window_kwargs
+
 from PyQt6.QtCore import Qt, QThread, pyqtSignal as Signal
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
@@ -771,7 +773,7 @@ class _Step1Root(_StepPanel):
             return
         try:
             if sys.platform == "win32":
-                subprocess.Popen(["explorer", inbox_dir])
+                subprocess.Popen(["explorer", inbox_dir], **no_window_kwargs())
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", inbox_dir])
             else:
@@ -2834,7 +2836,7 @@ class _Step9Result(_StepPanel):
             return
         try:
             if sys.platform == "win32":
-                subprocess.Popen(["explorer", classified])
+                subprocess.Popen(["explorer", classified], **no_window_kwargs())
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", classified])
             else:

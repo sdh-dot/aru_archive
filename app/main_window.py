@@ -2452,6 +2452,8 @@ class MainWindow(QMainWindow):
     def _on_open_file_location(self, group_id: str) -> None:
         """선택된 group의 original 파일이 있는 폴더를 파일 탐색기로 연다."""
         import subprocess
+
+        from core.subprocess_util import no_window_kwargs
         try:
             conn = self._get_conn()
             row = conn.execute(
@@ -2468,7 +2470,7 @@ class MainWindow(QMainWindow):
                 self._log.append(f"[WARN] 파일 없음: {fp.name}")
                 return
             # Windows: explorer /select,{path}
-            subprocess.Popen(["explorer", "/select,", str(fp)])
+            subprocess.Popen(["explorer", "/select,", str(fp)], **no_window_kwargs())
         except Exception as exc:
             self._log.append(f"[ERROR] 파일 위치 열기 실패: {exc}")
 

@@ -26,6 +26,8 @@ import subprocess
 from datetime import datetime, timezone
 from typing import Optional
 
+from core.subprocess_util import no_window_kwargs
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,6 +48,7 @@ def validate_exiftool_path(exiftool_path: Optional[str]) -> bool:
             [exiftool_path, "-ver"],
             capture_output=True,
             timeout=10,
+            **no_window_kwargs(),
         )
         return result.returncode == 0
     except (FileNotFoundError, OSError, subprocess.TimeoutExpired, PermissionError):
@@ -62,6 +65,7 @@ def get_exiftool_version(exiftool_path: str) -> Optional[str]:
             encoding="utf-8",
             errors="replace",
             timeout=10,
+            **no_window_kwargs(),
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -361,6 +365,7 @@ def _read_xmp_via_exiftool(file_path: str, exiftool_path: str, result: dict) -> 
             ],
             capture_output=True,
             timeout=30,
+            **no_window_kwargs(),
         )
         if proc.returncode != 0:
             result["warnings"].append(
