@@ -66,6 +66,7 @@ def _pre_migrate_schema(conn: sqlite3.Connection) -> None:
     _migrate_artwork_groups(conn)
     _migrate_tags(conn)
     _migrate_tag_aliases(conn)
+    _ensure_startup_query_indexes(conn)
 
 
 def _migrate_schema(conn: sqlite3.Connection) -> None:
@@ -79,6 +80,26 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     _migrate_delete_batches(conn)
     _migrate_delete_records(conn)
     _migrate_classification_overrides(conn)
+    _ensure_startup_query_indexes(conn)
+
+
+def _ensure_startup_query_indexes(conn: sqlite3.Connection) -> None:
+    """Create composite indexes used by MainWindow startup queries."""
+    if _table_exists(conn, "artwork_groups"):
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_artwork_groups_indexed_at "
+            "ON artwork_groups(indexed_at DESC)"
+        )
+    if _table_exists(conn, "artwork_files"):
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_artwork_files_group_status "
+            "ON artwork_files(group_id, file_status)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_artwork_files_group_role_page "
+            "ON artwork_files(group_id, file_role, page_index)"
+        )
+    conn.commit()
 
 
 def _add_column_if_missing(
