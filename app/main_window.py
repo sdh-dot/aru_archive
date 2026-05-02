@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -30,7 +31,7 @@ from typing import Optional
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal as Signal
 from PyQt6.QtGui import QAction, QColor, QPalette
 from PyQt6.QtWidgets import (
-    QApplication, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
+    QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
     QMenu, QMessageBox, QPushButton, QSizePolicy, QSplitter, QStackedWidget,
     QToolBar, QToolButton, QVBoxLayout, QWidget,
 )
@@ -52,7 +53,8 @@ from core.filename_parser import parse_pixiv_filename
 from core.inbox_scanner import InboxScanner, ScanResult, compute_file_hash
 from core.metadata_reader import read_aru_metadata
 from core.thumbnail_manager import generate_thumbnail
-from db.database import initialize_database
+from app.views.database_reset_confirm_dialog import DatabaseResetConfirmDialog
+from db.database import backup_database, initialize_database
 
 logger = logging.getLogger(__name__)
 
@@ -942,7 +944,12 @@ class MainWindow(QMainWindow):
         self._act_save_jobs  = tool_menu.addAction("💾 저장 작업")
         self._act_dict_backup = tool_menu.addAction("💾 백업 내보내기")
         tool_menu.addSeparator()
-        self._act_db_init    = tool_menu.addAction("🗄 DB 초기화")
+        self._act_db_init    = tool_menu.addAction("⚠ 전체 DB 초기화")
+        self._act_db_init.setToolTip(
+            "⚠ 위험: DB에 저장된 모든 작품/파일/분류/사용자 사전 기록을 삭제합니다.\n"
+            "원본 이미지 파일은 삭제되지 않습니다.\n"
+            "실행 전 자동 백업이 생성됩니다."
+        )
         _add_tb_menu(tb, "도구 ▼", tool_menu)
 
         tb.addSeparator()
@@ -1428,25 +1435,34 @@ class MainWindow(QMainWindow):
 
     def _on_db_init(self) -> None:
         db_path = self._db_path()
-        try:
-            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-            db_file = Path(db_path)
-            existed = db_file.exists()
-            if existed:
-                reply = QMessageBox.warning(
-                    self,
-                    "DB 초기화 확인",
-                    "현재 DB를 비우고 다시 생성합니다.\n"
-                    "작품/파일/태그/작업 기록 등 DB 데이터가 모두 제거됩니다.\n\n"
-                    f"대상: {db_path}\n\n"
-                    "계속하시겠습니까?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No,
-                )
-                if reply != QMessageBox.StandardButton.Yes:
-                    self._log.append("[INFO] DB 초기화가 취소되었습니다.")
-                    return
+        backup_path = self._build_reset_backup_path(db_path)
 
+        dialog = DatabaseResetConfirmDialog(
+            db_path=db_path,
+            backup_path=backup_path,
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            self._log.append("[INFO] DB 초기화가 취소되었습니다.")
+            return
+
+        # DB 파일이 없으면 백업 없이 바로 초기화(새 DB 생성)
+        db_file = Path(db_path)
+        if db_file.exists():
+            if not backup_database(db_path, backup_path):
+                QMessageBox.critical(
+                    self,
+                    "백업 실패",
+                    f"백업 파일 생성에 실패했습니다.\n경로: {backup_path}\n\n"
+                    "DB 초기화를 중단합니다.\n"
+                    "대상 경로에 쓰기 권한이 있는지 확인하세요.",
+                )
+                self._log.append(f"[ERROR] DB 초기화 중단 — 백업 실패: {backup_path}")
+                return
+            self._log.append(f"[INFO] DB 백업 생성 완료: {backup_path}")
+
+            # 기존 DB 파일 및 WAL/SHM 삭제
+            try:
                 for suffix in ("", "-wal", "-shm"):
                     p = Path(f"{db_path}{suffix}")
                     if not p.exists():
@@ -1456,28 +1472,54 @@ class MainWindow(QMainWindow):
                     except FileNotFoundError:
                         pass
                     except OSError:
-                        # Busy/locked files: best-effort truncate via sqlite then retry once.
+                        # Busy/locked files: best-effort; WAL/SHM은 무시
                         if suffix == "":
                             raise
                         try:
                             p.unlink(missing_ok=True)
                         except Exception:
                             pass
+            except sqlite3.OperationalError as exc:
+                self._log.append(
+                    f"[ERROR] DB 초기화 실패: {exc} "
+                    "(다른 작업이 DB를 사용 중인지 확인하세요.)"
+                )
+                return
+            except Exception as exc:
+                self._log.append(f"[ERROR] DB 초기화 실패: {exc}")
+                return
 
+        try:
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
             conn = initialize_database(db_path)
             self._seed_localizations(conn)
             conn.close()
-            self._log.append(f"[INFO] DB 초기화 완료: {db_path}")
-            self._detail.clear()
-            self._refresh_gallery()
-            self._refresh_counts()
         except sqlite3.OperationalError as exc:
             self._log.append(
                 f"[ERROR] DB 초기화 실패: {exc} "
                 "(다른 작업이 DB를 사용 중인지 확인하세요.)"
             )
+            return
         except Exception as exc:
             self._log.append(f"[ERROR] DB 초기화 실패: {exc}")
+            return
+
+        self._log.append(f"[INFO] DB 초기화 완료: {db_path}")
+        QMessageBox.information(
+            self,
+            "초기화 완료",
+            f"DB 초기화가 완료되었습니다.\n백업 파일: {backup_path}",
+        )
+        self._detail.clear()
+        self._refresh_gallery()
+        self._refresh_counts()
+
+    def _build_reset_backup_path(self, db_path: str) -> str:
+        """DB 초기화 전 자동 백업 파일 경로를 생성한다 (타임스탬프 suffix)."""
+        from datetime import datetime as _dt
+        src = Path(db_path)
+        stamp = _dt.now().strftime("%Y%m%d_%H%M%S")
+        return str(src.parent / f"{src.stem}_before_reset_{stamp}{src.suffix}")
 
     def _seed_localizations(self, conn) -> None:
         try:
