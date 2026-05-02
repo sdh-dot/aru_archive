@@ -877,7 +877,8 @@
   }
 
   function buildCommentSourceText(sourceUrl) {
-    return `${COMMENT_SOURCE_PREFIX} ${sourceUrl}\n\n`;
+    // 출처 줄 뒤에 줄바꿈 1번만 추가 — 사용자가 빈 줄 없이 바로 다음 줄에 댓글 본문을 작성.
+    return `${COMMENT_SOURCE_PREFIX} ${sourceUrl}\n`;
   }
 
   function logCommentInsertSkip(reason, detail) {
