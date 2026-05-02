@@ -2262,7 +2262,10 @@ class _Step7Preview(_StepPanel):
         self._preview_table.setColumnWidth(3, 110)
         self._preview_table.setColumnWidth(4, 130)
         self._preview_table.setColumnWidth(6, 90)
-        self._preview_table.setMinimumWidth(860)
+        # minimumWidth 를 줄여 splitter 가 우측 thumb 패널을 더 넉넉히 줄 수 있게 한다.
+        # 기본 column 합 ≈ 690 + stretch(col5). 700 으로 두면 stretch column 이
+        # 최소 폭으로 압축되어도 다른 column 들은 그대로 표시된다.
+        self._preview_table.setMinimumWidth(700)
         self._preview_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._preview_table.setAlternatingRowColors(True)
@@ -2284,9 +2287,11 @@ class _Step7Preview(_StepPanel):
 
         thumb_frame = QFrame()
         thumb_frame.setFrameShape(QFrame.Shape.StyledPanel)
-        thumb_frame.setMinimumWidth(180)
+        # 우측 패널 최소폭을 키워 이미지/파일명/태그가 모두 표시되도록 한다.
+        thumb_frame.setMinimumWidth(220)
         tf = QVBoxLayout(thumb_frame)
         tf.setContentsMargins(6, 6, 6, 6)
+        tf.setSpacing(6)
         self._thumb_lbl = QLabel("썸네일")
         self._thumb_lbl.setFixedSize(160, 160)
         self._thumb_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -2296,9 +2301,41 @@ class _Step7Preview(_StepPanel):
         self._thumb_name_lbl.setWordWrap(True)
         self._thumb_name_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         tf.addWidget(self._thumb_name_lbl)
+
+        # 태그 표시 영역 — fixed-height scroll area 로 layout 안정성 확보.
+        # 태그가 많아도 우측 패널 height 가 무한정 커지지 않는다.
+        # 표시 전용 — preview row data / classification result / destination path
+        # 어느 것도 변경하지 않는다.
+        tags_caption = QLabel("태그")
+        tags_caption.setStyleSheet("color: #8F6874; font-size: 10px; padding-left: 2px;")
+        tf.addWidget(tags_caption)
+
+        self._thumb_tags_lbl = QLabel("태그 없음")
+        self._thumb_tags_lbl.setWordWrap(True)
+        self._thumb_tags_lbl.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
+        self._thumb_tags_lbl.setStyleSheet(
+            "color: #C0A0B0; font-size: 11px; padding: 4px;"
+        )
+        self._thumb_tags_lbl.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+
+        self._thumb_tags_scroll = QScrollArea()
+        self._thumb_tags_scroll.setWidgetResizable(True)
+        self._thumb_tags_scroll.setWidget(self._thumb_tags_lbl)
+        # 최대 높이 제한 — 태그가 많아도 layout 이 망가지지 않도록 scroll 로 흡수.
+        self._thumb_tags_scroll.setMaximumHeight(160)
+        self._thumb_tags_scroll.setMinimumHeight(60)
+        self._thumb_tags_scroll.setStyleSheet(
+            "QScrollArea { border: 1px solid #4A2030; background: #1A0F14; }"
+        )
+        tf.addWidget(self._thumb_tags_scroll)
+
         tf.addStretch()
         splitter.addWidget(thumb_frame)
-        splitter.setSizes([800, 200])
+        splitter.setSizes([720, 280])
 
         self._preview_thread: Optional[_PreviewThread] = None
 
@@ -2408,13 +2445,52 @@ class _Step7Preview(_StepPanel):
             "destination_count":     destination_count,
         }
 
+    @staticmethod
+    def _collect_preview_tags(preview: Optional[dict]) -> list[str]:
+        """preview dict 에 이미 들어 있는 tag-like 값들을 표시용 list 로 합친다.
+
+        새 DB query 없이 build_classify_preview 결과만 활용한다. 출처:
+        1. classification_info.candidate_source_tags (raw tags 일부, 분류 실패 시 존재)
+        2. fallback_tags (folder localization 이 canonical 로 fallback 한 tag)
+        3. inferred_series_evidence[].canonical (character→series 추론 근거)
+
+        모든 출처에서 dedupe + 원본 순서 유지. 표시용 list 만 변경, preview dict
+        자체는 미터치.
+        """
+        if not preview:
+            return []
+        out: list[str] = []
+        seen: set[str] = set()
+
+        def _add(value) -> None:
+            if value is None:
+                return
+            s = str(value).strip()
+            if not s or s in seen:
+                return
+            seen.add(s)
+            out.append(s)
+
+        ci = preview.get("classification_info") or {}
+        for t in ci.get("candidate_source_tags") or []:
+            _add(t)
+        for t in preview.get("fallback_tags") or []:
+            _add(t)
+        for ev in preview.get("inferred_series_evidence") or []:
+            if isinstance(ev, dict):
+                _add(ev.get("canonical"))
+
+        return out
+
     def _on_preview_row_changed(self, row: int) -> None:
         if row < 0 or row >= len(self._preview_rows):
             self._thumb_lbl.clear()
             self._thumb_lbl.setText("썸네일")
             self._thumb_name_lbl.setText("")
+            self._thumb_tags_lbl.setText("태그 없음")
             return
-        path = self._preview_rows[row].get("source_path", "")
+        row_data = self._preview_rows[row]
+        path = row_data.get("source_path", "")
         px = self._thumb_cache.load(path) if path else None
         if px:
             self._thumb_lbl.setPixmap(px)
@@ -2422,6 +2498,19 @@ class _Step7Preview(_StepPanel):
             self._thumb_lbl.clear()
             self._thumb_lbl.setText("미리보기 없음")
         self._thumb_name_lbl.setText(Path(path).name if path else "")
+
+        # 태그 표시 — _preview_items 캐시에서 group_id 로 preview dict 조회.
+        # _preview_items 가 없거나 group_id 가 비면 fallback 표시.
+        group_id = row_data.get("group_id", "")
+        preview_dict = None
+        if group_id:
+            preview_dict = getattr(self, "_preview_items", {}).get(group_id)
+        tags = self._collect_preview_tags(preview_dict)
+        if tags:
+            # bullet list — 가독성 + scroll 시 줄 단위 식별 용이
+            self._thumb_tags_lbl.setText("\n".join(f"• {t}" for t in tags))
+        else:
+            self._thumb_tags_lbl.setText("태그 없음")
 
     def _populate_preview_table(self, previews: list[dict]) -> None:
         self._preview_table.setRowCount(0)
