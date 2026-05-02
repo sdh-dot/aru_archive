@@ -37,6 +37,7 @@ from PyQt6.QtWidgets import (
 
 from app.views.detail_view import DetailView
 from app.views.gallery_view import GalleryView
+from app.views.loading_overlay_dialog import LoadingOverlayDialog
 from app.views.no_metadata_view import NoMetadataView
 from app.views.path_setup_dialog import PathSetupDialog
 from app.widgets.log_panel import LogPanel
@@ -256,6 +257,69 @@ class XmpRetryThread(QThread):
             conn.close()
 
 
+class RichXmpRetryThread(QThread):
+    log_msg  = Signal(str)
+    progress = Signal(int, int, str, str)
+    xmp_done = Signal(dict)
+
+    def __init__(
+        self,
+        group_id: Optional[str],
+        db_path: str,
+        exiftool_path: Optional[str],
+        group_ids: Optional[list[str]] = None,
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self._group_id = group_id
+        self._group_ids = group_ids or []
+        self._db_path = db_path
+        self._exiftool_path = exiftool_path
+
+    def run(self) -> None:
+        conn = initialize_database(self._db_path)
+        try:
+            from core.xmp_retry import (
+                retry_xmp_for_all,
+                retry_xmp_for_group,
+                retry_xmp_for_groups,
+            )
+
+            def _progress(done: int, total_groups: int, gid: str, status: str) -> None:
+                self.progress.emit(done, total_groups, gid, status)
+
+            if self._group_ids:
+                total = len(self._group_ids)
+                self.log_msg.emit(f"[INFO] 선택 XMP 재처리 대상: {total}개")
+                result = retry_xmp_for_groups(
+                    conn,
+                    self._group_ids,
+                    self._exiftool_path,
+                    progress_fn=_progress,
+                )
+                self.xmp_done.emit({"mode": "selected", **result})
+            elif self._group_id:
+                self.progress.emit(0, 1, self._group_id, "running")
+                result = retry_xmp_for_group(conn, self._group_id, self._exiftool_path)
+                self.progress.emit(1, 1, self._group_id, result.get("status", "done"))
+                self.xmp_done.emit(
+                    {"mode": "single", "group_ids": [self._group_id], **result}
+                )
+            else:
+                result = retry_xmp_for_all(
+                    conn,
+                    self._exiftool_path,
+                    progress_fn=_progress,
+                )
+                self.xmp_done.emit({"mode": "all", **result})
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] XMP 재처리 예외: {exc}")
+            mode = "selected" if self._group_ids else ("single" if self._group_id else "all")
+            self.xmp_done.emit({"mode": mode, "status": "error"})
+        finally:
+            conn.close()
+
+
 class ExplorerMetaRepairThread(QThread):
     log_msg = Signal(str)
     progress = Signal(int, int, str, str)
@@ -300,6 +364,176 @@ class ExplorerMetaRepairThread(QThread):
                     "exception": str(exc),
                 }
             )
+        finally:
+            conn.close()
+
+
+class ReindexThread(QThread):
+    log_msg  = Signal(str)
+    progress = Signal(int, int, str)
+    done     = Signal(dict)
+
+    def __init__(
+        self,
+        group_ids: list[str],
+        data_dir: str,
+        managed_dir: str,
+        db_path: str,
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self._group_ids = group_ids
+        self._data_dir = data_dir
+        self._managed_dir = managed_dir
+        self._db_path = db_path
+
+    def run(self) -> None:
+        conn = initialize_database(self._db_path)
+        try:
+            scanner = InboxScanner(
+                conn,
+                self._data_dir,
+                managed_dir=self._managed_dir,
+                log_fn=self.log_msg.emit,
+            )
+            total = len(self._group_ids)
+            for index, group_id in enumerate(self._group_ids, start=1):
+                self.progress.emit(index - 1, total, f"재색인 중: {group_id[:8]}…")
+                scanner.reprocess_group(group_id)
+                self.progress.emit(index, total, f"완료: {group_id[:8]}…")
+            self.done.emit({"success": True, "group_ids": list(self._group_ids)})
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] 재색인 예외: {exc}")
+            self.done.emit({"success": False, "error": str(exc), "group_ids": list(self._group_ids)})
+        finally:
+            conn.close()
+
+
+class ExactDuplicateCheckThread(QThread):
+    log_msg  = Signal(str)
+    progress = Signal(int, int, str)
+    done     = Signal(dict)
+
+    def __init__(
+        self,
+        db_path: str,
+        inbox_dir: str,
+        scope: str,
+        group_ids: Optional[list[str]] = None,
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self._db_path = db_path
+        self._inbox_dir = inbox_dir
+        self._scope = scope
+        self._group_ids = group_ids
+
+    def run(self) -> None:
+        conn = initialize_database(self._db_path)
+        try:
+            from core.duplicate_finder import (
+                build_exact_duplicate_cleanup_preview,
+                find_exact_duplicates,
+                get_duplicate_check_summary,
+            )
+
+            self.progress.emit(0, 3, "대상 파일 수를 계산하는 중…")
+            summary = get_duplicate_check_summary(
+                conn, self._inbox_dir, scope=self._scope, group_ids=self._group_ids
+            )
+            self.progress.emit(1, 3, "완전 중복 파일을 찾는 중…")
+            dup_groups = find_exact_duplicates(
+                conn, scope=self._scope, group_ids=self._group_ids
+            )
+            self.progress.emit(2, 3, "정리 후보를 계산하는 중…")
+            cleanup = build_exact_duplicate_cleanup_preview(conn, dup_groups) if dup_groups else None
+
+            delete_file_ids: list[str] = []
+            if cleanup:
+                for group in cleanup.get("groups", []):
+                    for file_info in group.get("delete_candidates", []):
+                        file_id = file_info.get("file_id")
+                        if file_id:
+                            delete_file_ids.append(file_id)
+
+            self.progress.emit(3, 3, "중복 검사 준비가 끝났습니다.")
+            self.done.emit(
+                {
+                    "success": True,
+                    "summary": summary,
+                    "dup_groups": dup_groups,
+                    "cleanup": cleanup,
+                    "delete_file_ids": delete_file_ids,
+                }
+            )
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] 완전 중복 검사 예외: {exc}")
+            self.done.emit({"success": False, "error": str(exc)})
+        finally:
+            conn.close()
+
+
+class VisualDuplicateCheckThread(QThread):
+    log_msg  = Signal(str)
+    progress = Signal(int, int, str)
+    done     = Signal(dict)
+
+    def __init__(
+        self,
+        db_path: str,
+        inbox_dir: str,
+        scope: str,
+        group_ids: Optional[list[str]] = None,
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self._db_path = db_path
+        self._inbox_dir = inbox_dir
+        self._scope = scope
+        self._group_ids = group_ids
+
+    def run(self) -> None:
+        conn = initialize_database(self._db_path)
+        try:
+            from core.duplicate_finder import get_duplicate_check_summary
+            from core.visual_duplicate_decision import decide_visual_duplicate_groups
+            from core.visual_duplicate_finder import find_visual_duplicates
+
+            self.progress.emit(0, 4, "대상 파일 수를 계산하는 중…")
+            summary = get_duplicate_check_summary(
+                conn, self._inbox_dir, scope=self._scope, group_ids=self._group_ids
+            )
+            self.progress.emit(1, 4, "시각 중복 후보를 찾는 중…")
+            dup_groups = find_visual_duplicates(
+                conn, scope=self._scope, group_ids=self._group_ids
+            )
+            initial_decisions: dict[str, str] = {}
+
+            if dup_groups:
+                self.progress.emit(3, 4, "자동 keep/delete 추천을 계산하는 중…")
+                try:
+                    decisions_per_group = decide_visual_duplicate_groups(dup_groups)
+                    for group_decisions in decisions_per_group:
+                        for decision in group_decisions:
+                            if decision.file_id:
+                                initial_decisions[decision.file_id] = decision.decision
+                except Exception as exc:
+                    self.log_msg.emit(
+                        f"[WARN] 자동 keep/delete 계산 실패 (수동 검토 필요): {exc}"
+                    )
+
+            self.progress.emit(4, 4, "검토 화면을 준비하는 중…")
+            self.done.emit(
+                {
+                    "success": True,
+                    "summary": summary,
+                    "dup_groups": dup_groups,
+                    "initial_decisions": initial_decisions,
+                }
+            )
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] 시각 중복 검사 예외: {exc}")
+            self.done.emit({"success": False, "error": str(exc)})
         finally:
             conn.close()
 
@@ -489,7 +723,10 @@ class MainWindow(QMainWindow):
         self.config = config
         self._config_path = config_path
         self._scan_thread: Optional[ScanThread] = None
+        self._loading_dialog: Optional[LoadingOverlayDialog] = None
+        self._reindex_thread: Optional[ReindexThread] = None
         self._explorer_meta_thread: Optional[QThread] = None
+        self._dup_thread: Optional[QThread] = None
         self._current_category = "all"
         self._initial_workspace_prompt_scheduled = False
         self._initial_workspace_prompt_attempted = False
@@ -524,6 +761,68 @@ class MainWindow(QMainWindow):
             return
         self._initial_workspace_setup_checked = True
         self._schedule_initial_workspace_setup()
+
+    def _ensure_loading_dialog(self) -> LoadingOverlayDialog:
+        if self._loading_dialog is None:
+            self._loading_dialog = LoadingOverlayDialog(self)
+        return self._loading_dialog
+
+    def _show_loading(
+        self,
+        title: str,
+        message: str,
+        *,
+        detail: str = "",
+        total: Optional[int] = None,
+        current: int = 0,
+    ) -> None:
+        dialog = self._ensure_loading_dialog()
+        dialog.set_title_text(title)
+        dialog.set_message_text(message)
+        dialog.set_detail_text(detail)
+        if total is None:
+            dialog.set_indeterminate("작업 중…")
+        else:
+            dialog.set_progress(current, total, f"{current}/{max(total, 1)}")
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+        QApplication.processEvents()
+
+    def _update_loading(
+        self,
+        *,
+        message: Optional[str] = None,
+        detail: Optional[str] = None,
+        current: Optional[int] = None,
+        total: Optional[int] = None,
+    ) -> None:
+        dialog = self._loading_dialog
+        if dialog is None:
+            return
+        if message is not None:
+            dialog.set_message_text(message)
+        if detail is not None:
+            dialog.set_detail_text(detail)
+        if current is not None and total is not None:
+            dialog.set_progress(current, total, f"{current}/{max(total, 1)}")
+
+    def _hide_loading(self) -> None:
+        if self._loading_dialog is None:
+            return
+        self._loading_dialog.hide()
+
+    def _mirror_loading_log(self, message: str) -> None:
+        dialog = self._loading_dialog
+        if dialog is None:
+            return
+        clean = message.strip()
+        for prefix in ("[INFO] ", "[WARN] ", "[ERROR] "):
+            if clean.startswith(prefix):
+                clean = clean[len(prefix):]
+                break
+        dialog.set_detail_text(clean)
+        QApplication.processEvents()
 
     # ------------------------------------------------------------------
     # UI 구성
@@ -589,11 +888,11 @@ class MainWindow(QMainWindow):
         self._act_pixiv_meta  = meta_menu.addAction("🖼 Pixiv 메타데이터 가져오기")
         meta_menu.addSeparator()
         self._act_explorer_meta_repair = meta_menu.addAction("🛠 선택 Explorer 메타 복구")
+        self._act_xmp_sel     = meta_menu.addAction("🔄 선택 XMP 재처리")
+        self._act_xmp_all     = meta_menu.addAction("🔄 전체 XMP 재처리")
         self._act_explorer_meta_repair.setToolTip(
             "Windows 탐색기에서 보이는 제목, 태그, 만든 이를 선택 항목 기준으로 다시 기록합니다."
         )
-        self._act_xmp_sel     = meta_menu.addAction("🔄 선택 XMP 재처리")
-        self._act_xmp_all     = meta_menu.addAction("🔄 전체 XMP 재처리")
         self._act_xmp_all.setToolTip(
             "모든 항목의 XMP 메타데이터를 다시 기록합니다. 시간이 오래 걸릴 수 있습니다."
         )
@@ -1103,16 +1402,23 @@ class MainWindow(QMainWindow):
 
         self._log.append(f"[INFO] 이미지 스캔 시작: {inbox}")
         self._act_inbox_scan.setEnabled(False)
+        self._show_loading(
+            "Inbox 스캔",
+            "폴더와 DB를 대조하며 작품을 정리하고 있어요.",
+            detail=inbox,
+        )
 
         self._scan_thread = ScanThread(
             data_dir, inbox, self._managed_dir(), db_path, parent=self
         )
         self._scan_thread.log_msg.connect(self._log.append)
+        self._scan_thread.log_msg.connect(self._mirror_loading_log)
         self._scan_thread.scan_done.connect(self._on_scan_done)
         self._scan_thread.start()
 
     def _on_scan_done(self, result: ScanResult) -> None:
         self._act_inbox_scan.setEnabled(True)
+        self._hide_loading()
         self._log.append(
             f"[INFO] 스캔 완료 — 신규: {result.new}, "
             f"스킵: {result.skipped}, 실패: {result.failed}"
@@ -1124,12 +1430,52 @@ class MainWindow(QMainWindow):
         db_path = self._db_path()
         try:
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+            db_file = Path(db_path)
+            existed = db_file.exists()
+            if existed:
+                reply = QMessageBox.warning(
+                    self,
+                    "DB 초기화 확인",
+                    "현재 DB를 비우고 다시 생성합니다.\n"
+                    "작품/파일/태그/작업 기록 등 DB 데이터가 모두 제거됩니다.\n\n"
+                    f"대상: {db_path}\n\n"
+                    "계속하시겠습니까?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    self._log.append("[INFO] DB 초기화가 취소되었습니다.")
+                    return
+
+                for suffix in ("", "-wal", "-shm"):
+                    p = Path(f"{db_path}{suffix}")
+                    if not p.exists():
+                        continue
+                    try:
+                        p.unlink()
+                    except FileNotFoundError:
+                        pass
+                    except OSError:
+                        # Busy/locked files: best-effort truncate via sqlite then retry once.
+                        if suffix == "":
+                            raise
+                        try:
+                            p.unlink(missing_ok=True)
+                        except Exception:
+                            pass
+
             conn = initialize_database(db_path)
             self._seed_localizations(conn)
             conn.close()
             self._log.append(f"[INFO] DB 초기화 완료: {db_path}")
+            self._detail.clear()
             self._refresh_gallery()
             self._refresh_counts()
+        except sqlite3.OperationalError as exc:
+            self._log.append(
+                f"[ERROR] DB 초기화 실패: {exc} "
+                "(다른 작업이 DB를 사용 중인지 확인하세요.)"
+            )
         except Exception as exc:
             self._log.append(f"[ERROR] DB 초기화 실패: {exc}")
 
@@ -1363,8 +1709,12 @@ class MainWindow(QMainWindow):
             self._log.append(f"[ERROR] Sidecar 생성 실패: {exc}")
 
     def _on_reindex(self) -> None:
-        group_id = self._gallery.get_selected_group_id()
-        if not group_id:
+        group_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
+        if not group_ids:
+            current_id = self._gallery.get_selected_group_id()
+            if current_id:
+                group_ids = [current_id]
+        if not group_ids:
             self._log.append("[WARN] 선택된 파일 없음")
             return
         try:
@@ -1372,11 +1722,25 @@ class MainWindow(QMainWindow):
             scanner = InboxScanner(
                 conn, self._data_dir(), managed_dir=self._managed_dir(), log_fn=self._log.append
             )
-            scanner.reprocess_group(group_id)
+            total = len(group_ids)
+            if total > 1:
+                self._log.append(f"[INFO] DB 재색인 시작: {total}개 그룹")
+            for idx, group_id in enumerate(group_ids, start=1):
+                if total > 1:
+                    self._log.append(f"[INFO] DB 재색인 진행 중... ({idx}/{total}) {group_id[:8]}")
+                scanner.reprocess_group(group_id)
             conn.close()
-            self._refresh_gallery_item(group_id)
-            self._refresh_detail(group_id)
+            if total == 1:
+                self._refresh_gallery_item(group_ids[0])
+                self._refresh_detail(group_ids[0])
+            else:
+                self._refresh_gallery()
+                current_id = self._gallery.get_selected_group_id()
+                if current_id:
+                    self._refresh_detail(current_id)
             self._refresh_counts()
+            if total > 1:
+                self._log.append(f"[INFO] DB 재색인 완료: {total}개 그룹")
         except Exception as exc:
             self._log.append(f"[ERROR] 재색인 실패: {exc}")
 
@@ -1571,76 +1935,6 @@ class MainWindow(QMainWindow):
             )
             for err in result.get("errors", [])[:5]:
                 self._log.append(f"[WARN] {err}")
-
-        for done_gid in result.get("group_ids", []):
-            self._refresh_gallery_item(done_gid)
-        gid = self._gallery.get_selected_group_id()
-        if gid:
-            self._refresh_detail(gid)
-        self._refresh_counts()
-
-    def _on_explorer_meta_repair_selected(self) -> None:
-        group_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
-        if not group_ids:
-            current_id = self._gallery.get_selected_group_id()
-            if current_id:
-                group_ids = [current_id]
-        if not group_ids:
-            self._log.append("[WARN] Explorer 메타 복구할 파일을 먼저 선택해주세요")
-            return
-
-        et = self._exiftool_path()
-        if not et:
-            self._log.append(
-                "[WARN] ExifTool 경로가 설정되어 있지 않습니다. "
-                "config.json의 exiftool_path를 확인해주세요."
-            )
-            return
-
-        if self._explorer_meta_thread and self._explorer_meta_thread.isRunning():
-            self._log.append("[WARN] 이미 Explorer 메타 복구 작업이 진행 중입니다")
-            return
-
-        total = len(group_ids)
-        self._log.append(f"[INFO] Explorer 메타 복구 시작: {total}개 그룹")
-
-        thread = ExplorerMetaRepairThread(group_ids, self._db_path(), et, parent=self)
-        thread.log_msg.connect(self._log.append)
-        thread.progress.connect(self._on_explorer_meta_repair_progress)
-        thread.done.connect(self._on_explorer_meta_repair_done)
-        thread.start()
-        self._explorer_meta_thread = thread
-
-    def _on_explorer_meta_repair_progress(
-        self,
-        done: int,
-        total: int,
-        group_id: str,
-        status: str,
-    ) -> None:
-        status_labels = {
-            "running": "처리 중",
-            "success": "완료",
-            "skipped": "건너뜀",
-            "failed": "실패",
-            "no_target": "대상 파일 없음",
-            "no_exiftool": "ExifTool 없음",
-        }
-        label = status_labels.get(status, status)
-        self._log.append(
-            f"[INFO] Explorer 메타 복구 진행 ({done}/{total}) {group_id[:8]}… {label}"
-        )
-
-    def _on_explorer_meta_repair_done(self, result: dict) -> None:
-        total = result.get("total", 0)
-        success = result.get("success", 0)
-        failed = result.get("failed", 0)
-        skipped = result.get("skipped", 0)
-        self._log.append(
-            f"[INFO] Explorer 메타 복구 완료 — 전체: {total} 성공: {success} 실패: {failed} 건너뜀: {skipped}"
-        )
-        for err in result.get("errors", [])[:5]:
-            self._log.append(f"[WARN] {err}")
 
         for done_gid in result.get("group_ids", []):
             self._refresh_gallery_item(done_gid)
@@ -2352,6 +2646,578 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # IPC 서버
     # ------------------------------------------------------------------
+
+    def _on_inbox_scan(self) -> None:
+        if self._scan_thread and self._scan_thread.isRunning():
+            return
+
+        inbox = self._inbox_dir()
+        data_dir = self._data_dir()
+        db_path = self._db_path()
+
+        if not inbox:
+            self._log.append(
+                "[WARN] 분류 대상 폴더가 설정되지 않았습니다. "
+                "[빠른 작업 폴더 설정]을 먼저 실행하세요."
+            )
+            return
+
+        inbox_path = Path(inbox)
+        if not inbox_path.exists():
+            try:
+                inbox_path.mkdir(parents=True, exist_ok=True)
+                self._log.append(f"[INFO] Created Inbox folder: {inbox}")
+            except Exception as exc:
+                self._log.append(f"[ERROR] Cannot create Inbox folder: {exc}")
+                return
+
+        self._log.append(f"[INFO] 이미지 스캔 시작: {inbox}")
+        self._act_inbox_scan.setEnabled(False)
+        self._show_loading(
+            "Inbox 스캔",
+            "폴더와 DB를 대조하며 작품을 정리하고 있어요.",
+            detail=inbox,
+        )
+
+        self._scan_thread = ScanThread(
+            data_dir, inbox, self._managed_dir(), db_path, parent=self
+        )
+        self._scan_thread.log_msg.connect(self._log.append)
+        self._scan_thread.log_msg.connect(self._mirror_loading_log)
+        self._scan_thread.scan_done.connect(self._on_scan_done)
+        self._scan_thread.start()
+
+    def _on_scan_done(self, result: ScanResult) -> None:
+        self._act_inbox_scan.setEnabled(True)
+        self._hide_loading()
+        self._log.append(
+            f"[INFO] 스캔 완료 — 신규: {result.new}, "
+            f"스킵: {result.skipped}, 실패: {result.failed}"
+        )
+        self._refresh_gallery()
+        self._refresh_counts()
+
+    def _on_reindex(self) -> None:
+        group_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
+        if not group_ids:
+            current_id = self._gallery.get_selected_group_id()
+            if current_id:
+                group_ids = [current_id]
+        if not group_ids:
+            self._log.append("[WARN] 선택된 파일이 없습니다")
+            return
+        if self._reindex_thread and self._reindex_thread.isRunning():
+            self._log.append("[WARN] 이미 재색인 작업이 진행 중입니다")
+            return
+
+        total = len(group_ids)
+        if total > 1:
+            self._log.append(f"[INFO] DB 재색인 시작: {total}개 그룹")
+        self._show_loading(
+            "DB 재색인",
+            "파일 상태와 메타데이터를 다시 읽고 있어요.",
+            detail=f"대상 그룹: {total}개",
+            total=total,
+            current=0,
+        )
+
+        thread = ReindexThread(
+            group_ids,
+            self._data_dir(),
+            self._managed_dir(),
+            self._db_path(),
+            parent=self,
+        )
+        thread.log_msg.connect(self._log.append)
+        thread.log_msg.connect(self._mirror_loading_log)
+        thread.progress.connect(
+            lambda done, total_groups, message: self._update_loading(
+                message="선택한 작품들을 순서대로 재색인하고 있어요.",
+                detail=message,
+                current=done,
+                total=total_groups,
+            )
+        )
+        thread.done.connect(self._on_reindex_done)
+        thread.start()
+        self._reindex_thread = thread
+
+    def _on_reindex_done(self, result: dict) -> None:
+        self._hide_loading()
+        group_ids = result.get("group_ids", [])
+        if not result.get("success"):
+            self._log.append(f"[ERROR] 재색인 실패: {result.get('error', '')}")
+            return
+
+        total = len(group_ids)
+        if total == 1 and group_ids:
+            self._refresh_gallery_item(group_ids[0])
+            self._refresh_detail(group_ids[0])
+        else:
+            self._refresh_gallery()
+            current_id = self._gallery.get_selected_group_id()
+            if current_id:
+                self._refresh_detail(current_id)
+        self._refresh_counts()
+        if total > 1:
+            self._log.append(f"[INFO] DB 재색인 완료: {total}개 그룹")
+
+    def _on_xmp_retry(self, group_id: str) -> None:
+        et = self._exiftool_path()
+        if not et:
+            self._log.append(
+                "[WARN] ExifTool 경로가 설정되어 있지 않습니다. "
+                "config.json의 exiftool_path를 확인하세요."
+            )
+            return
+        if getattr(self, "_xmp_thread", None) and self._xmp_thread.isRunning():
+            self._log.append("[WARN] 이미 XMP 작업이 진행 중입니다")
+            return
+        self._log.append(f"[INFO] XMP 재시도 시작: {group_id[:8]}…")
+        self._show_loading(
+            "XMP 재처리",
+            "선택한 파일의 메타데이터를 다시 기록하고 있어요.",
+            detail=group_id,
+            total=1,
+            current=0,
+        )
+        thread = RichXmpRetryThread(group_id, self._db_path(), et, parent=self)
+        thread.log_msg.connect(self._log.append)
+        thread.log_msg.connect(self._mirror_loading_log)
+        thread.progress.connect(self._on_xmp_progress)
+        thread.xmp_done.connect(self._on_xmp_done)
+        thread.start()
+        self._xmp_thread = thread
+
+    def _on_xmp_retry_selected(self) -> None:
+        group_ids = self._gallery.get_selected_group_ids()
+        if not group_ids:
+            self._log.append("[WARN] XMP 재처리할 파일을 먼저 선택해주세요")
+            return
+        et = self._exiftool_path()
+        if not et:
+            self._log.append(
+                "[WARN] ExifTool 경로가 설정되어 있지 않습니다. "
+                "config.json의 exiftool_path를 확인하세요."
+            )
+            return
+        if getattr(self, "_xmp_thread", None) and self._xmp_thread.isRunning():
+            self._log.append("[WARN] 이미 XMP 작업이 진행 중입니다")
+            return
+        self._log.append(f"[INFO] 선택 XMP 재처리 시작 — {len(group_ids)}개")
+        self._show_loading(
+            "선택 XMP 재처리",
+            "선택한 작품들의 XMP 메타데이터를 다시 기록하고 있어요.",
+            detail=f"대상 그룹: {len(group_ids)}개",
+            total=len(group_ids),
+            current=0,
+        )
+        thread = RichXmpRetryThread(
+            None, self._db_path(), et, group_ids=group_ids, parent=self
+        )
+        thread.log_msg.connect(self._log.append)
+        thread.log_msg.connect(self._mirror_loading_log)
+        thread.progress.connect(self._on_xmp_progress)
+        thread.xmp_done.connect(self._on_xmp_done)
+        thread.start()
+        self._xmp_thread = thread
+
+    def _on_xmp_retry_all(self) -> None:
+        et = self._exiftool_path()
+        if not et:
+            self._log.append(
+                "[WARN] ExifTool 경로가 설정되어 있지 않습니다. "
+                "config.json의 exiftool_path를 확인하세요."
+            )
+            return
+        if getattr(self, "_xmp_thread", None) and self._xmp_thread.isRunning():
+            self._log.append("[WARN] 이미 XMP 작업이 진행 중입니다")
+            return
+        self._log.append("[INFO] 전체 XMP 재처리 시작")
+        self._show_loading(
+            "전체 XMP 재처리",
+            "json_only / xmp_write_failed 대상을 다시 처리하고 있어요.",
+            detail="대상 수를 계산하는 중…",
+        )
+        thread = RichXmpRetryThread(None, self._db_path(), et, parent=self)
+        thread.log_msg.connect(self._log.append)
+        thread.log_msg.connect(self._mirror_loading_log)
+        thread.progress.connect(self._on_xmp_progress)
+        thread.xmp_done.connect(self._on_xmp_done)
+        thread.start()
+        self._xmp_thread = thread
+
+    def _on_xmp_progress(self, done: int, total: int, group_id: str, status: str) -> None:
+        status_map = {
+            "running": "메타데이터를 다시 쓰는 중…",
+            "success": "메타데이터 기록 완료",
+            "skipped": "건너뜀",
+            "failed": "기록 실패",
+            "no_target": "대상 파일 없음",
+            "no_exiftool": "ExifTool 없음",
+        }
+        current = done if status == "running" else max(done, 0)
+        self._update_loading(
+            message=status_map.get(status, "작업 중…"),
+            detail=f"{group_id[:8]}…",
+            current=current,
+            total=max(total, 1),
+        )
+
+    def _on_xmp_done(self, result: dict) -> None:
+        self._hide_loading()
+        mode = result.get("mode", "single")
+        if mode == "single":
+            status = result.get("status", "")
+            msg = result.get("message", "")
+            if status == "success":
+                self._log.append(f"[INFO] XMP 재시도 완료: {msg}")
+            elif status == "no_exiftool":
+                self._log.append(f"[WARN] {msg}")
+            elif status in {"no_target", "skipped"}:
+                self._log.append(f"[WARN] {msg}")
+            else:
+                self._log.append(f"[ERROR] XMP 재시도 실패: {msg}")
+        else:
+            total = result.get("total", 0)
+            success = result.get("success", 0)
+            failed = result.get("failed", 0)
+            skipped = result.get("skipped", 0)
+            label = "선택 XMP 재처리" if mode == "selected" else "전체 XMP 재처리"
+            self._log.append(
+                f"[INFO] {label} 완료 — "
+                f"전체: {total}  성공: {success}  실패: {failed}  건너뜀: {skipped}"
+            )
+            for err in result.get("errors", [])[:5]:
+                self._log.append(f"[WARN] {err}")
+
+        for done_gid in result.get("group_ids", []):
+            self._refresh_gallery_item(done_gid)
+        gid = self._gallery.get_selected_group_id()
+        if gid:
+            self._refresh_detail(gid)
+        self._refresh_counts()
+
+    def _on_explorer_meta_repair_selected(self) -> None:
+        group_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
+        if not group_ids:
+            current_id = self._gallery.get_selected_group_id()
+            if current_id:
+                group_ids = [current_id]
+        if not group_ids:
+            self._log.append("[WARN] Explorer 메타 복구할 파일을 먼저 선택해주세요")
+            return
+
+        et = self._exiftool_path()
+        if not et:
+            self._log.append(
+                "[WARN] ExifTool 경로가 설정되어 있지 않습니다. "
+                "config.json의 exiftool_path를 확인해주세요."
+            )
+            return
+
+        if self._explorer_meta_thread and self._explorer_meta_thread.isRunning():
+            self._log.append("[WARN] 이미 Explorer 메타 복구 작업이 진행 중입니다")
+            return
+
+        total = len(group_ids)
+        self._log.append(f"[INFO] Explorer 메타 복구 시작: {total}개 그룹")
+        self._show_loading(
+            "Explorer 메타 복구",
+            "Windows 탐색기용 제목, 태그, 만든 이를 다시 기록하고 있어요.",
+            detail=f"대상 그룹: {total}개",
+            total=total,
+            current=0,
+        )
+
+        thread = ExplorerMetaRepairThread(group_ids, self._db_path(), et, parent=self)
+        thread.log_msg.connect(self._log.append)
+        thread.log_msg.connect(self._mirror_loading_log)
+        thread.progress.connect(self._on_explorer_meta_repair_progress)
+        thread.done.connect(self._on_explorer_meta_repair_done)
+        thread.start()
+        self._explorer_meta_thread = thread
+
+    def _on_explorer_meta_repair_progress(
+        self,
+        done: int,
+        total: int,
+        group_id: str,
+        status: str,
+    ) -> None:
+        status_map = {
+            "running": "Explorer 메타를 다시 쓰는 중…",
+            "success": "Explorer 메타 기록 완료",
+            "skipped": "건너뜀",
+            "failed": "기록 실패",
+            "no_target": "대상 파일 없음",
+            "no_exiftool": "ExifTool 없음",
+        }
+        current = done if status == "running" else max(done, 0)
+        self._update_loading(
+            message=status_map.get(status, "작업 중…"),
+            detail=f"{group_id[:8]}…",
+            current=current,
+            total=max(total, 1),
+        )
+
+    def _on_explorer_meta_repair_done(self, result: dict) -> None:
+        self._hide_loading()
+
+        total = result.get("total", 0)
+        success = result.get("success", 0)
+        failed = result.get("failed", 0)
+        skipped = result.get("skipped", 0)
+        self._log.append(
+            f"[INFO] Explorer 메타 복구 완료 — 전체: {total} 성공: {success} 실패: {failed} 건너뜀: {skipped}"
+        )
+        for err in result.get("errors", [])[:5]:
+            self._log.append(f"[WARN] {err}")
+
+        for done_gid in result.get("group_ids", []):
+            self._refresh_gallery_item(done_gid)
+        gid = self._gallery.get_selected_group_id()
+        if gid:
+            self._refresh_detail(gid)
+        self._refresh_counts()
+
+    def _on_exact_duplicate_check(self) -> None:
+        try:
+            request = self._build_duplicate_scope_request()
+            if request is None:
+                return
+            scope, group_ids, scope_label = request
+            self._show_loading(
+                "완전 중복 검사",
+                "해시 기준으로 같은 파일을 찾고 있어요.",
+                detail=f"범위: {scope_label}",
+                total=3,
+                current=0,
+            )
+            thread = ExactDuplicateCheckThread(
+                self._db_path(),
+                self._inbox_dir(),
+                scope,
+                group_ids=group_ids,
+                parent=self,
+            )
+            thread.log_msg.connect(self._log.append)
+            thread.log_msg.connect(self._mirror_loading_log)
+            thread.progress.connect(
+                lambda done, total_steps, message: self._update_loading(
+                    message="완전 중복 후보를 계산하고 있어요.",
+                    detail=message,
+                    current=done,
+                    total=total_steps,
+                )
+            )
+            thread.done.connect(
+                lambda result, label=scope_label: self._on_exact_duplicate_check_done(
+                    label, result
+                )
+            )
+            thread.start()
+            self._dup_thread = thread
+        except Exception as exc:
+            self._hide_loading()
+            self._log.append(f"[ERROR] 완전 중복 검사 실패: {exc}")
+
+    def _on_exact_duplicate_check_done(self, scope_label: str, result: dict) -> None:
+        self._hide_loading()
+        if not result.get("success"):
+            self._log.append(f"[ERROR] 완전 중복 검사 실패: {result.get('error', '')}")
+            return
+
+        summary = result.get("summary", {})
+        self._log.append("[INFO] 중복 검사 대상")
+        self._log.append(f"[INFO]   DB 등록 Inbox/Managed 파일: {summary.get('db_file_count', 0)}개")
+        if summary.get("unindexed_count", 0) > 0:
+            self._log.append(
+                f"[INFO]   DB 미등록 Inbox 파일: {summary.get('unindexed_count', 0)}개"
+            )
+            self._log.append(
+                "[INFO]   미등록 파일까지 검사하려면 먼저 이미지 스캔을 실행하세요."
+            )
+
+        cleanup = result.get("cleanup")
+        if not cleanup:
+            QMessageBox.information(self, "완전 중복 검사", "완전 중복 파일이 없습니다.")
+            return
+
+        delete_file_ids = result.get("delete_file_ids", [])
+        if not delete_file_ids:
+            QMessageBox.information(self, "완전 중복 검사", "삭제 후보 파일이 없습니다.")
+            return
+
+        msg = (
+            f"완전 중복 그룹: {cleanup['total_groups']}개\n"
+            f"보존 파일: {cleanup['total_keep']}개\n"
+            f"삭제 후보: {cleanup['total_delete_candidates']}개\n\n"
+            f"검사 범위: {scope_label}\n"
+            "삭제 미리보기로 이동하시겠습니까?"
+        )
+        if QMessageBox.question(
+            self,
+            "완전 중복 검사 결과",
+            msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        ) != QMessageBox.StandardButton.Yes:
+            return
+
+        conn = self._get_conn()
+        try:
+            from core.delete_manager import build_delete_preview, execute_delete_preview
+            from app.views.delete_preview_dialog import DeletePreviewDialog
+
+            preview = build_delete_preview(
+                conn, file_ids=delete_file_ids, reason="exact_duplicate_cleanup"
+            )
+            dlg = DeletePreviewDialog(preview, parent=self)
+            if dlg.exec() == DeletePreviewDialog.DialogCode.Accepted and dlg.is_confirmed():
+                result_delete = execute_delete_preview(conn, preview, confirmed=True)
+                self._log.append(
+                    f"[INFO] 완전 중복 정리 완료 — "
+                    f"deleted={result_delete['deleted']} failed={result_delete['failed']}"
+                )
+                self._refresh_gallery()
+                self._refresh_counts()
+        finally:
+            conn.close()
+
+    def _on_visual_duplicate_check(self) -> None:
+        try:
+            request = self._build_duplicate_scope_request()
+            if request is None:
+                return
+            scope, group_ids, scope_label = request
+
+            conn = self._get_conn()
+            try:
+                from core.duplicate_finder import get_duplicate_check_summary
+                summary = get_duplicate_check_summary(
+                    conn, self._inbox_dir(), scope=scope, group_ids=group_ids
+                )
+            finally:
+                conn.close()
+
+            db_count = summary["db_file_count"]
+            unindexed = summary["unindexed_count"]
+            dup_cfg = self.config.get("duplicates", {})
+            max_files = dup_cfg.get("max_visual_files_per_run", 300)
+            confirm = dup_cfg.get("confirm_visual_scan", True)
+
+            if confirm:
+                warn_lines = [
+                    "시각 중복 검사는 이미지 내용을 분석하므로 시간이 오래 걸릴 수 있습니다.\n",
+                    f"검사 범위: {scope_label}",
+                    f"대상 파일 수: {db_count}개",
+                    "예상 시간은 파일 수와 이미지 크기에 따라 달라집니다.",
+                ]
+                if unindexed > 0:
+                    warn_lines.append(
+                        f"\nDB 미등록 Inbox 파일 {unindexed}개는 검사 대상에서 제외됩니다.\n"
+                        "미등록 파일까지 검사하려면 먼저 이미지 스캔을 실행하세요."
+                    )
+                if db_count > max_files:
+                    warn_lines.insert(
+                        0,
+                        f"대상 파일 수 {db_count}개가 권장 한도({max_files}개)를 초과합니다.\n"
+                        "선택 항목이나 현재 목록 기준으로 줄여서 검사하는 편을 권장합니다.\n",
+                    )
+                reply = QMessageBox.question(
+                    self,
+                    "시각 중복 검사",
+                    "\n".join(warn_lines) + "\n\n계속하시겠습니까?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+
+            self._show_loading(
+                "시각 중복 검사",
+                "이미지 내용을 비교해서 비슷한 작품을 찾고 있어요.",
+                detail=f"범위: {scope_label}",
+                total=4,
+                current=0,
+            )
+            thread = VisualDuplicateCheckThread(
+                self._db_path(),
+                self._inbox_dir(),
+                scope,
+                group_ids=group_ids,
+                parent=self,
+            )
+            thread.log_msg.connect(self._log.append)
+            thread.log_msg.connect(self._mirror_loading_log)
+            thread.progress.connect(
+                lambda done, total_steps, message: self._update_loading(
+                    message="시각 중복 후보를 계산하고 있어요.",
+                    detail=message,
+                    current=done,
+                    total=total_steps,
+                )
+            )
+            thread.done.connect(
+                lambda result, label=scope_label: self._on_visual_duplicate_check_done(
+                    label, result
+                )
+            )
+            thread.start()
+            self._dup_thread = thread
+        except Exception as exc:
+            self._hide_loading()
+            self._log.append(f"[ERROR] 시각 중복 검사 실패: {exc}")
+
+    def _on_visual_duplicate_check_done(self, scope_label: str, result: dict) -> None:
+        self._hide_loading()
+        if not result.get("success"):
+            self._log.append(f"[ERROR] 시각 중복 검사 실패: {result.get('error', '')}")
+            return
+
+        dup_groups = result.get("dup_groups") or []
+        if not dup_groups:
+            QMessageBox.information(self, "시각 중복 검사", "유사 이미지 그룹이 없습니다.")
+            return
+
+        initial_decisions = result.get("initial_decisions", {})
+        if initial_decisions:
+            self._log.append(
+                "[INFO] 시각 중복 검사 자동 유지/삭제 추천을 적용했습니다. "
+                "검토 화면에서 변경할 수 있습니다."
+            )
+
+        from app.views.delete_preview_dialog import DeletePreviewDialog
+        from app.views.visual_duplicate_review_dialog import VisualDuplicateReviewDialog
+        from core.delete_manager import build_delete_preview, execute_delete_preview
+
+        review_dlg = VisualDuplicateReviewDialog(
+            dup_groups,
+            parent=self,
+            initial_decisions=initial_decisions,
+        )
+        if review_dlg.exec() != VisualDuplicateReviewDialog.DialogCode.Accepted:
+            return
+
+        delete_file_ids = review_dlg.selected_for_delete()
+        if not delete_file_ids:
+            return
+
+        conn = self._get_conn()
+        try:
+            preview = build_delete_preview(
+                conn, file_ids=delete_file_ids, reason="visual_duplicate_cleanup"
+            )
+            dlg = DeletePreviewDialog(preview, parent=self)
+            if dlg.exec() == DeletePreviewDialog.DialogCode.Accepted and dlg.is_confirmed():
+                result_delete = execute_delete_preview(conn, preview, confirmed=True)
+                self._log.append(
+                    f"[INFO] 시각 중복 정리 완료 — "
+                    f"deleted={result_delete['deleted']} failed={result_delete['failed']}"
+                )
+                self._refresh_gallery()
+                self._refresh_counts()
+        finally:
+            conn.close()
 
     def _start_ipc_server(self) -> None:
         try:

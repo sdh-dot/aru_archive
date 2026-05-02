@@ -27,17 +27,18 @@ from typing import Optional
 from PyQt6.QtCore import Qt, QThread, pyqtSignal as Signal
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
+    QApplication,
     QButtonGroup, QCheckBox, QComboBox, QDialog, QFileDialog,
-    QFrame, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
+    QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
     QProgressBar, QPushButton, QRadioButton, QScrollArea, QSizePolicy,
     QSplitter, QStackedWidget, QTableWidget, QTableWidgetItem,
     QTextEdit, QVBoxLayout, QWidget,
 )
 
+from app.views.loading_overlay_dialog import LoadingOverlayDialog
 from app.views.path_setup_dialog import PathSetupDialog
 
 logger = logging.getLogger(__name__)
-
 
 # ---------------------------------------------------------------------------
 # 썸네일 캐시
@@ -183,7 +184,7 @@ class _EnrichThread(QThread):
                     r = enrich_file_from_pixiv(conn, file_id, exiftool_path=self._exiftool_path)
                     if r.get("status") == "success":
                         success += 1
-                    elif r.get("status") in ("no_artwork_id", "not_found"):
+                    elif r.get("status") in ("no_artwork_id", "not_found", "missing_file"):
                         skipped += 1
                     else:
                         failed += 1
@@ -210,6 +211,103 @@ class _EnrichThread(QThread):
             self.done.emit({"success": 0, "failed": 0, "skipped": 0})
         finally:
             conn.close()
+
+
+class _LocalMetadataImportThread(QThread):
+    log_msg = Signal(str)
+    progress = Signal(int, int, str)
+    done = Signal(dict)
+
+    def __init__(
+        self,
+        db_path: str,
+        data_dir: str,
+        managed_dir: str,
+        parent=None,
+        *,
+        mode: str = "missing_only",
+    ):
+        super().__init__(parent)
+        self._db_path = db_path
+        self._data_dir = data_dir
+        self._managed_dir = managed_dir
+        self._mode = mode
+
+    def run(self) -> None:
+        from db.database import initialize_database
+        from core.inbox_scanner import InboxScanner
+
+        conn = initialize_database(self._db_path)
+        try:
+            group_ids = self._load_target_group_ids(conn)
+            total = len(group_ids)
+            scanner = InboxScanner(
+                conn,
+                self._data_dir,
+                managed_dir=self._managed_dir,
+                log_fn=self.log_msg.emit,
+            )
+
+            success = failed = skipped = 0
+            for index, group_id in enumerate(group_ids, start=1):
+                self.progress.emit(index - 1, total, group_id)
+                try:
+                    result = scanner.reprocess_group(group_id)
+                    if result == "new":
+                        success += 1
+                    else:
+                        skipped += 1
+                except Exception as exc:
+                    self.log_msg.emit(f"[ERROR] XMP/JSON 입력 실패 ({group_id[:8]}): {exc}")
+                    failed += 1
+                self.progress.emit(index, total, group_id)
+
+            self.done.emit(
+                {
+                    "success": success,
+                    "failed": failed,
+                    "skipped": skipped,
+                    "total": total,
+                    "mode": self._mode,
+                }
+            )
+        except Exception as exc:
+            self.log_msg.emit(f"[ERROR] XMP/JSON 일괄 입력 예외: {exc}")
+            self.done.emit(
+                {
+                    "success": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                    "total": 0,
+                    "mode": self._mode,
+                    "error": str(exc),
+                }
+            )
+        finally:
+            conn.close()
+
+    def _load_target_group_ids(self, conn) -> list[str]:
+        if self._mode == "missing_only":
+            where = "g.metadata_sync_status = 'metadata_missing'"
+        else:
+            where = "1=1"
+
+        rows = conn.execute(
+            f"""
+            SELECT g.group_id
+            FROM artwork_groups g
+            WHERE {where}
+              AND EXISTS (
+                  SELECT 1
+                  FROM artwork_files af
+                  WHERE af.group_id = g.group_id
+                    AND af.file_role = 'original'
+                    AND af.file_status = 'present'
+              )
+            ORDER BY g.indexed_at DESC
+            """
+        ).fetchall()
+        return [row["group_id"] for row in rows]
 
     def _emit_queue_summary(self, conn) -> None:
         """enrich queue의 total/unique/multi-page/savings_potential을 UI + logger에 보고한다."""
@@ -501,6 +599,44 @@ class _StepPanel(QWidget):
     def _db_path(self) -> str:
         return self._wizard._db_path()
 
+    def _show_loading(
+        self,
+        title: str,
+        message: str,
+        *,
+        detail: str = "",
+        total: Optional[int] = None,
+        current: int = 0,
+    ) -> None:
+        self._wizard._show_loading(
+            title,
+            message,
+            detail=detail,
+            total=total,
+            current=current,
+        )
+
+    def _update_loading(
+        self,
+        *,
+        message: Optional[str] = None,
+        detail: Optional[str] = None,
+        current: Optional[int] = None,
+        total: Optional[int] = None,
+    ) -> None:
+        self._wizard._update_loading(
+            message=message,
+            detail=detail,
+            current=current,
+            total=total,
+        )
+
+    def _hide_loading(self) -> None:
+        self._wizard._hide_loading()
+
+    def _mirror_loading_log(self, message: str) -> None:
+        self._wizard._mirror_loading_log(message)
+
     def refresh(self) -> None:
         """단계 데이터 새로고침. 서브클래스에서 오버라이드."""
 
@@ -706,12 +842,19 @@ class _Step2Scan(_StepPanel):
             return
         self._btn_scan.setEnabled(False)
         self._btn_scan.setText("스캔 중…")
+        self._show_loading(
+            "Step 2: 이미지 스캔",
+            "Inbox 이미지를 스캔하고 DB를 갱신하는 중입니다…",
+            detail="파일 수가 많으면 시간이 조금 걸릴 수 있습니다.",
+            total=None,
+        )
         self._scan_thread = _ScanThread(data_dir, inbox, cfg.get("managed_dir", ""), db_path, self)
         self._scan_thread.log_msg.connect(self.log_msg)
         self._scan_thread.done.connect(self._on_scan_done)
         self._scan_thread.start()
 
     def _on_scan_done(self, result: dict) -> None:
+        self._hide_loading()
         self._btn_scan.setEnabled(True)
         self._btn_scan.setText("🔍 이미지 스캔 실행")
         self._last_result_lbl.setText(
@@ -978,6 +1121,499 @@ class _Step4Enrich(_StepPanel):
 
 # ── Step 5: 분류 기준 선택 ───────────────────────────────────────────────────
 
+class _Step4EnrichModern(_StepPanel):
+    def __init__(self, wizard, parent=None):
+        super().__init__(wizard, parent)
+        self._selected_scope = "missing_only"
+        self._pending_bulk_followup: Optional[str] = None
+        self._status_cards: dict[str, QLabel] = {}
+        self._enrich_thread: Optional[_EnrichThread] = None
+        self._local_import_thread: Optional[_LocalMetadataImportThread] = None
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        layout.addWidget(_label("Step 4: 메타데이터 보강", bold=True))
+        section_title = QLabel("메타데이터 보강 (옵션 설정)")
+        section_title.setStyleSheet("font-size:16px; font-weight:bold; color:#F3C7D3;")
+        layout.addWidget(section_title)
+        first_item = layout.itemAt(0)
+        if first_item and first_item.widget():
+            first_item.widget().hide()
+        layout.addWidget(_h_sep())
+
+        self._progress_lbl = QLabel("")
+        self._progress_lbl.setWordWrap(True)
+        self._progress_lbl.setStyleSheet("color:#D8AEBB; font-size:12px;")
+        layout.addWidget(self._progress_lbl)
+        self._progress_lbl.hide()
+        self._progress_lbl.hide()
+
+        self._progress = QProgressBar()
+        self._progress.setRange(0, 1)
+        self._progress.setValue(0)
+        self._progress.hide()
+        self._progress.setStyleSheet(
+            "QProgressBar {"
+            " background:#180D12; color:#F7E8EC; border:1px solid #6C3145; "
+            " border-radius:8px; text-align:center; min-height:18px; }"
+            "QProgressBar::chunk { background:#D06A86; border-radius:7px; }"
+        )
+        layout.addWidget(self._progress)
+        self._progress.hide()
+        self._progress.hide()
+
+        layout.addWidget(self.create_condition_section())
+        layout.addWidget(self.create_action_section())
+        layout.addWidget(self.create_warning_box())
+        layout.addWidget(self.create_status_summary_section())
+        layout.addStretch()
+
+    def create_condition_section(self) -> QWidget:
+        card = self._make_card_frame()
+        layout = QVBoxLayout(card)
+        layout.setSpacing(8)
+
+        title = QLabel("일괄 적용 조건")
+        title.setStyleSheet("font-size:14px; font-weight:bold; color:#F3C7D3;")
+        layout.addWidget(title)
+
+        self._scope_group = QButtonGroup(self)
+
+        self._radio_missing = QRadioButton("메타데이터가 없는 항목만")
+        self._radio_missing.setChecked(True)
+        self._radio_missing.toggled.connect(
+            lambda checked: checked and self._set_selected_scope("missing_only")
+        )
+        self._scope_group.addButton(self._radio_missing)
+        layout.addWidget(self._radio_missing)
+        layout.addWidget(self._make_hint_label("metadata_missing 상태의 항목만 처리합니다."))
+
+        self._radio_all = QRadioButton("전체 적용")
+        self._radio_all.toggled.connect(
+            lambda checked: checked and self._set_selected_scope("all")
+        )
+        self._scope_group.addButton(self._radio_all)
+        layout.addWidget(self._radio_all)
+        layout.addWidget(self._make_hint_label("모든 항목에 대해 다시 조회하고 덮어씁니다."))
+
+        notice = QLabel("조건을 신중히 선택해주세요. '전체 적용'은 이미 입력된 메타데이터도 덮어쓸 수 있습니다.")
+        notice.setWordWrap(True)
+        notice.setStyleSheet("color:#E6B9C8; font-size:11px;")
+        layout.addWidget(notice)
+        return card
+
+    def create_action_section(self) -> QWidget:
+        wrapper = QWidget()
+        outer = QVBoxLayout(wrapper)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(10)
+
+        title = QLabel("일괄 적용 작업")
+        title.setStyleSheet("font-size:14px; font-weight:bold; color:#F3C7D3;")
+        outer.addWidget(title)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(10)
+
+        self._btn_pixiv_card = self._make_action_button(
+            "Pixiv 데이터 입력",
+            "Pixiv API를 통해 작품 정보를 일괄적으로 조회하여 입력합니다.",
+            accent=False,
+        )
+        self._btn_pixiv_card.clicked.connect(self.on_pixiv_enrich_clicked)
+        grid.addWidget(self._btn_pixiv_card, 0, 0)
+
+        self._btn_xmp_card = self._make_action_button(
+            "XMP 데이터 입력",
+            "XMP / JSON 측면파일을 읽어 메타데이터를 일괄 입력합니다.",
+            accent=False,
+        )
+        self._btn_xmp_card.clicked.connect(self.on_xmp_enrich_clicked)
+        grid.addWidget(self._btn_xmp_card, 0, 1)
+
+        self._btn_bulk_card = self._make_action_button(
+            "일괄 입력 (모두 적용)",
+            "Pixiv + XMP 데이터를 순차적으로 일괄 입력합니다.",
+            accent=True,
+        )
+        self._btn_bulk_card.clicked.connect(self.on_bulk_enrich_clicked)
+        grid.addWidget(self._btn_bulk_card, 1, 0, 1, 2)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+
+        outer.addLayout(grid)
+        return wrapper
+
+    def create_warning_box(self) -> QWidget:
+        box = QFrame()
+        box.setStyleSheet(
+            "QFrame {"
+            " background:#2F1B16;"
+            " border:1px solid #A66A2A;"
+            " border-radius:12px;"
+            "}"
+        )
+        layout = QHBoxLayout(box)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(10)
+        icon = QLabel("⚠")
+        icon.setStyleSheet("font-size:16px; color:#F0B45F; font-weight:bold;")
+        layout.addWidget(icon, 0, Qt.AlignmentFlag.AlignTop)
+        text = QLabel("대량의 파일을 처리하므로 시간이 오래 걸릴 수 있습니다. (수백~수천 개 이상)")
+        text.setWordWrap(True)
+        text.setStyleSheet("color:#F7D9A8; font-size:12px;")
+        layout.addWidget(text, 1)
+        return box
+
+    def create_status_summary_section(self) -> QWidget:
+        card = self._make_card_frame()
+        layout = QVBoxLayout(card)
+        layout.setSpacing(10)
+
+        title = QLabel("현재 보강 대상 상태")
+        title.setStyleSheet("font-size:14px; font-weight:bold; color:#F3C7D3;")
+        layout.addWidget(title)
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(10)
+
+        statuses = [
+            ("metadata_missing", "파일 내 AruArchive 메타데이터가 없는 상태"),
+            ("metadata_write_failed", "메타데이터 기록 중 실패한 상태"),
+            ("xmp_write_failed", "XMP 기록만 실패한 상태"),
+            ("json_only", "JSON만 입력된 상태"),
+            ("source_unavailable", "외부 원본에서 조회할 수 없는 상태"),
+            ("full", "메타데이터가 모두 입력된 상태"),
+            ("pending", "아직 메타데이터 처리가 시작되지 않은 상태"),
+        ]
+        for index, (status_key, tooltip) in enumerate(statuses):
+            card_widget, value_lbl = self._make_status_card(status_key, tooltip)
+            self._status_cards[status_key] = value_lbl
+            grid.addWidget(card_widget, index // 3, index % 3)
+
+        layout.addLayout(grid)
+        return card
+
+    def get_selected_enrich_scope(self) -> str:
+        return self._selected_scope
+
+    def on_pixiv_enrich_clicked(self) -> None:
+        scope = self.get_selected_enrich_scope()
+        if scope == "all":
+            self._confirm_and_start_pixiv_all()
+        else:
+            self._start_pixiv_enrich(mode="missing_only")
+
+    def on_xmp_enrich_clicked(self) -> None:
+        self._start_local_import(mode=self.get_selected_enrich_scope())
+
+    def on_bulk_enrich_clicked(self) -> None:
+        scope = self.get_selected_enrich_scope()
+        self._pending_bulk_followup = scope
+        if scope == "all":
+            if not self._confirm_pixiv_all():
+                self._pending_bulk_followup = None
+                return
+            self._start_pixiv_enrich(mode="all_pixiv")
+        else:
+            self._start_pixiv_enrich(mode="missing_only")
+
+    def refresh(self) -> None:
+        from core.workflow_summary import build_workflow_file_status_summary
+        try:
+            conn = self._conn_factory()
+            fs = build_workflow_file_status_summary(conn)
+            conn.close()
+        except Exception:
+            return
+        self._refresh_status_cards(fs)
+
+    def _on_enrich_done(self, result: dict) -> None:
+        self._enrich_thread = None
+        self._set_actions_enabled(True)
+        self._progress.hide()
+        self._progress_lbl.setText(
+            f"Pixiv 데이터 입력 완료 — 성공: {result['success']}, 실패: {result['failed']}, 스킵: {result['skipped']}"
+        )
+        if self._pending_bulk_followup:
+            followup_mode = self._pending_bulk_followup
+            self._pending_bulk_followup = None
+            self._start_local_import(mode=followup_mode)
+            return
+        self._hide_loading()
+        self.refresh()
+        self.refresh_main.emit()
+
+    def _on_local_import_done(self, result: dict) -> None:
+        self._local_import_thread = None
+        self._set_actions_enabled(True)
+        self._progress.hide()
+        self._progress_lbl.setText(
+            f"XMP 데이터 입력 완료 — 전체: {result.get('total', 0)}, 성공: {result['success']}, 실패: {result['failed']}, 스킵: {result['skipped']}"
+        )
+        self.refresh()
+        self.refresh_main.emit()
+
+        self._hide_loading()
+
+    def _make_card_frame(self) -> QFrame:
+        frame = QFrame()
+        frame.setStyleSheet(
+            "QFrame {"
+            " background:#24121A;"
+            " border:1px solid #6B3447;"
+            " border-radius:14px;"
+            "}"
+            "QRadioButton { color:#F9EAF0; spacing:8px; font-size:13px; font-weight:600; }"
+            "QRadioButton::indicator { width:14px; height:14px; }"
+            "QRadioButton::indicator:unchecked {"
+            " border:1px solid #C97E97;"
+            " border-radius:7px;"
+            " background:#140B0F;"
+            "}"
+            "QRadioButton::indicator:checked {"
+            " border:1px solid #F2B3C8;"
+            " border-radius:7px;"
+            " background:#D96F8D;"
+            "}"
+        )
+        return frame
+
+    def _make_hint_label(self, text: str) -> QLabel:
+        label = QLabel(text)
+        label.setWordWrap(True)
+        label.setStyleSheet("color:#D6B9C5; font-size:11px; padding-left:22px;")
+        return label
+
+    def _make_action_button(self, title: str, description: str, *, accent: bool) -> QPushButton:
+        btn = QPushButton(f"{title}\n{description}")
+        border = "#C36381"
+        hover = "#4A2230"
+        pressed = "#3A1823"
+        bg = "#2B151D"
+        text = "#FFF3F7"
+        disabled_bg = "#1B1015"
+        disabled_border = "#4C2632"
+        disabled_text = "#8F6874"
+        if accent:
+            border = "#F0B45F"
+            hover = "#53311E"
+            pressed = "#432618"
+            bg = "#352018"
+            text = "#FFF1DD"
+            disabled_bg = "#21150F"
+            disabled_border = "#6D4B29"
+            disabled_text = "#A98559"
+            btn.setObjectName("step4BulkActionButton")
+        else:
+            btn.setObjectName("step4ActionButton")
+        btn.setMinimumHeight(108)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setStyleSheet(
+            "QPushButton {"
+            f" background:{bg};"
+            f" color:{text};"
+            f" border:1px solid {border};"
+            " border-radius:16px;"
+            " padding:16px 18px;"
+            " text-align:left;"
+            " font-size:13px;"
+            " font-weight:700;"
+            " line-height:1.45;"
+            "}"
+            f"QPushButton:hover {{ background:{hover}; border-color:#F3B7C8; }}"
+            f"QPushButton:pressed {{ background:{pressed}; border-color:#FFD0DD; padding-top:17px; padding-bottom:15px; }}"
+            "QPushButton:focus { outline:none; }"
+            f"QPushButton:disabled {{ color:{disabled_text}; border:1px solid {disabled_border}; background:{disabled_bg}; }}"
+            "QPushButton#step4BulkActionButton { border:2px dashed #F0B45F; }"
+            "QPushButton#step4BulkActionButton:hover { border-color:#FFD18D; }"
+            "QPushButton#step4BulkActionButton:pressed { border-color:#FFE0AE; }"
+        )
+        return btn
+
+    def _make_status_card(self, status_key: str, tooltip: str) -> tuple[QFrame, QLabel]:
+        card = QFrame()
+        card.setToolTip(tooltip)
+        card.setStyleSheet(
+            "QFrame { background:#1B0F15; border:1px solid #4E2432; border-radius:12px; }"
+        )
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(4)
+        title = QLabel(status_key)
+        title.setStyleSheet("color:#DAB2C0; font-size:11px; font-weight:bold;")
+        value = QLabel("0")
+        value.setStyleSheet("color:#F7E8EC; font-size:20px; font-weight:bold;")
+        layout.addWidget(title)
+        layout.addWidget(value)
+        return card, value
+
+    def _refresh_status_cards(self, summary: dict) -> None:
+        counts = summary.get("metadata_status_counts", {}) or {}
+        for status_key, value_lbl in self._status_cards.items():
+            value_lbl.setText(str(counts.get(status_key, 0)))
+
+    def _set_selected_scope(self, scope: str) -> None:
+        self._selected_scope = scope
+
+    def _confirm_and_start_pixiv_all(self) -> None:
+        if self._confirm_pixiv_all():
+            self._start_pixiv_enrich(mode="all_pixiv")
+
+    def _confirm_pixiv_all(self) -> bool:
+        if self._enrich_thread and self._enrich_thread.isRunning():
+            return False
+        try:
+            conn = self._conn_factory()
+            try:
+                from core.metadata_enricher import build_enrichment_queue
+                count = len(build_enrichment_queue(conn, mode="all_pixiv"))
+            finally:
+                conn.close()
+        except Exception as exc:
+            self.log_msg.emit(f"[WARN] 전체 보강 대상 계산 실패: {exc}")
+            return False
+
+        if count == 0:
+            QMessageBox.information(self, "전체 적용", "Pixiv 전체 적용 대상이 없습니다.")
+            return False
+
+        reply = QMessageBox.question(
+            self,
+            "전체 적용 확인",
+            "전체 적용은 이미 입력된 메타데이터도 다시 조회해 덮어쓸 수 있습니다.\n"
+            f"Pixiv 기준 처리 대상: {count}건\n\n계속하시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return reply == QMessageBox.StandardButton.Yes
+
+    def _start_pixiv_enrich(self, *, mode: str) -> None:
+        if self._enrich_thread and self._enrich_thread.isRunning():
+            return
+        db_path = self._db_path()
+        from core.exiftool_resolver import resolve_exiftool_path
+        exiftool = resolve_exiftool_path(self._config())
+        self._set_actions_enabled(False)
+        self._progress.show()
+        self._progress.setRange(0, 1)
+        self._progress.setValue(0)
+        self._progress_lbl.setText("Pixiv 데이터 입력을 시작합니다…")
+        self._show_loading(
+            "Step 4: 메타데이터 보강",
+            "Pixiv 데이터를 조회해 메타데이터를 입력하는 중입니다…",
+            detail="Pixiv API 응답과 파일 수에 따라 시간이 조금 걸릴 수 있습니다.",
+            total=1,
+            current=0,
+        )
+        self._enrich_thread = _EnrichThread(db_path, exiftool, self, mode=mode)
+        self._enrich_thread.log_msg.connect(self.log_msg)
+        self._enrich_thread.log_msg.connect(self._mirror_loading_log)
+        self._enrich_thread.progress.connect(self._on_pixiv_progress)
+        self._enrich_thread.done.connect(self._on_enrich_done)
+        self._enrich_thread.start()
+
+    def _start_local_import(self, *, mode: str) -> None:
+        if self._local_import_thread and self._local_import_thread.isRunning():
+            return
+        cfg = self._config()
+        self._set_actions_enabled(False)
+        self._progress.show()
+        self._progress.setRange(0, 1)
+        self._progress.setValue(0)
+        self._progress_lbl.setText("XMP / JSON 측면파일 메타데이터를 읽는 중입니다…")
+        self._show_loading(
+            "Step 4: 메타데이터 보강",
+            "XMP / JSON 측면파일에서 메타데이터를 읽는 중입니다…",
+            detail="기존 파일 메타데이터를 다시 분석하고 있습니다.",
+            total=1,
+            current=0,
+        )
+        self._local_import_thread = _LocalMetadataImportThread(
+            self._db_path(),
+            cfg.get("data_dir", ""),
+            cfg.get("managed_dir", ""),
+            self,
+            mode=mode,
+        )
+        self._local_import_thread.log_msg.connect(self.log_msg)
+        self._local_import_thread.log_msg.connect(self._mirror_loading_log)
+        self._local_import_thread.progress.connect(self._on_local_import_progress)
+        self._local_import_thread.done.connect(self._on_local_import_done)
+        self._local_import_thread.start()
+
+    def _on_pixiv_progress(self, done: int, total: int) -> None:
+        total = max(total, 1)
+        self._progress.setRange(0, total)
+        self._progress.setValue(done)
+        self._progress_lbl.setText(f"Pixiv 데이터 입력 진행 중… {done}/{total}")
+
+    def _on_local_import_progress(self, done: int, total: int, group_id: str) -> None:
+        total = max(total, 1)
+        self._progress.setRange(0, total)
+        self._progress.setValue(done)
+        self._progress_lbl.setText(f"XMP 데이터 입력 진행 중… {done}/{total} ({group_id[:8]}…)")
+
+    def _on_enrich_done(self, result: dict) -> None:
+        self._enrich_thread = None
+        self._set_actions_enabled(True)
+        self._progress.hide()
+        self._progress_lbl.setText(
+            f"Pixiv 보강 완료 — 성공: {result['success']}, 실패: {result['failed']}, 건너뜀: {result['skipped']}"
+        )
+        self.refresh()
+        self.refresh_main.emit()
+        if self._pending_bulk_followup:
+            followup_mode = self._pending_bulk_followup
+            self._pending_bulk_followup = None
+            self._start_local_import(mode=followup_mode)
+                return
+        self._hide_loading()
+
+    def _on_local_import_done(self, result: dict) -> None:
+        self._local_import_thread = None
+        self._set_actions_enabled(True)
+        self._progress.hide()
+        self._progress_lbl.setText(
+            f"XMP 입력 완료 — 전체: {result.get('total', 0)}, 성공: {result['success']}, 실패: {result['failed']}, 건너뜀: {result['skipped']}"
+        )
+        self._hide_loading()
+        self.refresh()
+        self.refresh_main.emit()
+
+    def _on_pixiv_progress(self, done: int, total: int) -> None:
+        total = max(total, 1)
+        self._progress.setRange(0, total)
+        self._progress.setValue(done)
+        self._progress_lbl.setText(f"Pixiv 데이터 입력 진행 중… {done}/{total}")
+        self._update_loading(
+            message="Pixiv 데이터 입력 진행 중…",
+            current=done,
+            total=total,
+        )
+
+    def _on_local_import_progress(self, done: int, total: int, group_id: str) -> None:
+        total = max(total, 1)
+        self._progress.setRange(0, total)
+        self._progress.setValue(done)
+        self._progress_lbl.setText(f"XMP 데이터 입력 진행 중… {done}/{total} ({group_id[:8]}…)")
+        self._update_loading(
+            message="XMP 데이터 입력 진행 중…",
+            detail=f"{group_id[:8]}…",
+            current=done,
+            total=total,
+        )
+
+    def _set_actions_enabled(self, enabled: bool) -> None:
+        self._btn_pixiv_card.setEnabled(enabled)
+        self._btn_xmp_card.setEnabled(enabled)
+        self._btn_bulk_card.setEnabled(enabled)
+
 
 def _apply_level_to_cfg(level: str, cls_cfg: dict) -> None:
     """classification_level 문자열을 기존 분류 플래그에 매핑한다.
@@ -1182,12 +1818,20 @@ class _Step6Retag(_StepPanel):
             return
         self._btn_retag.setEnabled(False)
         self._btn_retag.setText("재분류 중…")
+        self._show_loading(
+            "Step 6: 태그 재분류",
+            "전체 태그를 다시 분석하고 분류 결과를 갱신하는 중입니다…",
+            detail="작품 수가 많으면 시간이 걸릴 수 있습니다.",
+            total=None,
+        )
         self._retag_thread = _RetagThread(self._db_path(), self)
         self._retag_thread.log_msg.connect(self.log_msg)
+        self._retag_thread.log_msg.connect(self._mirror_loading_log)
         self._retag_thread.done.connect(self._on_retag_done)
         self._retag_thread.start()
 
     def _on_retag_done(self, results: list) -> None:
+        self._hide_loading()
         self._btn_retag.setEnabled(True)
         self._btn_retag.setText("🏷 전체 태그 재분석")
         self._populate_result_grid(results)
@@ -1445,10 +2089,18 @@ class _Step7Preview(_StepPanel):
             self._conn_factory, group_ids, cfg, self
         )
         self._preview_thread.log_msg.connect(self.log_msg)
+        self._preview_thread.log_msg.connect(self._mirror_loading_log)
         self._preview_thread.done.connect(self._on_preview_done)
+        self._show_loading(
+            "Step 7: 분류 미리보기",
+            "분류 미리보기를 생성하는 중입니다…",
+            detail=f"대상 그룹 {len(group_ids)}개를 분석하고 있습니다.",
+            total=None,
+        )
         self._preview_thread.start()
 
     def _on_preview_done(self, result: dict) -> None:
+        self._hide_loading()
         self._btn_preview.setEnabled(True)
         self._btn_preview.setText("📋 미리보기 생성")
         # developer: 분류 실패 export 로그 (기본값 OFF, 일반 사용자에게 표시 안 됨)
@@ -1645,6 +2297,36 @@ class _Step7Preview(_StepPanel):
         except Exception as exc:
             QMessageBox.critical(self._wizard, "DB 오류", str(exc))
             return
+
+        artist_name = ""
+        raw_tags: list[str] = []
+        try:
+            row = conn.execute(
+                "SELECT artist_name, tags_json FROM artwork_groups WHERE group_id=?",
+                (group_id,),
+            ).fetchone()
+            if row:
+                artist_name = (row["artist_name"] or "").strip()
+                try:
+                    raw_tags = json.loads(row["tags_json"] or "[]")
+                except Exception:
+                    raw_tags = []
+        except Exception:
+            raw_tags = []
+
+        if not raw_tags:
+            preview_item = self._preview_items.get(group_id) or {}
+            ci = preview_item.get("classification_info") or {}
+            raw_tags = list(ci.get("candidate_source_tags") or [])
+
+        group_info = {
+            "filename":    filename,
+            "title":       title,
+            "artist_name": artist_name,
+            "raw_tags":    raw_tags,
+            "rule_type":   rule_type,
+            "dest_path":   dest_path,
+        }
 
         dlg = ManualClassifyOverrideDialog(
             group_info=group_info,
@@ -1903,10 +2585,18 @@ class _Step8Execute(_StepPanel):
         self._progress.setValue(0)
         self._progress.show()
         self._progress_lbl.setText(f"실행 준비 중 — 대상 {total_groups}개 그룹")
+        self._show_loading(
+            "Step 8: 분류 실행",
+            "분류 작업을 실행하는 중입니다…",
+            detail=f"대상 그룹 {total_groups}개를 순서대로 처리합니다.",
+            total=max(total_groups, 1),
+            current=0,
+        )
         self._execute_thread = _ExecuteThread(
             self._conn_factory, self._batch_preview, self._config(), self
         )
         self._execute_thread.log_msg.connect(self.log_msg)
+        self._execute_thread.log_msg.connect(self._mirror_loading_log)
         self._execute_thread.progress.connect(self._on_execute_progress)
         self._execute_thread.done.connect(self._on_execute_done)
         self._execute_thread.start()
@@ -1917,6 +2607,43 @@ class _Step8Execute(_StepPanel):
         self._progress_lbl.setText(f"{done}/{total} — {message}")
 
     def _on_execute_done(self, result: dict) -> None:
+        self._btn_execute.setEnabled(True)
+        self._btn_execute.setText("▶ 분류 실행")
+        self._progress.hide()
+        if result.get("success", False):
+            base_msg = (
+                f"✅ 완료 — 복사: {result.get('copied',0)}, "
+                f"스킵: {result.get('skipped',0)}, "
+                f"entry_id: {result.get('entry_id','')[:8]}…"
+            )
+            json_only_count = self._query_json_only_count()
+            if json_only_count > 0:
+                base_msg += (
+                    f"\n⚠ 메타데이터 JSON-only 저장: {json_only_count}건"
+                    " — ExifTool 설정을 확인하세요."
+                    " Windows Explorer 세부 정보에는 태그/제목이 표시되지 않을 수 있습니다."
+                )
+            self._result_lbl.setText(base_msg)
+        else:
+            self._result_lbl.setText(
+                f"❌ 실패: {result.get('error', '알 수 없는 오류')}"
+            )
+        self._progress_lbl.setText("완료")
+        self.refresh_main.emit()
+
+    def _on_execute_progress(self, done: int, total: int, message: str) -> None:
+        self._progress.setRange(0, max(total, 1))
+        self._progress.setValue(done)
+        self._progress_lbl.setText(f"{done}/{total} — {message}")
+        self._update_loading(
+            message="분류 작업을 실행하는 중입니다…",
+            detail=message,
+            current=done,
+            total=total,
+        )
+
+    def _on_execute_done(self, result: dict) -> None:
+        self._hide_loading()
         self._btn_execute.setEnabled(True)
         self._btn_execute.setText("▶ 분류 실행")
         self._progress.hide()
@@ -2077,6 +2804,7 @@ class WorkflowWizardView(QDialog):
         self._conn_factory = conn_factory
         self._config       = config
         self._config_path  = config_path
+        self._loading_dialog: Optional[LoadingOverlayDialog] = None
 
         self.setWindowTitle("🧭 Aru Archive 작업 마법사")
         self.setMinimumSize(800, 600)
@@ -2136,7 +2864,7 @@ class WorkflowWizardView(QDialog):
         self._panels: list[_StepPanel] = []
 
         for PanelClass in [
-            _Step1Root, _Step2Scan, _Step3Meta, _Step4Enrich,
+            _Step1Root, _Step2Scan, _Step3Meta, _Step4EnrichModern,
             _Step5ClassifyLevel, _Step6Retag, _Step7Preview, _Step8Execute,
             _Step9Result,
         ]:
@@ -2200,6 +2928,68 @@ class WorkflowWizardView(QDialog):
         dd = cfg.get("data_dir", "")
         return f"{dd}/.runtime/aru_archive.db" if dd else "aru_archive.db"
 
+    def _ensure_loading_dialog(self) -> LoadingOverlayDialog:
+        if self._loading_dialog is None:
+            self._loading_dialog = LoadingOverlayDialog(self)
+        return self._loading_dialog
+
+    def _show_loading(
+        self,
+        title: str,
+        message: str,
+        *,
+        detail: str = "",
+        total: Optional[int] = None,
+        current: int = 0,
+    ) -> None:
+        dialog = self._ensure_loading_dialog()
+        dialog.set_title_text(title)
+        dialog.set_message_text(message)
+        dialog.set_detail_text(detail)
+        if total is None:
+            dialog.set_indeterminate("작업 중…")
+        else:
+            dialog.set_progress(current, total, f"{current}/{max(total, 1)}")
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+        QApplication.processEvents()
+
+    def _update_loading(
+        self,
+        *,
+        message: Optional[str] = None,
+        detail: Optional[str] = None,
+        current: Optional[int] = None,
+        total: Optional[int] = None,
+    ) -> None:
+        dialog = self._loading_dialog
+        if dialog is None:
+            return
+        if message is not None:
+            dialog.set_message_text(message)
+        if detail is not None:
+            dialog.set_detail_text(detail)
+        if current is not None and total is not None:
+            dialog.set_progress(current, total, f"{current}/{max(total, 1)}")
+
+    def _hide_loading(self) -> None:
+        if self._loading_dialog is None:
+            return
+        self._loading_dialog.hide()
+
+    def _mirror_loading_log(self, message: str) -> None:
+        dialog = self._loading_dialog
+        if dialog is None:
+            return
+        clean = message.strip()
+        for prefix in ("[INFO] ", "[WARN] ", "[ERROR] "):
+            if clean.startswith(prefix):
+                clean = clean[len(prefix):]
+                break
+        if clean:
+            dialog.set_detail_text(clean)
+
     def _go_to_step(self, idx: int) -> None:
         idx = max(0, min(idx, len(_STEPS) - 1))
         # _HIDDEN_STEP_INDICES에 해당하는 단계는 자동으로 건너뛴다.
@@ -2243,6 +3033,7 @@ class WorkflowWizardView(QDialog):
 
     def _on_log(self, msg: str) -> None:
         self._log_area.append(msg)
+        self._mirror_loading_log(msg)
 
     def _on_preview_ready(self, batch_preview: dict) -> None:
         # Step 8에 preview 전달
