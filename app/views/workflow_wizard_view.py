@@ -104,20 +104,71 @@ class PreviewThumbnailCache:
 # 상수
 # ---------------------------------------------------------------------------
 
+# 내부 stack 구성. (internal_num, short_label, title) — 9개 패널 모두 보존.
+# index 5 ("태그 재분류") 는 사용자에게 숨기지만 _stack 에는 그대로 들어 있다.
+# short_label 과 title 은 사용자 표시 전용 한국어 텍스트.
 _STEPS = [
-    (1, "Paths",    "작업 폴더"),
-    (2, "Scan",     "Scan / Load"),
-    (3, "Metadata", "메타데이터 확인"),
-    (4, "Enrich",   "메타데이터 보강"),
-    (5, "Classify", "분류 기준 선택"),
-    (6, "Retag",    "태그 재분류"),
-    (7, "Preview",  "분류 미리보기"),
-    (8, "Execute",  "분류 실행"),
-    (9, "Result",   "결과 / Undo"),
+    (1, "작업 폴더",      "작업 폴더 설정"),
+    (2, "이미지 스캔",    "이미지 스캔"),
+    (3, "메타데이터 확인", "메타데이터 확인"),
+    (4, "메타데이터 보강", "메타데이터 보강"),
+    (5, "분류 기준 선택", "분류 기준 선택"),
+    (6, "태그 재분류",    "태그 재분류 (자동)"),
+    (7, "분류 미리보기",  "분류 미리보기"),
+    (8, "분류 실행",      "분류 실행"),
+    (9, "결과 / 되돌리기", "결과 / 되돌리기"),
 ]
 
 # Step 6 (index 5)은 헤더 버튼에서 숨긴다 — 패널 자체는 _stack에 유지.
 _HIDDEN_STEP_INDICES = {5}
+
+
+def _total_visible_steps() -> int:
+    """사용자에게 표시되는 step 개수 (hidden 제외). 내부 stack 길이와 다를 수 있다."""
+    return len(_STEPS) - len(_HIDDEN_STEP_INDICES)
+
+
+def _visible_step_number(internal_idx: int) -> Optional[int]:
+    """internal stack index → 1-based 사용자 표시 번호. hidden 이면 None.
+
+    사용자에게 hidden step 이 끼어 있는 게 안 보이도록 visible step 만 1..N
+    번호를 매긴다. 예: hidden index 5 → visible 6 = internal 6.
+    """
+    if internal_idx < 0 or internal_idx >= len(_STEPS):
+        return None
+    if internal_idx in _HIDDEN_STEP_INDICES:
+        return None
+    visible = 0
+    for i in range(internal_idx + 1):
+        if i in _HIDDEN_STEP_INDICES:
+            continue
+        visible += 1
+    return visible
+
+
+def _visible_step_button_label(internal_idx: int) -> Optional[str]:
+    """헤더 버튼 텍스트. hidden step 이면 None (호출자는 버튼 setVisible(False))."""
+    if internal_idx in _HIDDEN_STEP_INDICES:
+        return None
+    if internal_idx < 0 or internal_idx >= len(_STEPS):
+        return None
+    num = _visible_step_number(internal_idx)
+    short = _STEPS[internal_idx][1]
+    return f"{num}. {short}"
+
+
+def _visible_step_title_text(internal_idx: int) -> str:
+    """단계 제목 바 텍스트. visible step 은 '단계 N / Total: 제목', hidden step
+    은 사용자 친화적인 자동-진행 표기 ('자동 진행 단계: 제목').
+    """
+    if internal_idx < 0 or internal_idx >= len(_STEPS):
+        return ""
+    title = _STEPS[internal_idx][2]
+    if internal_idx in _HIDDEN_STEP_INDICES:
+        return f"자동 진행 단계: {title}"
+    num = _visible_step_number(internal_idx)
+    total = _total_visible_steps()
+    return f"단계 {num} / {total}: {title}"
 
 _RISK_STYLE = {
     "low":    "color:#5CDB8F; font-weight:bold;",
@@ -3052,8 +3103,10 @@ class WorkflowWizardView(QDialog):
         hbox.setContentsMargins(8, 4, 8, 4)
 
         self._step_btns: list[QPushButton] = []
-        for idx, (num, short, _) in enumerate(_STEPS):
-            btn = QPushButton(f"{num}. {short}")
+        for idx in range(len(_STEPS)):
+            label = _visible_step_button_label(idx)
+            # hidden step 의 버튼은 사용자에게 보이지 않으므로 텍스트 없어도 됨.
+            btn = QPushButton(label or "")
             btn.setFlat(True)
             btn.setFixedHeight(28)
             btn.clicked.connect(lambda checked, i=idx: self._go_to_step(i))
@@ -3066,9 +3119,14 @@ class WorkflowWizardView(QDialog):
                 btn.setVisible(False)
             self._step_btns.append(btn)
             hbox.addWidget(btn)
+            # 화살표는 hidden step 직전/직후 모두 끄거나 표시 등 추가 정책이 필요하면 후속 PR.
+            # 이번 PR 은 번호/라벨만 정리. 화살표 위치 유지.
             if idx < len(_STEPS) - 1:
                 arrow = QLabel("→")
                 arrow.setStyleSheet("color:#4A2030; font-size:10px;")
+                # hidden step 양쪽 화살표는 함께 숨겨 사용자가 끊긴 chevron 을 보지 않도록 한다.
+                if idx in _HIDDEN_STEP_INDICES or (idx + 1) in _HIDDEN_STEP_INDICES:
+                    arrow.setVisible(False)
                 hbox.addWidget(arrow)
 
         root.addWidget(header)
@@ -3240,8 +3298,10 @@ class WorkflowWizardView(QDialog):
                     "QPushButton:hover {color:#D8AEBB;}"
                 )
 
-        num, short, title = _STEPS[idx]
-        self._step_title.setText(f"Step {num}: {title}")
+        # 사용자에게 보이는 번호 (hidden step 제외) + 한국어 제목.
+        # hidden step 진입 시에는 "자동 진행 단계: ..." 형식 (호출 흐름이 hidden 으로
+        # 강제 진입할 일은 거의 없지만 방어적으로 처리).
+        self._step_title.setText(_visible_step_title_text(idx))
         self._btn_prev.setEnabled(idx > 0)
         self._btn_next.setEnabled(idx < len(_STEPS) - 1)
 
