@@ -38,6 +38,7 @@ from PyQt6.QtWidgets import (
     QTextEdit, QVBoxLayout, QWidget,
 )
 
+from app.ui_action_text import PIXIV_META_LABEL, PIXIV_META_TOOLTIP, SCAN_BUTTON_LABEL, SCAN_TOOLTIP
 from app.views.loading_overlay_dialog import LoadingOverlayDialog
 from app.views.path_setup_dialog import PathSetupDialog
 
@@ -940,7 +941,8 @@ class _Step2Scan(_StepPanel):
         layout.addWidget(self._last_result_lbl)
 
         btn_row = QHBoxLayout()
-        self._btn_scan = QPushButton("🔍 이미지 스캔 실행")
+        self._btn_scan = QPushButton(SCAN_BUTTON_LABEL)
+        self._btn_scan.setToolTip(SCAN_TOOLTIP)
         self._btn_scan.clicked.connect(self._on_scan)
         btn_row.addWidget(self._btn_scan)
         btn_row.addStretch()
@@ -1394,7 +1396,7 @@ class _Step4EnrichModern(_StepPanel):
         grid.setVerticalSpacing(10)
 
         self._btn_pixiv_card = self._make_action_button(
-            "Pixiv 데이터 입력",
+            PIXIV_META_LABEL,
             "Pixiv API를 통해 작품 정보를 일괄적으로 조회하여 입력합니다.",
             accent=False,
         )
@@ -1578,6 +1580,7 @@ class _Step4EnrichModern(_StepPanel):
 
     def _make_action_button(self, title: str, description: str, *, accent: bool) -> QPushButton:
         btn = QPushButton(f"{title}\n{description}")
+        btn.setToolTip(description)
         border = "#C36381"
         hover = "#4A2230"
         pressed = "#3A1823"
