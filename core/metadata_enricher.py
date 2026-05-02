@@ -253,10 +253,19 @@ def _set_sync_status(conn: sqlite3.Connection, group_id: str, status: str) -> No
 
 
 def _set_file_embedded(conn: sqlite3.Connection, file_id: str, embedded: int) -> None:
+    """Update metadata_embedded flag and commit immediately.
+
+    The explicit commit removes a latent dependency on caller-side trailing
+    commits — the embed_failed code path needs metadata_embedded=0 to be
+    persisted even if the connection is closed before the caller can commit.
+    Repeating commits in the success path is a no-op (no-op on already-clean
+    transactions in SQLite Python).
+    """
     conn.execute(
         "UPDATE artwork_files SET metadata_embedded = ? WHERE file_id = ?",
         (embedded, file_id),
     )
+    conn.commit()
 
 
 def _set_file_missing(conn: sqlite3.Connection, file_id: str) -> None:
