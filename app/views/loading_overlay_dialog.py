@@ -14,9 +14,34 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
     QProgressBar,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
+
+
+# 긴 detail/log 한 줄로 인한 layout 흔들림 방지 — 표시용 max characters.
+# 전체 원문은 tooltip + 호출자 측 log area 에 보존된다.
+_DETAIL_DISPLAY_MAX_CHARS = 140
+
+# detail label 표시 영역의 max height (px). 2~3 줄 분량이며 longer text 는
+# truncate 되거나 tooltip 으로만 노출되어 dialog 전체 layout 을 밀어내지
+# 않도록 한다.
+_DETAIL_LABEL_MAX_HEIGHT = 48
+
+
+def _truncate_detail_for_display(text: str) -> str:
+    """긴 한 줄을 표시용으로 잘라낸다. 끝에 ``…`` 추가, 원문은 tooltip 으로 보존.
+
+    중간을 자르지 않고 head 만 보존 — log line 은 보통 가장 의미있는 정보가
+    앞쪽에 모이므로 (e.g. ``[INFO] enrich queue: 1234 files / 567 unique``).
+    한국어/영문 모두 글자 단위로 동일 처리.
+    """
+    if not isinstance(text, str):
+        return ""
+    if len(text) <= _DETAIL_DISPLAY_MAX_CHARS:
+        return text
+    return text[: _DETAIL_DISPLAY_MAX_CHARS - 1].rstrip() + "…"
 
 from app.resources import loading_icon_path, loading_image_path
 
@@ -308,6 +333,13 @@ class LoadingOverlayDialog(QDialog):
         self._task_message = QLabel("작업 정보를 준비하고 있습니다.")
         self._task_message.setObjectName("panel_body")
         self._task_message.setWordWrap(True)
+        # Layout stability — 긴 한 줄이 wrap 되어도 dialog 전체 height 가 늘어나
+        # 다른 위젯을 밀어내지 않도록 max height 와 vertical Fixed sizePolicy 적용.
+        # 원문 손실 방지: set_detail_text 에서 tooltip 에 full text 보존.
+        self._task_message.setMaximumHeight(_DETAIL_LABEL_MAX_HEIGHT)
+        self._task_message.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
         layout.addWidget(self._task_message)
 
         eta_row = QHBoxLayout()
@@ -478,10 +510,23 @@ class LoadingOverlayDialog(QDialog):
 
     def set_task_message(self, task_title: str = "", task_message: str = "") -> None:
         self._task_title.setText(task_title or "진행 중인 작업")
-        self._task_message.setText(task_message or "세부 작업 정보를 준비하고 있습니다.")
+        # set_detail_text 와 동일한 truncate/tooltip 정책을 거치도록 위임.
+        self.set_detail_text(task_message)
 
     def set_detail_text(self, text: str) -> None:
-        self._task_message.setText(text or "세부 작업 정보를 준비하고 있습니다.")
+        """detail label 갱신. 긴 text 는 layout 안정을 위해 표시용으로 truncate
+        하되, 원문은 tooltip 에 보존한다 (QLabel 도 hover 시 tooltip 으로 full
+        text 확인 가능).
+        """
+        full = text or "세부 작업 정보를 준비하고 있습니다."
+        display = _truncate_detail_for_display(full)
+        self._task_message.setText(display)
+        # 원문 보존 — display 가 truncate 되었거나 원문이 default placeholder 가
+        # 아니라면 tooltip 으로 full text 노출.
+        if display != full or (text and text != full):
+            self._task_message.setToolTip(full)
+        else:
+            self._task_message.setToolTip("")
 
     def set_indeterminate(self, text: Optional[str] = None) -> None:
         self._progress.setRange(0, 0)
