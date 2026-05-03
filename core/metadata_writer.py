@@ -146,8 +146,34 @@ def _is_ascii_only(value: str) -> bool:
         return False
 
 
-def _write_windows_exif_fields_direct(file_path: str, metadata: dict) -> None:
-    """Write Explorer-facing XP fields directly to EXIF using UTF-16LE bytes."""
+# Windows Explorer 표시용 XP 태그 ID. Aru JSON 이 저장되는 UserComment
+# (0x9286) 는 의도적으로 포함하지 않는다 — Aru 내부 schema 의 source-of-truth.
+_EXPLORER_XP_TAG_IDS: tuple[int, ...] = (
+    0x9C9B,  # XPTitle
+    0x9C9F,  # XPSubject
+    0x9C9D,  # XPAuthor
+    0x9C9E,  # XPKeywords
+    0x9C9C,  # XPComment
+)
+
+
+def _write_windows_exif_fields_direct(
+    file_path: str,
+    metadata: dict,
+    *,
+    clear_before_write: bool = False,
+) -> None:
+    """Write Explorer-facing XP fields directly to EXIF using UTF-16LE bytes.
+
+    ``clear_before_write=True`` (재등록 경로 전용) 일 때는 IFD0 에서 기존
+    XPTitle / XPSubject / XPAuthor / XPKeywords / XPComment 를 모두 명시적으로
+    제거한 다음 새 값으로 채운다. 그 결과:
+
+    - 깨진 UTF-8 바이트가 남아 ExifTool ValueConvInv 단계에서 실패하던 케이스
+      가 발생하지 않는다 (애초에 ExifTool 을 거치지 않는다).
+    - 옛 한글/일본어 잔여물이 Explorer 컬럼에 남지 않는다.
+    - UserComment (0x9286, Aru JSON) 는 절대 건드리지 않는다.
+    """
     try:
         import piexif
     except ImportError as exc:
@@ -159,6 +185,12 @@ def _write_windows_exif_fields_direct(file_path: str, metadata: dict) -> None:
         exif_dict = {"0th": {}, "Exif": {}, "GPS": {}, "1st": {}}
 
     zeroth = exif_dict.setdefault("0th", {})
+
+    if clear_before_write:
+        # 명시 clear-first — 기존 malformed XP bytes 를 새 값 결정 전에 모두 비운다.
+        # UserComment (Exif IFD) 는 대상에서 제외되어 Aru JSON 이 보존된다.
+        for tag_id in _EXPLORER_XP_TAG_IDS:
+            zeroth.pop(tag_id, None)
 
     title = (metadata.get("artwork_title") or "").strip()
     artist = (metadata.get("artist_name") or "").strip()
@@ -197,6 +229,8 @@ def _write_windows_exif_fields_best_effort(
     file_path: str,
     metadata: dict,
     exiftool_path: Optional[str],
+    *,
+    clear_before_write: bool = False,
 ) -> str:
     """
     Prefer ExifTool for Explorer-facing XP fields and fall back to direct write.
@@ -205,15 +239,27 @@ def _write_windows_exif_fields_best_effort(
     The direct piexif path is kept as a fallback for environments where
     ExifTool is unavailable after XMP was already written.
 
+    ``clear_before_write=True`` 일 때는 ExifTool 경로를 건너뛰고 곧바로
+    direct piexif 경로 (clear-first 모드) 를 사용한다. 기존 malformed XP
+    필드가 있을 때 ExifTool 이 ValueConvInv 단계에서 실패해 fallback 비용
+    + 깨짐이 그대로 남는 회귀를 막기 위함이다.
+
     Returns
     -------
-    "primary"  — ExifTool path 성공
-    "fallback" — ExifTool 실패(또는 미설정) 후 piexif direct write 성공
+    "primary"     — ExifTool path 성공 (clear_before_write=False 시 기본 경로)
+    "fallback"    — ExifTool 실패(또는 미설정) 후 piexif direct write 성공
+    "clear_first" — clear_before_write=True 로 direct piexif clear-first 경로 직행
 
     Raises
     ------
-    XmpWriteError — primary와 fallback이 모두 실패
+    XmpWriteError — primary / fallback / clear_first 모두 실패
     """
+    if clear_before_write:
+        _write_windows_exif_fields_direct(
+            file_path, metadata, clear_before_write=True,
+        )
+        return "clear_first"
+
     if exiftool_path:
         try:
             if write_windows_exif_fields(file_path, metadata, exiftool_path=exiftool_path):
@@ -462,6 +508,8 @@ def write_xmp_metadata_with_exiftool(
     metadata: dict,
     exiftool_path: Optional[str] = None,
     include_xp_fields: bool = True,
+    *,
+    clear_windows_xp_fields_before_write: bool = False,
 ) -> bool:
     """
     ExifTool을 사용하여 XMP 표준 필드를 기록한다.
@@ -536,9 +584,14 @@ def write_xmp_metadata_with_exiftool(
                 file_path,
                 metadata,
                 exiftool_path,
+                clear_before_write=clear_windows_xp_fields_before_write,
             )
         if not effective_include_xp:
             logger.info("XMP 기록 완료: %s", file_path)
+        elif xp_path_used == "clear_first":
+            logger.info(
+                "XMP+XP 기록 완료 (XP는 clear-first 경로 사용): %s", file_path
+            )
         elif xp_path_used == "fallback":
             logger.info(
                 "XMP+XP 기록 완료 (XP는 fallback 경로 사용): %s", file_path

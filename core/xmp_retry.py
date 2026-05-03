@@ -157,7 +157,13 @@ def retry_xmp_for_group(
         }
 
     try:
-        ok = write_xmp_metadata_with_exiftool(file_path, metadata, exiftool_path)
+        # XMP 재처리 경로 — 기존 XP 필드가 malformed UTF-8 로 남아 있을 가능성이
+        # 높으므로 clear-first 모드로 호출. ExifTool 의 ValueConvInv 단계 실패와
+        # Explorer 컬럼의 깨진 문자열 잔여물을 한 번에 차단한다.
+        ok = write_xmp_metadata_with_exiftool(
+            file_path, metadata, exiftool_path,
+            clear_windows_xp_fields_before_write=True,
+        )
     except XmpWriteError as exc:
         _set_sync_status(conn, group_id, "xmp_write_failed")
         logger.warning("XMP 기록 실패 (group=%s): %s", group_id, exc)
