@@ -1046,20 +1046,34 @@ class _Step1Root(_StepPanel):
             logger.warning("config 저장 실패 (Step1 language): %s", exc)
 
     def _on_select_root(self) -> None:
-        cfg   = self._config()
-        start = cfg.get("inbox_dir") or str(Path.home())
-        dlg = PathSetupDialog(start_dir=start, data_dir=cfg.get("data_dir", ""), parent=self)
-        if dlg.exec() != PathSetupDialog.DialogCode.Accepted:
-            return
+        cfg = self._config()
         from core.config_manager import (
             ensure_app_data_dirs, ensure_app_directories,
             ensure_workspace_directories, resolve_app_data_dir,
-            save_config, sync_io_dir_aliases, update_workspace_from_inbox,
+            save_config, sync_io_dir_aliases,
         )
+        # PR #122 follow-up: 두 picker (input / output) + 읽기 전용 관리 폴더.
+        # input/output 을 sibling 으로 자동 파생하지 않는다.
+        app_data_dir = str(resolve_app_data_dir(cfg))
+        dlg = PathSetupDialog(
+            start_input_dir=cfg.get("input_dir") or cfg.get("inbox_dir", ""),
+            start_output_dir=cfg.get("output_dir") or cfg.get("classified_dir", ""),
+            app_data_dir=app_data_dir,
+            parent=self,
+        )
+        if dlg.exec() != PathSetupDialog.DialogCode.Accepted:
+            return
         paths = dlg.selected_paths()
         if not paths:
             return
-        update_workspace_from_inbox(cfg, paths["inbox_dir"])
+        # dialog 가 input/output/managed/app_data 를 모두 명시 반환 — sibling
+        # 자동 파생 (update_workspace_from_inbox) 은 호출하지 않는다.
+        cfg["input_dir"]      = paths["input_dir"]
+        cfg["inbox_dir"]      = paths["input_dir"]
+        cfg["output_dir"]     = paths["output_dir"]
+        cfg["classified_dir"] = paths["output_dir"]
+        cfg["managed_dir"]    = paths["managed_dir"]
+        cfg["app_data_dir"]   = paths["app_data_dir"]
         sync_io_dir_aliases(cfg)
         ensure_app_directories(cfg)
         ensure_workspace_directories(cfg)
