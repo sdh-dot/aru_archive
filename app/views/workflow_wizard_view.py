@@ -866,12 +866,14 @@ class _Step1Root(_StepPanel):
         layout.addWidget(_label("작업 폴더 설정", bold=True))
         layout.addWidget(_h_sep())
 
-        # Wizard 작업 범위 안내 — 사용자가 Pixiv 메타데이터 기반 처리 / 메타데이터
-        # 상태에 따른 대상 제한 정책을 사전에 인지하도록 subdued 스타일로 표시.
+        # Wizard 작업 범위 안내 — 분류 대상과 Pixiv 가져오기 대상이 서로
+        # 다른 정책임을 명시. "Pixiv 파일만" 같은 단정 표현은 회피 — XMP
+        # 입력 / 분류 미리보기·실행 등은 비-Pixiv 파일도 대상으로 한다.
         # UI-only — wizard 의 실제 분류 / metadata 로직은 변경 없음.
         self._scope_notice = QLabel(
-            "작업 범위: Pixiv 메타데이터 기반 이미지 처리\n"
-            "메타데이터 상태에 따라 일부 파일은 제외될 수 있습니다."
+            "작업 범위: 메타데이터가 등록되었거나 Pixiv 기준으로 처리 가능한 "
+            "이미지 파일을 대상으로 합니다.\n"
+            "Pixiv 메타데이터 가져오기는 Pixiv 출처 파일에만 적용됩니다."
         )
         self._scope_notice.setObjectName("step1ScopeNotice")
         self._scope_notice.setWordWrap(True)
@@ -2412,7 +2414,9 @@ class _Step7Preview(_StepPanel):
     def _on_preview_done(self, result: dict) -> None:
         self._hide_loading()
         self._btn_preview.setEnabled(True)
-        self._btn_preview.setText("📋 미리보기 생성")
+        # 초기 라벨과 동일하게 통일 — preview 완료 후 다시 누를 때 무엇을 분류
+        # 미리보는지 명확히 한다.
+        self._btn_preview.setText("📋 분류 미리보기 생성")
         # developer: 분류 실패 export 로그 (기본값 OFF, 일반 사용자에게 표시 안 됨)
         if result.get("dev_log_msg"):
             self.log_msg.emit(result["dev_log_msg"])
