@@ -545,3 +545,221 @@ class TestScopeAndParams:
         )
         assert all(it.group_id != gid for it in report.items)
         assert report.summary.groups_scanned == 0
+
+
+# ---------------------------------------------------------------------------
+# Export helpers — CSV / JSON serialisation, read-only invariants
+# ---------------------------------------------------------------------------
+
+def _build_sample_report(db, tmp_path):
+    """consistent + legacy_extra 두 group 을 포함한 샘플 report 생성."""
+    from core.classifier import build_classify_preview
+    from core.classified_output_consistency import (
+        build_classified_output_consistency_report,
+    )
+
+    cfg = _config(tmp_path)
+
+    # group A: consistent
+    gid_a = str(uuid.uuid4())
+    _insert_group(db, group_id=gid_a, series=["Blue Archive"], character=["伊落マリー"])
+    orig_a = tmp_path / "inbox" / "p_a.jpg"
+    _make_real_jpg(orig_a)
+    _insert_file(db, group_id=gid_a, file_path=str(orig_a))
+    pv_a = build_classify_preview(db, gid_a, cfg)
+    assert pv_a is not None
+    for d in pv_a["destinations"]:
+        _insert_file(
+            db, group_id=gid_a, file_path=d["dest_path"],
+            file_role="classified_copy",
+        )
+
+    # group B: legacy_extra (unrelated path)
+    gid_b = str(uuid.uuid4())
+    _insert_group(db, group_id=gid_b, series=["Blue Archive"], character=["陸八魔アル"])
+    orig_b = tmp_path / "inbox" / "p_b.jpg"
+    _make_real_jpg(orig_b)
+    _insert_file(db, group_id=gid_b, file_path=str(orig_b))
+    pv_b = build_classify_preview(db, gid_b, cfg)
+    assert pv_b is not None
+    for d in pv_b["destinations"]:
+        _insert_file(
+            db, group_id=gid_b, file_path=d["dest_path"],
+            file_role="classified_copy",
+        )
+    legacy_b = str(tmp_path / "Classified" / "옛이름" / "p_b.jpg")
+    _insert_file(db, group_id=gid_b, file_path=legacy_b, file_role="classified_copy")
+
+    return build_classified_output_consistency_report(
+        db, config=cfg, scope="all_classified", include_consistent=True,
+    )
+
+
+class TestReportToRows:
+    def test_rows_contain_all_required_fields(self, db, tmp_path):
+        from core.classified_output_consistency import (
+            classified_output_report_to_rows,
+        )
+        report = _build_sample_report(db, tmp_path)
+        rows = classified_output_report_to_rows(report)
+        assert rows, "no rows produced"
+        required = {
+            "status", "group_id", "artwork_id", "title", "source_path",
+            "current_destination_count", "existing_classified_copy_count",
+            "legacy_extra_count", "missing_expected_count",
+            "current_destinations", "existing_classified_copies",
+            "legacy_extra_paths", "missing_expected_paths", "notes",
+        }
+        for r in rows:
+            assert required <= set(r.keys()), (
+                f"missing fields: {required - set(r.keys())}"
+            )
+
+    def test_path_columns_are_lists_in_rows(self, db, tmp_path):
+        """rows 표현은 list 그대로 유지 (JSON 직렬화 전용 형태)."""
+        from core.classified_output_consistency import (
+            classified_output_report_to_rows,
+        )
+        report = _build_sample_report(db, tmp_path)
+        for r in classified_output_report_to_rows(report):
+            for key in (
+                "current_destinations", "existing_classified_copies",
+                "legacy_extra_paths", "missing_expected_paths", "notes",
+            ):
+                assert isinstance(r[key], list), f"{key} not list: {r[key]!r}"
+
+
+class TestExportCsv:
+    def test_csv_file_created_with_utf8_bom(self, db, tmp_path):
+        from core.classified_output_consistency import (
+            export_classified_output_report_csv,
+        )
+        report = _build_sample_report(db, tmp_path)
+        out = tmp_path / "report.csv"
+        export_classified_output_report_csv(report, out)
+        assert out.exists()
+        head = out.read_bytes()[:3]
+        assert head == b"\xef\xbb\xbf", "CSV must start with UTF-8 BOM for Excel"
+
+    def test_csv_contains_summary_comments_and_header(self, db, tmp_path):
+        from core.classified_output_consistency import (
+            export_classified_output_report_csv,
+        )
+        report = _build_sample_report(db, tmp_path)
+        out = tmp_path / "report.csv"
+        export_classified_output_report_csv(report, out)
+        text = out.read_text(encoding="utf-8-sig")
+        # summary 주석 행 포함
+        assert "# groups_scanned:" in text
+        assert "# groups_consistent:" in text
+        # 헤더 행 포함
+        assert "status,group_id,artwork_id" in text
+
+    def test_csv_preserves_korean_paths(self, db, tmp_path):
+        from core.classified_output_consistency import (
+            export_classified_output_report_csv,
+        )
+        report = _build_sample_report(db, tmp_path)
+        out = tmp_path / "report.csv"
+        export_classified_output_report_csv(report, out)
+        text = out.read_text(encoding="utf-8-sig")
+        # legacy_extra group B 의 한글 경로 토큰 보존 확인
+        assert "옛이름" in text
+
+
+class TestExportJson:
+    def test_json_file_created_with_summary_and_items(self, db, tmp_path):
+        import json as _json_mod
+        from core.classified_output_consistency import (
+            export_classified_output_report_json,
+        )
+        report = _build_sample_report(db, tmp_path)
+        out = tmp_path / "report.json"
+        export_classified_output_report_json(report, out)
+        assert out.exists()
+        payload = _json_mod.loads(out.read_text(encoding="utf-8"))
+        assert "summary" in payload
+        assert "items" in payload
+        assert payload["summary"]["groups_scanned"] >= 2
+        assert isinstance(payload["items"], list)
+
+    def test_json_preserves_list_structure_for_paths(self, db, tmp_path):
+        import json as _json_mod
+        from core.classified_output_consistency import (
+            export_classified_output_report_json,
+        )
+        report = _build_sample_report(db, tmp_path)
+        out = tmp_path / "report.json"
+        export_classified_output_report_json(report, out)
+        payload = _json_mod.loads(out.read_text(encoding="utf-8"))
+        # 적어도 한 item 의 list 컬럼은 list 자체로 직렬화돼야 한다.
+        assert any(
+            isinstance(item.get("current_destinations"), list)
+            and isinstance(item.get("legacy_extra_paths"), list)
+            for item in payload["items"]
+        )
+
+    def test_json_preserves_korean_strings_without_escaping(self, db, tmp_path):
+        from core.classified_output_consistency import (
+            export_classified_output_report_json,
+        )
+        report = _build_sample_report(db, tmp_path)
+        out = tmp_path / "report.json"
+        export_classified_output_report_json(report, out)
+        text = out.read_text(encoding="utf-8")
+        # ensure_ascii=False 검증: 한글이 \uXXXX 가 아니라 그대로 들어 있어야 함.
+        assert "옛이름" in text
+
+
+class TestExportReadOnlyInvariant:
+    def test_db_unchanged_after_export(self, db, tmp_path):
+        from core.classified_output_consistency import (
+            export_classified_output_report_csv,
+            export_classified_output_report_json,
+        )
+        report = _build_sample_report(db, tmp_path)
+        before = {
+            "groups": db.execute("SELECT COUNT(*) FROM artwork_groups").fetchone()[0],
+            "files":  db.execute("SELECT COUNT(*) FROM artwork_files").fetchone()[0],
+            "tags":   db.execute("SELECT COUNT(*) FROM tags").fetchone()[0],
+            "aliases": db.execute("SELECT COUNT(*) FROM tag_aliases").fetchone()[0],
+            "undo":   db.execute("SELECT COUNT(*) FROM undo_entries").fetchone()[0],
+            "copy":   db.execute("SELECT COUNT(*) FROM copy_records").fetchone()[0],
+        }
+        export_classified_output_report_csv(report, tmp_path / "x.csv")
+        export_classified_output_report_json(report, tmp_path / "x.json")
+        after = {
+            "groups": db.execute("SELECT COUNT(*) FROM artwork_groups").fetchone()[0],
+            "files":  db.execute("SELECT COUNT(*) FROM artwork_files").fetchone()[0],
+            "tags":   db.execute("SELECT COUNT(*) FROM tags").fetchone()[0],
+            "aliases": db.execute("SELECT COUNT(*) FROM tag_aliases").fetchone()[0],
+            "undo":   db.execute("SELECT COUNT(*) FROM undo_entries").fetchone()[0],
+            "copy":   db.execute("SELECT COUNT(*) FROM copy_records").fetchone()[0],
+        }
+        assert before == after
+
+    def test_classified_output_files_unchanged_after_export(self, db, tmp_path):
+        """export 는 classified output 폴더의 어떤 파일도 read/write 하지 않는다."""
+        from core.classified_output_consistency import (
+            export_classified_output_report_csv,
+            export_classified_output_report_json,
+        )
+        # 실제 classified 폴더에 파일을 두고 그 stat 정보를 비교.
+        cls_root = tmp_path / "Classified" / "옛이름"
+        cls_root.mkdir(parents=True, exist_ok=True)
+        target = cls_root / "p_b.jpg"
+        target.write_bytes(b"original-bytes")
+        before_stat = target.stat()
+
+        report = _build_sample_report(db, tmp_path)
+
+        # export 실행 — 출력은 별도 위치 (Classified 폴더 밖) 으로.
+        export_root = tmp_path / "exports"
+        export_root.mkdir(exist_ok=True)
+        export_classified_output_report_csv(report, export_root / "r.csv")
+        export_classified_output_report_json(report, export_root / "r.json")
+
+        after_stat = target.stat()
+        assert target.read_bytes() == b"original-bytes"
+        assert before_stat.st_size == after_stat.st_size
+        # mtime/inode 비교는 OS에 따라 흔들릴 수 있어 size + 내용만 확인.

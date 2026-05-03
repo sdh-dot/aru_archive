@@ -163,6 +163,125 @@ def test_classified_consistency_dialog_has_no_repair_or_delete_button(
         )
 
 
+def test_classified_consistency_dialog_has_export_buttons(
+    qt_app, tmp_config, tmp_path
+):
+    """dialog 소스에 CSV/JSON 내보내기 버튼이 추가되어 있어야 한다."""
+    import inspect
+    from app.main_window import MainWindow
+
+    src = inspect.getsource(MainWindow._show_classified_consistency_dialog)
+    assert "CSV로 내보내기" in src
+    assert "JSON으로 내보내기" in src
+    # Close 버튼 invariant 도 함께 유지.
+    assert "StandardButton.Close" in src
+
+
+def test_classified_consistency_export_handler_calls_core_export(
+    qt_app, tmp_config, tmp_path, monkeypatch
+):
+    """export 핸들러가 사용자 경로 선택 후 core export 함수를 호출하는지 검증.
+
+    실제 dialog / QFileDialog 표시 없이 monkeypatch 로 검증한다.
+    """
+    from app.main_window import MainWindow
+    from core.classified_output_consistency import (
+        ClassifiedOutputConsistencyReport,
+        ClassifiedOutputConsistencySummary,
+    )
+
+    fake_report = ClassifiedOutputConsistencyReport(
+        summary=ClassifiedOutputConsistencySummary(
+            groups_scanned=0, groups_consistent=0,
+            groups_with_legacy_extra=0, groups_with_missing_expected=0,
+            groups_unverifiable=0, legacy_file_count=0,
+            missing_expected_count=0,
+        ),
+        items=(),
+    )
+    chosen_path = str(tmp_path / "user_chosen.csv")
+
+    called: dict = {"csv": 0, "json": 0}
+
+    def _fake_csv(report, path):
+        called["csv"] += 1
+        assert path == chosen_path
+
+    def _fake_json(report, path):
+        called["json"] += 1
+
+    monkeypatch.setattr(
+        "core.classified_output_consistency.export_classified_output_report_csv",
+        _fake_csv,
+    )
+    monkeypatch.setattr(
+        "core.classified_output_consistency.export_classified_output_report_json",
+        _fake_json,
+    )
+    # QFileDialog.getSaveFileName 도 stub.
+    monkeypatch.setattr(
+        "app.main_window.QFileDialog.getSaveFileName",
+        lambda *_a, **_kw: (chosen_path, "CSV (*.csv)"),
+    )
+    # information / warning 도 stub — headless hang 회피.
+    monkeypatch.setattr(
+        "app.main_window.QMessageBox.information",
+        lambda *_a, **_kw: None,
+    )
+
+    win = MainWindow(tmp_config, config_path=str(tmp_path / "cfg.json"))
+    try:
+        win._on_export_classified_consistency_report(fake_report, fmt="csv")
+    finally:
+        win.close()
+
+    assert called["csv"] == 1, "CSV export helper was not called"
+    assert called["json"] == 0
+
+
+def test_classified_consistency_export_cancel_does_not_call_core_export(
+    qt_app, tmp_config, tmp_path, monkeypatch
+):
+    """사용자가 QFileDialog 에서 취소 (빈 path) 시 core export 가 호출되지 않는다."""
+    from app.main_window import MainWindow
+    from core.classified_output_consistency import (
+        ClassifiedOutputConsistencyReport,
+        ClassifiedOutputConsistencySummary,
+    )
+
+    fake_report = ClassifiedOutputConsistencyReport(
+        summary=ClassifiedOutputConsistencySummary(
+            groups_scanned=0, groups_consistent=0,
+            groups_with_legacy_extra=0, groups_with_missing_expected=0,
+            groups_unverifiable=0, legacy_file_count=0,
+            missing_expected_count=0,
+        ),
+        items=(),
+    )
+
+    called = {"json": 0}
+
+    def _fake_json(*_a, **_kw):
+        called["json"] += 1
+
+    monkeypatch.setattr(
+        "core.classified_output_consistency.export_classified_output_report_json",
+        _fake_json,
+    )
+    # QFileDialog 가 빈 문자열 → 사용자 취소 의도.
+    monkeypatch.setattr(
+        "app.main_window.QFileDialog.getSaveFileName",
+        lambda *_a, **_kw: ("", ""),
+    )
+
+    win = MainWindow(tmp_config, config_path=str(tmp_path / "cfg.json"))
+    try:
+        win._on_export_classified_consistency_report(fake_report, fmt="json")
+    finally:
+        win.close()
+    assert called["json"] == 0
+
+
 def test_main_window_db_init(qt_app, tmp_config, tmp_path):
     """DB 초기화 버튼 클릭이 예외 없이 처리된다.
 

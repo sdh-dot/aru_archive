@@ -2437,7 +2437,8 @@ class MainWindow(QMainWindow):
 
         notice = QLabel(
             "이 도구는 진단만 수행하며 파일이나 DB를 수정하지 않습니다. "
-            "결과는 참고용이며, 후속 조치는 사용자가 별도 도구로 직접 진행해야 합니다."
+            "이 도구는 진단과 보고서 내보내기만 수행하며, "
+            "분류 결과 파일이나 DB를 수정하지 않습니다."
         )
         notice.setWordWrap(True)
         notice.setStyleSheet(
@@ -2504,14 +2505,71 @@ class MainWindow(QMainWindow):
                 tbl.setItem(row, col, item)
         v.addWidget(tbl, 1)
 
-        # 본 도구는 read-only 이므로 후속 조치 버튼은 추가하지 않는다.
-        # 사용자는 결과만 확인하고 dialog 를 닫는다.
+        # 본 도구는 read-only — 보고서 export 외 어떤 후속 조치 버튼도 두지 않는다.
+        # CSV / JSON export 는 사용자가 명시적으로 경로를 지정한 경우에만 실행된다.
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=dlg)
         bb.rejected.connect(dlg.reject)
         bb.accepted.connect(dlg.accept)
+
+        btn_csv = bb.addButton("CSV로 내보내기", QDialogButtonBox.ButtonRole.ActionRole)
+        btn_json = bb.addButton("JSON으로 내보내기", QDialogButtonBox.ButtonRole.ActionRole)
+        btn_csv.clicked.connect(
+            lambda: self._on_export_classified_consistency_report(report, fmt="csv")
+        )
+        btn_json.clicked.connect(
+            lambda: self._on_export_classified_consistency_report(report, fmt="json")
+        )
+
         v.addWidget(bb)
 
         dlg.exec()
+
+    def _on_export_classified_consistency_report(self, report, *, fmt: str) -> None:
+        """사용자가 선택한 경로로 정합성 보고서를 CSV 또는 JSON 으로 저장한다.
+
+        - 사용자가 QFileDialog 에서 경로를 선택한 경우에만 export 실행.
+        - 어떠한 경우에도 분류 결과 파일이나 DB 를 변경하지 않는다.
+        - 실패는 QMessageBox.warning 으로 표시하고 dialog 흐름은 끊지 않는다.
+        """
+        from core.classified_output_consistency import (
+            export_classified_output_report_csv,
+            export_classified_output_report_json,
+        )
+
+        if fmt == "csv":
+            default_name = "classified_output_consistency_report.csv"
+            file_filter = "CSV (*.csv)"
+            export_fn = export_classified_output_report_csv
+        elif fmt == "json":
+            default_name = "classified_output_consistency_report.json"
+            file_filter = "JSON (*.json)"
+            export_fn = export_classified_output_report_json
+        else:
+            self._log.append(f"[WARN] 알 수 없는 export 형식: {fmt!r}")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, "정합성 보고서 내보내기", default_name, file_filter,
+        )
+        if not path:
+            self._log.append(f"[INFO] 정합성 보고서 내보내기 취소 ({fmt})")
+            return
+
+        try:
+            export_fn(report, path)
+        except Exception as exc:
+            self._log.append(f"[ERROR] 정합성 보고서 내보내기 실패 ({fmt}): {exc}")
+            QMessageBox.warning(
+                self, "정합성 보고서 내보내기",
+                f"내보내기 중 오류가 발생했습니다 ({fmt}):\n{exc}",
+            )
+            return
+
+        self._log.append(f"[INFO] 정합성 보고서 내보내기 완료 ({fmt}): {path}")
+        QMessageBox.information(
+            self, "정합성 보고서 내보내기",
+            f"보고서를 내보냈습니다 ({fmt.upper()}):\n{path}",
+        )
 
     def _on_show_wizard(self) -> None:
         """워크플로우 마법사 다이얼로그를 연다."""
