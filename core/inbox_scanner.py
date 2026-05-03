@@ -145,6 +145,12 @@ class InboxScanner:
         """
         기존 그룹의 파일을 재처리한다 (DB 재색인 버튼용).
         original 파일을 찾아 형식별 처리를 다시 수행하고 상태를 갱신한다.
+
+        파일에 이미 임베딩된 Aru JSON metadata 가 있으면 그것을 읽어
+        ``_process_by_format`` 에 전달한다. 그렇게 해야 JPEG/PNG/WebP 핸들러가
+        ``existing_meta`` 분기로 들어가 ``json_only`` 를 반환하고, 정상적으로
+        보강된 group 의 metadata_sync_status 가 metadata_missing 으로
+        강등되는 것을 막을 수 있다.
         """
         row = self.conn.execute(
             "SELECT file_path, file_format, file_id FROM artwork_files "
@@ -159,8 +165,15 @@ class InboxScanner:
         original_file_id = row["file_id"]
         now = datetime.now(timezone.utc).isoformat()
 
+        existing_meta: dict | None = None
+        if file_format not in ("bmp", "zip"):
+            try:
+                existing_meta = read_aru_metadata(str(file_path), file_format)
+            except Exception:
+                existing_meta = None
+
         page_status = self._process_by_format(
-            file_path, file_format, group_id, original_file_id, None, now
+            file_path, file_format, group_id, original_file_id, existing_meta, now
         )
         self.conn.execute(
             "UPDATE artwork_groups SET metadata_sync_status=? WHERE group_id=?",

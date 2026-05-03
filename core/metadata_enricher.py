@@ -360,11 +360,19 @@ def build_enrichment_queue(
 
     all_pixiv:
         metadata_sync_status IN (
-            'metadata_missing', 'metadata_write_failed',
-            'xmp_write_failed', 'json_only'
+            'metadata_missing', 'metadata_write_failed', 'xmp_write_failed'
         )
 
-    두 모드 모두 'full' / 'source_unavailable' / 'pending' 제외.
+    두 모드 모두 'full' / 'json_only' / 'source_unavailable' / 'pending' 제외.
+
+    'json_only' 가 all_pixiv 에서 제외되는 이유:
+        json_only 는 이미 파일에 Aru JSON 이 임베딩된 정상 상태다.
+        이 그룹을 다시 enrich 하면 Pixiv API 의 raw tags 를 현재 alias 로
+        재분류한 결과로 series_tags_json / character_tags_json 을 덮어쓰게
+        되는데, 사용자가 한국어 alias 위주로 설정한 경우 일본어 raw 와
+        매칭 실패해 series/character 가 빈 list 로 사라질 수 있다.
+        '전체 보강' 의도는 실패/누락 상태 회복이지 정상 상태 덮어쓰기가
+        아니므로 json_only 는 보호한다.
 
     Raises:
         ValueError: invalid mode.
@@ -380,8 +388,7 @@ def build_enrichment_queue(
     else:  # all_pixiv
         status_filter = (
             "ag.metadata_sync_status IN ("
-            "'metadata_missing', 'metadata_write_failed', "
-            "'xmp_write_failed', 'json_only'"
+            "'metadata_missing', 'metadata_write_failed', 'xmp_write_failed'"
             ")"
         )
 

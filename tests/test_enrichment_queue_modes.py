@@ -188,12 +188,34 @@ class TestAllPixivMode:
         result = build_enrichment_queue(conn, mode="all_pixiv")
         assert fid in result
 
-    def test_includes_json_only(self):
+    def test_excludes_json_only(self, tmp_path, monkeypatch):
+        """all_pixiv 가 json_only 를 제외해야 한다.
+
+        json_only 는 이미 정상 보강된 상태이므로 다시 enrich 하면 Pixiv API
+        결과가 사용자 alias 와 mismatch 하면서 series_tags_json /
+        character_tags_json 을 빈 list 로 덮어쓸 수 있다. 이 보호가 깨지면
+        repair tool 사용 직후 'metadata 보강 → 전체 적용' 으로 분류 데이터가
+        손실되는 회귀가 재발한다.
+        """
         conn = _make_conn()
         gid = _insert_group(conn, sync_status="json_only")
-        fid = _insert_file(conn, gid)
+        # 실제 file 존재 가드 우회: build_enrichment_queue 마지막에
+        # Path(file_path).exists() 검증이 있으므로 임시 파일을 만든다.
+        from pathlib import Path as _P
+        f = tmp_path / "exists.jpg"
+        f.write_bytes(b"x")
+        file_id = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO artwork_files "
+            "(file_id, group_id, file_role, file_path, file_format, created_at) "
+            "VALUES (?, ?, 'original', ?, 'jpg', '2024-01-01T00:00:00+00:00')",
+            (file_id, gid, str(f)),
+        )
+        conn.commit()
         result = build_enrichment_queue(conn, mode="all_pixiv")
-        assert fid in result
+        assert file_id not in result, (
+            f"json_only group 이 all_pixiv queue 에 포함됨 — 회귀: {result}"
+        )
 
     def test_excludes_full(self):
         conn = _make_conn()
