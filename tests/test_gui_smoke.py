@@ -68,6 +68,101 @@ def test_main_window_toolbar_buttons(qt_app, tmp_config, tmp_path):
     win.close()
 
 
+def test_main_window_has_classified_consistency_action(qt_app, tmp_config, tmp_path):
+    """도구 메뉴에 분류 결과 정합성 점검 action 이 존재하고 활성화돼 있다."""
+    from app.main_window import MainWindow
+
+    win = MainWindow(tmp_config, config_path=str(tmp_path / "cfg.json"))
+    try:
+        assert hasattr(win, "_act_classified_consistency"), (
+            "도구 메뉴에 _act_classified_consistency action 누락"
+        )
+        act = win._act_classified_consistency
+        assert act.isEnabled()
+        assert "정합성" in act.text() or "정합성" in (act.toolTip() or "")
+    finally:
+        win.close()
+
+
+def test_classified_consistency_handler_calls_report_function(
+    qt_app, tmp_config, tmp_path, monkeypatch
+):
+    """핸들러가 report 함수를 호출하고, dialog 까지 호출된 뒤 종료된다.
+
+    실제 dialog 표시는 monkeypatch 로 회피해 헤드리스 환경에서 hang 되지 않게
+    한다. report 함수는 호출되었음만 검증.
+    """
+    from app.main_window import MainWindow
+    from core.classified_output_consistency import (
+        ClassifiedOutputConsistencyReport,
+        ClassifiedOutputConsistencySummary,
+    )
+
+    called: dict = {"report": 0, "dialog": 0}
+
+    def _fake_report(*_args, **_kwargs):
+        called["report"] += 1
+        return ClassifiedOutputConsistencyReport(
+            summary=ClassifiedOutputConsistencySummary(
+                groups_scanned=0, groups_consistent=0,
+                groups_with_legacy_extra=0, groups_with_missing_expected=0,
+                groups_unverifiable=0, legacy_file_count=0,
+                missing_expected_count=0,
+            ),
+            items=(),
+        )
+
+    # MainWindow 모듈에서 import 된 이름이 아니라 dynamic import 이므로
+    # core 쪽 함수 자체를 patch.
+    monkeypatch.setattr(
+        "core.classified_output_consistency.build_classified_output_consistency_report",
+        _fake_report,
+    )
+
+    win = MainWindow(tmp_config, config_path=str(tmp_path / "cfg.json"))
+    try:
+        # dialog 표시 회피 — _show_classified_consistency_dialog 를 stub.
+        def _spy_dialog(report):
+            called["dialog"] += 1
+
+        monkeypatch.setattr(win, "_show_classified_consistency_dialog", _spy_dialog)
+        win._on_classified_consistency_report()
+    finally:
+        win.close()
+
+    assert called["report"] == 1, "report 함수가 호출되지 않음"
+    assert called["dialog"] == 1, "결과 dialog 가 호출되지 않음"
+
+
+def test_classified_consistency_dialog_has_no_repair_or_delete_button(
+    qt_app, tmp_config, tmp_path, monkeypatch
+):
+    """결과 dialog 는 read-only — 어떤 'repair' / '삭제' / '정리' 버튼도 없어야 한다.
+
+    소스에서 직접 button text 를 검증하면 dialog 인스턴스를 띄울 필요 없이
+    안전하게 invariant 를 lock 할 수 있다.
+    """
+    import inspect
+    from app.main_window import MainWindow
+
+    src = inspect.getsource(MainWindow._show_classified_consistency_dialog)
+    forbidden_tokens = [
+        "삭제",      # delete
+        "정리",      # cleanup
+        "repair",    # english label
+        "Repair",
+        "cleanup",
+        "Cleanup",
+        "delete_",   # method call to deletion APIs
+        "remove_",
+    ]
+    for tok in forbidden_tokens:
+        assert tok not in src, (
+            f"분류 결과 정합성 dialog 소스에 금지 토큰 {tok!r} 존재 — "
+            "본 도구는 read-only 이며 repair/delete 액션을 제공해선 안 됨."
+        )
+
+
 def test_main_window_db_init(qt_app, tmp_config, tmp_path):
     """DB 초기화 버튼 클릭이 예외 없이 처리된다.
 
