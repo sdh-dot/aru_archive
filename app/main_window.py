@@ -897,6 +897,14 @@ class MainWindow(QMainWindow):
         self._act_save_jobs  = tool_menu.addAction("💾 저장 작업")
         self._act_dict_backup = tool_menu.addAction("💾 백업 내보내기")
         tool_menu.addSeparator()
+        self._act_status_repair = tool_menu.addAction("🔧 메타데이터 상태 복구")
+        self._act_status_repair.setToolTip(
+            "metadata_sync_status='metadata_missing' 으로 표시돼 분류에서 제외되지만\n"
+            "실제 파일에는 Aru JSON 메타데이터가 임베딩된 group 을 찾아\n"
+            "보수적으로 'json_only' 로 복구합니다.\n"
+            "(dry-run 결과 확인 후 사용자 동의 시에만 실행)"
+        )
+        tool_menu.addSeparator()
         self._act_db_init    = tool_menu.addAction("⚠ 전체 DB 초기화")
         self._act_db_init.setToolTip(
             "⚠ 위험: DB에 저장된 모든 작품/파일/분류/사용자 사전 기록을 삭제합니다.\n"
@@ -990,6 +998,7 @@ class MainWindow(QMainWindow):
         self._act_work_log.triggered.connect(self._on_show_work_log)
         self._act_save_jobs.triggered.connect(self._on_show_save_jobs)
         self._act_dict_backup.triggered.connect(self._on_dict_backup)
+        self._act_status_repair.triggered.connect(self._on_metadata_status_repair)
         self._act_db_init.triggered.connect(self._on_db_init)
 
         # 사이드바 / 갤러리
@@ -2223,6 +2232,116 @@ class MainWindow(QMainWindow):
                 conn.close()
         except Exception as exc:
             self._log.append(f"[ERROR] 백업 내보내기 오류: {exc}")
+
+    def _on_metadata_status_repair(self) -> None:
+        """metadata_sync_status='metadata_missing' 정합성 복구.
+
+        흐름:
+          1) dry_run 으로 후보 조회 → DB 변경 없음
+          2) 후보 요약 dialog 표시 (총 수 + 분류 데이터 보유 수)
+          3) 사용자 확인 시에만 dry_run=False 로 재실행
+          4) sidebar/gallery refresh
+        """
+        try:
+            from core.metadata_status_repair import (
+                find_metadata_status_repair_candidates,
+                repair_metadata_sync_status,
+            )
+        except Exception as exc:
+            self._log.append(f"[ERROR] 복구 모듈 로드 실패: {exc}")
+            return
+
+        conn = self._get_conn()
+        try:
+            candidates = find_metadata_status_repair_candidates(conn)
+        except Exception as exc:
+            conn.close()
+            self._log.append(f"[ERROR] 메타데이터 상태 복구 후보 조회 실패: {exc}")
+            QMessageBox.critical(
+                self, "메타데이터 상태 복구",
+                f"후보 조회 중 오류가 발생했습니다:\n{exc}",
+            )
+            return
+
+        total = len(candidates)
+        if total == 0:
+            conn.close()
+            QMessageBox.information(
+                self, "메타데이터 상태 복구",
+                "복구가 필요한 group 이 없습니다.\n"
+                "(metadata_missing 인 group 중 실제 파일에 Aru JSON 이 임베딩된 항목 없음)",
+            )
+            self._log.append("[INFO] 메타데이터 상태 복구: 후보 없음")
+            return
+
+        with_series    = sum(1 for c in candidates if c["has_series"])
+        with_character = sum(1 for c in candidates if c["has_character"])
+        with_classified = sum(1 for c in candidates if c["has_classified_copy"])
+
+        sample_lines = []
+        for c in candidates[:5]:
+            title = (c["artwork_title"] or "(제목 없음)")[:40]
+            sample_lines.append(
+                f"  • {c['source_site']}/{c['artwork_id']} — {title}"
+            )
+        sample_block = "\n".join(sample_lines) if sample_lines else ""
+
+        msg = (
+            f"복구 후보: {total} group\n"
+            f"  · 시리즈 태그 보유:    {with_series}\n"
+            f"  · 캐릭터 태그 보유:    {with_character}\n"
+            f"  · 분류 복사본 이미 존재: {with_classified}\n\n"
+            f"복구 결과 상태: 'json_only' (보수적 — 분류 가능 상태에 진입)\n\n"
+            "이 group 들은 metadata_sync_status='metadata_missing' 이라\n"
+            "현재 분류 미리보기/실행에서 제외됩니다.\n"
+            "실제 파일에는 Aru JSON 이 임베딩되어 있어 안전하게 복구 가능합니다.\n\n"
+            f"샘플 (최대 5건):\n{sample_block}\n\n"
+            "복구를 실행하시겠습니까?"
+        )
+
+        reply = QMessageBox.question(
+            self, "메타데이터 상태 복구 — 확인",
+            msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            conn.close()
+            self._log.append(
+                f"[INFO] 메타데이터 상태 복구: 사용자 취소 (후보 {total}건)"
+            )
+            return
+
+        try:
+            result = repair_metadata_sync_status(conn, dry_run=False)
+        except Exception as exc:
+            self._log.append(f"[ERROR] 메타데이터 상태 복구 실행 실패: {exc}")
+            QMessageBox.critical(
+                self, "메타데이터 상태 복구",
+                f"복구 실행 중 오류가 발생했습니다:\n{exc}",
+            )
+            return
+        finally:
+            conn.close()
+
+        updated = result.get("updated_count", 0)
+        self._log.append(
+            f"[INFO] 메타데이터 상태 복구 완료: {updated}/{total} group → json_only"
+        )
+        QMessageBox.information(
+            self, "메타데이터 상태 복구",
+            f"{updated} group 의 상태를 'json_only' 로 복구했습니다.\n"
+            "이제 사이드바 'work_target' 카테고리 및 분류 미리보기에 포함됩니다.",
+        )
+
+        try:
+            self._refresh_gallery()
+        except Exception as exc:
+            self._log.append(f"[WARN] 갤러리 새로고침 실패 (무시): {exc}")
+        try:
+            self._refresh_counts()
+        except Exception as exc:
+            self._log.append(f"[WARN] 사이드바 카운트 새로고침 실패 (무시): {exc}")
 
     def _on_show_wizard(self) -> None:
         """워크플로우 마법사 다이얼로그를 연다."""
