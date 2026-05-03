@@ -187,8 +187,10 @@ def test_refresh_preview_rows_updates_rule_type_cell(step7):
 
     rule_item = step7._preview_table.item(row_idx, 3)
     assert rule_item is not None
-    assert rule_item.text() == "manual_override", (
-        f"Expected 'manual_override', got '{rule_item.text()}'"
+    # UI 표시는 한글 라벨, 내부 rule code 는 그대로 'manual_override' 유지.
+    # rule code 자체의 보존은 별도 (apply_override_to_preview_item) 경로에서 보장.
+    assert rule_item.text() == "수동 분류", (
+        f"Expected '수동 분류' display label, got '{rule_item.text()}'"
     )
 
 
