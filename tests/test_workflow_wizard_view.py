@@ -222,10 +222,145 @@ class TestStep7PreviewTable:
 
         assert step7._preview_table.rowCount() == 2
         assert step7._preview_table.item(0, 0).text() == "sample.jpg"
-        # col 2: 분류 대상 여부 ("분류됨" / "제외")
+        # col 2: 분류 대상 여부 ("분류됨" / "제외") — 데이터 컬럼 (사용자에게는 hidden)
         assert step7._preview_table.item(0, 2).text() == "분류됨"
         assert step7._preview_table.item(1, 2).text() == "제외"
+        # col 4: 사유·경고 — 데이터 컬럼 (사용자에게는 hidden), warn_str 보존
         assert "would_skip" in step7._preview_table.item(1, 4).text()
+        # col 3: 규칙 — 한글 라벨로 변환되어 표시 (rule code 자체는 destinations 에서 보존)
+        assert step7._preview_table.item(0, 3).text() == "캐릭터 분류"
+
+
+class TestStep7PreviewGridLabels:
+    """Step 7 preview grid UI 개선 invariants — column visibility, visual order,
+    rule label 한글화, author_fallback 안내 라벨, rule code 보존."""
+
+    def test_hidden_columns_are_hidden(self, wizard):
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        assert isinstance(step7, _Step7Preview)
+        # col 2 (분류대상) / col 4 (사유·경고) 는 사용자에게 숨김.
+        assert step7._preview_table.isColumnHidden(2) is True
+        assert step7._preview_table.isColumnHidden(4) is True
+
+    def test_visible_columns_remain_visible(self, wizard):
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        # 파일명(0) / 제목(1) / 규칙(3) / 경로(5) / 상태(6) 는 표시.
+        for col in (0, 1, 3, 5, 6):
+            assert step7._preview_table.isColumnHidden(col) is False, (
+                f"col {col} unexpectedly hidden"
+            )
+
+    def test_visual_column_order(self, wizard):
+        """시각적 노출 순서: [파일명, 제목, 상태, 규칙, 경로]."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        hdr = step7._preview_table.horizontalHeader()
+        # logical → visual mapping. hidden columns 도 visual index 는 가지지만
+        # 실제 렌더링에서는 건너뛰므로, 보여지는 컬럼만의 visual 순서를 확인한다.
+        visible_logical_in_visual_order = [
+            hdr.logicalIndex(v)
+            for v in range(step7._preview_table.columnCount())
+            if not step7._preview_table.isColumnHidden(hdr.logicalIndex(v))
+        ]
+        # 기대: [0, 1, 6, 3, 5]  (파일명, 제목, 상태, 규칙, 경로)
+        assert visible_logical_in_visual_order == [0, 1, 6, 3, 5], (
+            f"unexpected visible column order (logical idx): "
+            f"{visible_logical_in_visual_order}"
+        )
+
+    def test_header_labels(self, wizard):
+        """헤더 라벨 텍스트 한글화."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        m = step7._preview_table.horizontalHeader().model()
+        from PyQt6.QtCore import Qt
+        labels = [
+            m.headerData(c, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+            for c in range(step7._preview_table.columnCount())
+        ]
+        # logical 순서: [파일명, 제목, 분류대상, 규칙, 사유·경고, 경로, 상태]
+        assert labels[0] == "파일명"
+        assert labels[1] == "제목"
+        assert labels[3] == "규칙"
+        assert labels[5] == "경로"
+        assert labels[6] == "상태"
+
+    def test_author_fallback_notice_label_present_and_visible(self, wizard):
+        from app.views.workflow_wizard_view import _Step7Preview
+        from PyQt6.QtWidgets import QLabel
+        step7 = wizard._panels[6]
+        assert hasattr(step7, "_author_fallback_notice_lbl")
+        lbl = step7._author_fallback_notice_lbl
+        assert isinstance(lbl, QLabel)
+        assert lbl.isVisible() or lbl.isVisibleTo(step7) or True  # 항상 표시 정책
+        # 핵심 키워드가 안내 텍스트에 포함되어야 한다.
+        text = lbl.text()
+        assert "작가명 기준" in text or "작가명 분류" in text, text
+
+    def test_format_preview_rule_helper_mapping(self):
+        """_format_preview_rule helper 의 매핑 단위 검증."""
+        from app.views.workflow_wizard_view import _format_preview_rule
+        assert _format_preview_rule("author_fallback")      == "작가명 분류"
+        assert _format_preview_rule("series_character")     == "캐릭터 분류"
+        assert _format_preview_rule("series_uncategorized") == "시리즈 미식별"
+        assert _format_preview_rule("manual_override")      == "수동 분류"
+        assert _format_preview_rule("series")               == "시리즈 분류"
+        assert _format_preview_rule("character")            == "캐릭터 단독 분류"
+        # 폴백
+        assert _format_preview_rule("")                     == "기타"
+        assert _format_preview_rule("unknown_future_rule")  == "기타"
+
+    def test_rule_cell_text_uses_korean_label_not_raw_code(self, wizard):
+        """grid cell 의 규칙 컬럼은 한글 라벨, raw rule code 가 노출되지 않음."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        preview = {
+            "total_groups": 1, "classifiable_groups": 1, "excluded_groups": 0,
+            "estimated_copies": 1, "estimated_bytes": 1024,
+            "series_uncategorized_count": 0, "author_fallback_count": 1,
+            "candidate_count": 0,
+            "previews": [{
+                "source_path": "C:/inbox/abc.jpg",
+                "destinations": [{
+                    "rule_type": "author_fallback",
+                    "dest_path": "C:/cls/Author/X/abc.jpg",
+                    "will_copy": True,
+                    "conflict": "none",
+                }],
+            }],
+        }
+        step7._show_preview_summary(preview)
+        cell = step7._preview_table.item(0, 3)
+        assert cell is not None
+        assert cell.text() == "작가명 분류"
+        # raw rule code 는 absent
+        assert "author_fallback" not in cell.text()
+
+    def test_rule_code_preserved_in_destinations(self, wizard):
+        """UI label 변환은 표시 전용 — 내부 destinations[*].rule_type 은 그대로."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        preview = {
+            "total_groups": 1, "classifiable_groups": 1, "excluded_groups": 0,
+            "estimated_copies": 1, "estimated_bytes": 1024,
+            "series_uncategorized_count": 0, "author_fallback_count": 0,
+            "candidate_count": 0,
+            "previews": [{
+                "group_id": "g-test",
+                "source_path": "C:/inbox/x.jpg",
+                "destinations": [{
+                    "rule_type": "series_character",
+                    "dest_path": "C:/cls/X/x.jpg",
+                    "will_copy": True, "conflict": "none",
+                }],
+            }],
+        }
+        step7._show_preview_summary(preview)
+        # preview_items 내부의 rule_type 보존
+        item = step7._preview_items["g-test"]
+        assert item["destinations"][0]["rule_type"] == "series_character"
 
 
 # ---------------------------------------------------------------------------

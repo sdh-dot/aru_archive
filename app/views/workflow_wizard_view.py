@@ -2211,6 +2211,33 @@ def _is_preview_item_manual_override(item: dict) -> bool:
     return False
 
 
+# 분류 규칙 코드 → 사용자 표시 라벨.
+# 내부 rule code (PreviewItem.destinations[i].rule_type) 는 절대 변경하지 않는다.
+# preview table 의 cell 텍스트와 tooltip 표시에만 사용한다. execute / undo /
+# preview=execute 매칭은 rule code 기반이므로 영향 없음.
+_RULE_DISPLAY: dict[str, str] = {
+    "author_fallback":      "작가명 분류",
+    "series_character":     "캐릭터 분류",
+    "series_uncategorized": "시리즈 미식별",
+    "manual_override":      "수동 분류",
+    "series":               "시리즈 분류",
+    "character":            "캐릭터 단독 분류",
+    "author":               "작가명 분류",
+    "by_tag":               "태그 분류",
+}
+
+
+def _format_preview_rule(rule: str) -> str:
+    """rule code 를 사용자에게 보일 한글 라벨로 변환.
+
+    매핑에 없으면 "기타" 로 폴백한다 (UI 표시용 기본값).
+    빈 값/None 도 "기타" 로 처리해 빈 셀이 노출되지 않도록 한다.
+    """
+    if not rule:
+        return "기타"
+    return _RULE_DISPLAY.get(rule, "기타")
+
+
 class _Step7Preview(_StepPanel):
     preview_ready = Signal(dict)   # batch_preview 전달
 
@@ -2246,6 +2273,22 @@ class _Step7Preview(_StepPanel):
         )
         self._stale_notice_lbl.setVisible(False)
         layout.addWidget(self._stale_notice_lbl)
+
+        # author_fallback 안내 — 항상 표시. 분류 실패 시 작가명 기준으로 자동
+        # 분류된다는 정책을 사용자에게 알린다. 라벨 자체는 표시 전용이며
+        # classification 로직에는 영향 없음.
+        self._author_fallback_notice_lbl = QLabel(
+            "원본 태그가 부족하거나 시리즈/캐릭터를 식별하지 못한 경우 "
+            "작가명 기준으로 분류됩니다. 필요한 항목은 미리보기에서 수동으로 수정하세요."
+        )
+        self._author_fallback_notice_lbl.setObjectName("step7AuthorFallbackNotice")
+        self._author_fallback_notice_lbl.setWordWrap(True)
+        self._author_fallback_notice_lbl.setStyleSheet(
+            "color: #C8B0A8; background: #221814; "
+            "border: 1px solid #4A2A20; border-radius: 4px; "
+            "padding: 6px 10px; font-size: 11px;"
+        )
+        layout.addWidget(self._author_fallback_notice_lbl)
 
         # 설정 행
         opt_row = QHBoxLayout()
@@ -2312,8 +2355,12 @@ class _Step7Preview(_StepPanel):
         layout.addWidget(splitter, 1)
 
         self._preview_table = QTableWidget(0, 7)
+        # 헤더 라벨 — 데이터 column index 는 그대로 유지하며 (override / filter
+        # 로직과 호환), '분류대상' / '사유·경고' 두 컬럼은 setColumnHidden 으로
+        # 사용자에게 숨긴다. 시각적 노출 순서는 horizontalHeader().moveSection
+        # 으로 [파일명, 제목, 상태, 규칙, 경로] 가 되도록 재배치.
         self._preview_table.setHorizontalHeaderLabels(
-            ["파일", "제목", "분류대상", "분류규칙", "사유·경고", "분류 경로", "상태"]
+            ["파일명", "제목", "분류대상", "규칙", "사유·경고", "경로", "상태"]
         )
         hdr = self._preview_table.horizontalHeader()
         hdr.setStretchLastSection(False)
@@ -2324,6 +2371,17 @@ class _Step7Preview(_StepPanel):
         self._preview_table.setColumnWidth(3, 110)
         self._preview_table.setColumnWidth(4, 130)
         self._preview_table.setColumnWidth(6, 90)
+        # 분류대상 / 사유·경고 는 사용자에게 숨김. 데이터는 보존되어 tooltip 및
+        # 내부 필터 / override 로직에서 그대로 사용된다.
+        self._preview_table.setColumnHidden(2, True)
+        self._preview_table.setColumnHidden(4, True)
+        # 시각 순서 재배치: [파일명, 제목, 상태, 규칙, 경로].
+        # 데이터 logical index 는 변경되지 않는다 — visualIndex 만 이동.
+        # 상태 (logical 6) 를 visual 2 위치로, 규칙 (logical 3) 을 visual 3 위치로,
+        # 경로 (logical 5) 를 visual 4 위치로 이동.
+        hdr.moveSection(hdr.visualIndex(6), 2)
+        hdr.moveSection(hdr.visualIndex(3), 3)
+        hdr.moveSection(hdr.visualIndex(5), 4)
         # minimumWidth 를 줄여 splitter 가 우측 thumb 패널을 더 넉넉히 줄 수 있게 한다.
         # 기본 column 합 ≈ 690 + stretch(col5). 700 으로 두면 stretch column 이
         # 최소 폭으로 압축되어도 다른 column 들은 그대로 표시된다.
@@ -2714,15 +2772,17 @@ class _Step7Preview(_StepPanel):
                     "title":       title,
                 })
 
+                rule_display = _format_preview_rule(rule_type)
                 base_tooltip = (
                     f"파일: {filename}\n제목: {title}\n"
-                    f"규칙: {rule_type}\n분류사유·비고: {warn_str}\n"
+                    f"규칙: {rule_display} ({rule_type})\n"
+                    f"분류사유·비고: {warn_str}\n"
                     f"분류 경로: {dest_path}"
                 )
                 col_values = [
                     filename, title,
                     "분류됨" if will_copy else "제외",
-                    rule_type, warn_str, dest_path,
+                    rule_display, warn_str, dest_path,
                     item_status,
                 ]
                 for col, val in enumerate(col_values):
@@ -2923,15 +2983,17 @@ class _Step7Preview(_StepPanel):
             warn_parts.extend(inference_reasons)
             warn_str = ", ".join(warn_parts)
 
+            rule_display = _format_preview_rule(rule_type)
             base_tooltip = (
                 f"파일: {filename}\n제목: {title}\n"
-                f"규칙: {rule_type}\n분류사유·비고: {warn_str}\n"
+                f"규칙: {rule_display} ({rule_type})\n"
+                f"분류사유·비고: {warn_str}\n"
                 f"분류 경로: {dest_path}"
             )
             col_values = [
                 filename, title,
                 "분류됨" if will_copy else "제외",
-                rule_type, warn_str, dest_path,
+                rule_display, warn_str, dest_path,
                 item_status,
             ]
             for col, val in enumerate(col_values):
