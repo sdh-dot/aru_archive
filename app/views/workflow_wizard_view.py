@@ -1995,6 +1995,32 @@ class _Step5ClassifyLevel(_StepPanel):
         except Exception:
             pass
 
+        # Step 7 가 보유한 _batch_preview 는 변경 전 분류 기준으로 생성됐으므로
+        # stale 임을 표시한다. preview/destination 자체는 변경하지 않음 — 사용자가
+        # 미리보기를 다시 누르면 dirty 가 자동 해제된다.
+        self._notify_step7_preview_stale("분류 기준이 변경되었습니다.")
+
+    def _notify_step7_preview_stale(self, reason: str) -> None:
+        """wizard 의 _Step7Preview 패널을 찾아 stale 로 마킹한다.
+
+        Step 5 → Step 7 직접 reference 가 없으므로 wizard._panels 에서 타입으로
+        찾는다. Step 7 가 아직 만들어지지 않았거나 helper 가 없으면 silently
+        no-op — UI 회귀 위험을 줄인다.
+        """
+        wizard = getattr(self, "_wizard", None)
+        panels = getattr(wizard, "_panels", None) if wizard is not None else None
+        if not panels:
+            return
+        for panel in panels:
+            if isinstance(panel, _Step7Preview):
+                marker = getattr(panel, "mark_preview_dirty", None)
+                if callable(marker):
+                    try:
+                        marker(reason)
+                    except Exception:
+                        pass
+                break
+
     def refresh(self) -> None:
         try:
             from core.workflow_summary import build_dictionary_status_summary
@@ -2194,10 +2220,30 @@ class _Step7Preview(_StepPanel):
         self._thumb_cache = PreviewThumbnailCache(max_items=200)
         self._filter_mode: str = "all"  # "all" | "needs_review" | "manual_override"
 
+        # preview stale 상태 추적 — Step 5 분류 기준 변경 등이 발생했을 때
+        # 기존 _batch_preview 가 더 이상 현재 설정을 반영하지 않음을 표시한다.
+        # destination/classification 로직 자체는 변경되지 않으며, 사용자가
+        # 미리보기를 다시 생성하면 dirty 상태는 해제된다.
+        self._preview_dirty_reason: Optional[str] = None
+
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
         layout.addWidget(_label("분류 미리보기", bold=True))
         layout.addWidget(_h_sep())
+
+        # Stale notice — 분류 기준 / 사전 등 외부 변경 후 기존 preview 가 stale
+        # 임을 사용자에게 알리는 안내. 초기에는 hidden, mark_preview_dirty 로
+        # 표시 / clear_preview_dirty 로 숨김.
+        self._stale_notice_lbl = QLabel("")
+        self._stale_notice_lbl.setObjectName("step7StaleNotice")
+        self._stale_notice_lbl.setWordWrap(True)
+        self._stale_notice_lbl.setStyleSheet(
+            "color: #FFB070; background: #2B1A14; "
+            "border: 1px solid #6A3A26; border-radius: 4px; "
+            "padding: 6px 10px; font-size: 11px;"
+        )
+        self._stale_notice_lbl.setVisible(False)
+        layout.addWidget(self._stale_notice_lbl)
 
         # 설정 행
         opt_row = QHBoxLayout()
@@ -2421,6 +2467,47 @@ class _Step7Preview(_StepPanel):
         self._batch_preview = result
         self._show_preview_summary(result)
         self.preview_ready.emit(result)
+        # 새 preview 가 현재 설정으로 막 생성됐으므로 stale 상태 해제.
+        self.clear_preview_dirty()
+
+    # ------------------------------------------------------------------
+    # Stale (dirty) state — 분류 기준 / 사전 변경 후 preview 가 현재 설정과
+    # 다를 수 있음을 사용자에게 알린다. preview/destination 계산 자체는
+    # 변경되지 않으며, 사용자가 미리보기를 다시 생성하면 자동 해제된다.
+    # ------------------------------------------------------------------
+
+    def mark_preview_dirty(self, reason: str) -> None:
+        """기존 preview 가 stale 임을 표시한다.
+
+        Parameters
+        ----------
+        reason:
+            사용자에게 보여줄 짧은 사유 (예: "분류 기준 변경"). 빈 문자열이면
+            기본 안내가 사용된다.
+
+        본 helper 는 destination 또는 preview rows 자체를 변경하지 않는다.
+        사용자가 [📋 분류 미리보기 생성] 을 다시 누르면 ``clear_preview_dirty``
+        가 자동 호출돼 안내가 사라진다.
+        """
+        self._preview_dirty_reason = reason or "분류 기준이 변경되었습니다."
+        if hasattr(self, "_stale_notice_lbl"):
+            self._stale_notice_lbl.setText(
+                f"⚠ {self._preview_dirty_reason} "
+                "현재 보이는 결과는 이전 설정 기준입니다. "
+                "새 결과를 보려면 [📋 분류 미리보기 생성] 을 다시 누르세요."
+            )
+            self._stale_notice_lbl.setVisible(True)
+
+    def clear_preview_dirty(self) -> None:
+        """stale 표시를 해제한다 (preview 재생성 성공 시 자동 호출)."""
+        self._preview_dirty_reason = None
+        if hasattr(self, "_stale_notice_lbl"):
+            self._stale_notice_lbl.setText("")
+            self._stale_notice_lbl.setVisible(False)
+
+    def is_preview_dirty(self) -> bool:
+        """외부 (테스트 / 다른 패널) 에서 dirty 여부 조회용."""
+        return self._preview_dirty_reason is not None
 
     def _show_preview_summary(self, result: dict) -> None:
         from core.workflow_summary import compute_preview_risk_level

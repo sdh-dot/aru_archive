@@ -230,3 +230,114 @@ class TestStep7AutoRetag:
             assert cls.get("enable_series_uncategorized") is True
         finally:
             w.close()
+
+
+# ---------------------------------------------------------------------------
+# Step 7 preview dirty state — Step 5 변경이 Step 7 의 stale 표시를 trigger
+# ---------------------------------------------------------------------------
+
+class TestStep7PreviewDirtyState:
+    """Step 7 의 dirty state helper 와 stale notice label 동작.
+
+    classification / destination / preview row schema 자체는 변경하지 않는다 —
+    UI 안내 + dirty flag 만 lock.
+    """
+
+    def test_step7_starts_clean(self, wizard):
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        assert isinstance(step7, _Step7Preview)
+        assert step7.is_preview_dirty() is False
+        assert step7._preview_dirty_reason is None
+        assert step7._stale_notice_lbl.isVisible() is False
+
+    def test_mark_preview_dirty_sets_reason_and_shows_label(self, wizard):
+        step7 = wizard._panels[6]
+        step7.mark_preview_dirty("분류 기준이 변경되었습니다.")
+        assert step7.is_preview_dirty() is True
+        assert step7._preview_dirty_reason == "분류 기준이 변경되었습니다."
+        assert step7._stale_notice_lbl.text(), "stale notice text 가 비어 있음"
+        assert "분류 기준" in step7._stale_notice_lbl.text()
+
+    def test_mark_preview_dirty_empty_reason_uses_default(self, wizard):
+        step7 = wizard._panels[6]
+        step7.mark_preview_dirty("")
+        assert step7.is_preview_dirty() is True
+        # 기본 안내 사용 — 정확한 wording 은 변할 수 있으나 비어 있지 않음.
+        assert step7._preview_dirty_reason
+        assert step7._stale_notice_lbl.text()
+
+    def test_clear_preview_dirty_resets_state(self, wizard):
+        step7 = wizard._panels[6]
+        step7.mark_preview_dirty("test reason")
+        assert step7.is_preview_dirty() is True
+        step7.clear_preview_dirty()
+        assert step7.is_preview_dirty() is False
+        assert step7._preview_dirty_reason is None
+        assert step7._stale_notice_lbl.isVisible() is False
+        assert step7._stale_notice_lbl.text() == ""
+
+    def test_step5_level_change_marks_step7_dirty(self, wizard):
+        """Step 5 의 분류 기준 라디오 변경 → Step 7 dirty 자동 설정."""
+        step5 = wizard._panels[4]
+        step7 = wizard._panels[6]
+
+        step7.clear_preview_dirty()
+        assert step7.is_preview_dirty() is False
+
+        # series_character → series_only 전환.
+        step5._radio_series_only.setChecked(True)
+
+        assert step7.is_preview_dirty() is True
+        assert step7._preview_dirty_reason
+        assert "분류 기준" in step7._stale_notice_lbl.text()
+        # 복원 — 이후 테스트 영향 방지.
+        step5._radio_series_char.setChecked(True)
+
+    def test_step5_round_trip_keeps_step7_dirty_until_preview(self, wizard):
+        """series_only → series_character round-trip 도 dirty 누적, preview 재생성
+        이전까지는 해제되지 않는다."""
+        step5 = wizard._panels[4]
+        step7 = wizard._panels[6]
+
+        step7.clear_preview_dirty()
+        step5._radio_series_only.setChecked(True)
+        assert step7.is_preview_dirty() is True
+        # round-trip 으로 다시 series_character — 여전히 dirty (분류 기준이 한 번
+        # 변경된 것은 사실).
+        step5._radio_series_char.setChecked(True)
+        assert step7.is_preview_dirty() is True
+
+    def test_on_preview_done_clears_dirty(self, wizard):
+        """preview 재생성 성공 경로에서 dirty 가 해제된다."""
+        step7 = wizard._panels[6]
+        step7.mark_preview_dirty("분류 기준이 변경되었습니다.")
+        assert step7.is_preview_dirty() is True
+
+        # _on_preview_done 호출은 retag/loading mock 이 필요하므로 helper 만
+        # 직접 simulate — clear_preview_dirty 가 호출 경로에 포함됨을 검증.
+        step7._on_preview_done({
+            "previews": [], "total_groups": 0, "estimated_copies": 0,
+            "estimated_bytes": 0, "author_fallback_count": 0,
+            "series_uncategorized_count": 0, "candidate_count": 0,
+            "warnings": [], "folder_locale": "ko",
+        })
+        assert step7.is_preview_dirty() is False
+
+    def test_dirty_state_does_not_disable_preview_button(self, wizard):
+        """이번 PR 범위: execute 차단은 하지 않는다. preview 버튼 활성 상태도
+        그대로 — dirty 표시는 정보성 안내."""
+        step7 = wizard._panels[6]
+        step7.mark_preview_dirty("test")
+        # preview 버튼은 여전히 enabled. (실행 차단 정책은 별도 PR.)
+        assert step7._btn_preview.isEnabled() is True
+
+    def test_step7_existing_widgets_preserved(self, wizard):
+        """기존 위젯 (preview table / scope / locale combo / preview button) 유지
+        — UI 회귀 가드."""
+        step7 = wizard._panels[6]
+        from PyQt6.QtWidgets import QComboBox, QPushButton, QTableWidget
+        assert isinstance(step7._preview_table, QTableWidget)
+        assert isinstance(step7._scope_combo, QComboBox)
+        assert isinstance(step7._locale_combo, QComboBox)
+        assert isinstance(step7._btn_preview, QPushButton)
