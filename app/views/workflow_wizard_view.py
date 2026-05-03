@@ -2178,7 +2178,10 @@ def _is_preview_item_needs_review(item: dict) -> bool:
 
     True 조건 (OR):
     - classification_info.classification_reason 이 분류 불완전을 나타내는 값
-      ("series_detected_but_character_missing", "series_and_character_missing")
+      ("series_detected_but_character_missing", "series_and_character_missing",
+       "series_parent_conflict",
+       "multiple_parent_series_requires_confirmation",
+       "series_unidentified")
     - destinations 중 하나라도 used_fallback=True
 
     UI에서만 사용되는 표시 판정이며 DB/core 로직을 변경하지 않는다.
@@ -2188,6 +2191,9 @@ def _is_preview_item_needs_review(item: dict) -> bool:
     if reason in (
         "series_detected_but_character_missing",
         "series_and_character_missing",
+        "series_parent_conflict",
+        "multiple_parent_series_requires_confirmation",
+        "series_unidentified",
     ):
         return True
     for dest in item.get("destinations", []):
@@ -3133,6 +3139,10 @@ class _Step7Preview(_StepPanel):
             tip_map = {
                 "series_detected_but_character_missing": "시리즈 감지됨, 캐릭터 미분류",
                 "series_and_character_missing": "시리즈/캐릭터 모두 미분류",
+                "series_parent_conflict":      "소속 충돌 — 명시 시리즈와 캐릭터 소속 시리즈가 다릅니다.",
+                "multiple_parent_series_requires_confirmation":
+                    "캐릭터/그룹 소속 시리즈가 여러 개 — 확인 필요.",
+                "series_unidentified":         "시리즈 미식별 — alias 후보 확인 필요.",
             }
             tip = tip_map.get(reason, "분류 정보 확인 필요")
             # destinations에 used_fallback이 있는 경우 추가 설명
