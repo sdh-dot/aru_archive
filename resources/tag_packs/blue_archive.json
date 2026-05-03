@@ -1,7 +1,7 @@
 {
   "pack_id": "blue_archive",
   "name": "Blue Archive",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "source": "built_in",
   "series": [
     {
@@ -192,6 +192,1098 @@
         "ko": "키리후지 나기사",
         "ja": "桐藤ナギサ",
         "en": "Kirifuji Nagisa"
+      }
+    },
+    {
+      "canonical": "アロナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "アロナ",
+        "아로나",
+        "Arona"
+      ],
+      "localizations": {
+        "ko": "아로나",
+        "ja": "アロナ",
+        "en": "Arona"
+      }
+    },
+    {
+      "canonical": "プラナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "プラナ",
+        "프라나",
+        "Plana"
+      ],
+      "localizations": {
+        "ko": "프라나",
+        "ja": "プラナ",
+        "en": "Plana"
+      }
+    },
+    {
+      "canonical": "一之瀬アスナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "一之瀬アスナ",
+        "이치노세 아스나",
+        "Ichinose Asuna"
+      ],
+      "localizations": {
+        "ko": "이치노세 아스나",
+        "ja": "一之瀬アスナ",
+        "en": "Ichinose Asuna"
+      }
+    },
+    {
+      "canonical": "七神リン",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "七神リン",
+        "나나카미 린",
+        "Nanagami Rin"
+      ],
+      "localizations": {
+        "ko": "나나카미 린",
+        "ja": "七神リン",
+        "en": "Nanagami Rin"
+      }
+    },
+    {
+      "canonical": "下江コハル",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "下江コハル",
+        "시모에 코하루",
+        "Shimoe Koharu"
+      ],
+      "localizations": {
+        "ko": "시모에 코하루",
+        "ja": "下江コハル",
+        "en": "Shimoe Koharu"
+      }
+    },
+    {
+      "canonical": "不知火カヤ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "不知火カヤ",
+        "시라누이 카야",
+        "Shiranui Kaya"
+      ],
+      "localizations": {
+        "ko": "시라누이 카야",
+        "ja": "不知火カヤ",
+        "en": "Shiranui Kaya"
+      }
+    },
+    {
+      "canonical": "不破レンゲ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "不破レンゲ",
+        "후와 렌게",
+        "Fuwa Renge"
+      ],
+      "localizations": {
+        "ko": "후와 렌게",
+        "ja": "不破レンゲ",
+        "en": "Fuwa Renge"
+      }
+    },
+    {
+      "canonical": "中務キリノ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "中務キリノ",
+        "나카츠카사 키리노",
+        "Nakatsukasa Kirino"
+      ],
+      "localizations": {
+        "ko": "나카츠카사 키리노",
+        "ja": "中務キリノ",
+        "en": "Nakatsukasa Kirino"
+      }
+    },
+    {
+      "canonical": "丹花イブキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "丹花イブキ",
+        "탄가 이부키",
+        "Tanka Ibuki"
+      ],
+      "localizations": {
+        "ko": "탄가 이부키",
+        "ja": "丹花イブキ",
+        "en": "Tanka Ibuki"
+      }
+    },
+    {
+      "canonical": "久田イズナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "久田イズナ",
+        "쿠다 이즈나",
+        "Kuda Izuna"
+      ],
+      "localizations": {
+        "ko": "쿠다 이즈나",
+        "ja": "久田イズナ",
+        "en": "Kuda Izuna"
+      }
+    },
+    {
+      "canonical": "京極サツキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "京極サツキ",
+        "쿄고쿠 사츠키",
+        "Kyogoku Satsuki"
+      ],
+      "localizations": {
+        "ko": "쿄고쿠 사츠키",
+        "ja": "京極サツキ",
+        "en": "Kyogoku Satsuki"
+      }
+    },
+    {
+      "canonical": "伊原木ヨシミ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "伊原木ヨシミ",
+        "이바라키 요시미",
+        "Ibaraki Yoshimi"
+      ],
+      "localizations": {
+        "ko": "이바라키 요시미",
+        "ja": "伊原木ヨシミ",
+        "en": "Ibaraki Yoshimi"
+      }
+    },
+    {
+      "canonical": "伊草ハルカ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "伊草ハルカ",
+        "이구사 하루카",
+        "Igusa Haruka"
+      ],
+      "localizations": {
+        "ko": "이구사 하루카",
+        "ja": "伊草ハルカ",
+        "en": "Igusa Haruka"
+      }
+    },
+    {
+      "canonical": "佐城トモエ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "佐城トモエ",
+        "사죠 토모에",
+        "Sajo Tomoe"
+      ],
+      "localizations": {
+        "ko": "사죠 토모에",
+        "ja": "佐城トモエ",
+        "en": "Sajo Tomoe"
+      }
+    },
+    {
+      "canonical": "剣先ツルギ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "剣先ツルギ",
+        "켄사키 츠루기",
+        "Kensaki Tsurugi"
+      ],
+      "localizations": {
+        "ko": "켄사키 츠루기",
+        "ja": "剣先ツルギ",
+        "en": "Kensaki Tsurugi"
+      }
+    },
+    {
+      "canonical": "勘解由小路ユカリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "勘解由小路ユカリ",
+        "카데노코지 유카리",
+        "Kadenokouji Yukari"
+      ],
+      "localizations": {
+        "ko": "카데노코지 유카리",
+        "ja": "勘解由小路ユカリ",
+        "en": "Kadenokouji Yukari"
+      }
+    },
+    {
+      "canonical": "十六夜ノノミ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "十六夜ノノミ",
+        "이자요이 노노미",
+        "Izayoi Nonomi"
+      ],
+      "localizations": {
+        "ko": "이자요이 노노미",
+        "ja": "十六夜ノノミ",
+        "en": "Izayoi Nonomi"
+      }
+    },
+    {
+      "canonical": "古関ウイ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "古関ウイ",
+        "코제키 우이",
+        "Koseki Ui"
+      ],
+      "localizations": {
+        "ko": "코제키 우이",
+        "ja": "古関ウイ",
+        "en": "Koseki Ui"
+      }
+    },
+    {
+      "canonical": "各務チヒロ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "各務チヒロ",
+        "카가미 치히로",
+        "Kagami Chihiro"
+      ],
+      "localizations": {
+        "ko": "카가미 치히로",
+        "ja": "各務チヒロ",
+        "en": "Kagami Chihiro"
+      }
+    },
+    {
+      "canonical": "合歓垣フブキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "合歓垣フブキ",
+        "네코가키 후부키",
+        "Nekogaki Fubuki"
+      ],
+      "localizations": {
+        "ko": "네코가키 후부키",
+        "ja": "合歓垣フブキ",
+        "en": "Nekogaki Fubuki"
+      }
+    },
+    {
+      "canonical": "夜桜キララ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "夜桜キララ",
+        "요자쿠라 키라라",
+        "Yozakura Kirara"
+      ],
+      "localizations": {
+        "ko": "요자쿠라 키라라",
+        "ja": "夜桜キララ",
+        "en": "Yozakura Kirara"
+      }
+    },
+    {
+      "canonical": "奥空アヤネ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "奥空アヤネ",
+        "오쿠소라 아야네",
+        "Okusora Ayane"
+      ],
+      "localizations": {
+        "ko": "오쿠소라 아야네",
+        "ja": "奥空アヤネ",
+        "en": "Okusora Ayane"
+      }
+    },
+    {
+      "canonical": "宇沢レイサ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "宇沢レイサ",
+        "우자와 레이사",
+        "Uzawa Reisa"
+      ],
+      "localizations": {
+        "ko": "우자와 레이사",
+        "ja": "宇沢レイサ",
+        "en": "Uzawa Reisa"
+      }
+    },
+    {
+      "canonical": "守月スズミ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "守月スズミ",
+        "모리츠키 스즈미",
+        "Moritsuki Suzumi"
+      ],
+      "localizations": {
+        "ko": "모리츠키 스즈미",
+        "ja": "守月スズミ",
+        "en": "Moritsuki Suzumi"
+      }
+    },
+    {
+      "canonical": "小塗マキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "小塗マキ",
+        "코누리 마키",
+        "Konuri Maki"
+      ],
+      "localizations": {
+        "ko": "코누리 마키",
+        "ja": "小塗マキ",
+        "en": "Konuri Maki"
+      }
+    },
+    {
+      "canonical": "小鈎ハレ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "小鈎ハレ",
+        "오마가리 하레",
+        "Omagari Hare"
+      ],
+      "localizations": {
+        "ko": "오마가리 하레",
+        "ja": "小鈎ハレ",
+        "en": "Omagari Hare"
+      }
+    },
+    {
+      "canonical": "小鳥遊ツバサ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "小鳥遊ツバサ",
+        "타카나시 츠바사",
+        "Takanashi Tsubasa"
+      ],
+      "localizations": {
+        "ko": "타카나시 츠바사",
+        "ja": "小鳥遊ツバサ",
+        "en": "Takanashi Tsubasa"
+      }
+    },
+    {
+      "canonical": "御稜ナグサ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "御稜ナグサ",
+        "미사사기 나구사",
+        "Misasagi Nagusa"
+      ],
+      "localizations": {
+        "ko": "미사사기 나구사",
+        "ja": "御稜ナグサ",
+        "en": "Misasagi Nagusa"
+      }
+    },
+    {
+      "canonical": "愛清フウカ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "愛清フウカ",
+        "아이키요 후우카",
+        "Aikiyo Fuuka"
+      ],
+      "localizations": {
+        "ko": "아이키요 후우카",
+        "ja": "愛清フウカ",
+        "en": "Aikiyo Fuuka"
+      }
+    },
+    {
+      "canonical": "才羽ミドリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "才羽ミドリ",
+        "사이바 미도리",
+        "Saiba Midori"
+      ],
+      "localizations": {
+        "ko": "사이바 미도리",
+        "ja": "才羽ミドリ",
+        "en": "Saiba Midori"
+      }
+    },
+    {
+      "canonical": "才羽モモイ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "才羽モモイ",
+        "사이바 모모이",
+        "Saiba Momoi"
+      ],
+      "localizations": {
+        "ko": "사이바 모모이",
+        "ja": "才羽モモイ",
+        "en": "Saiba Momoi"
+      }
+    },
+    {
+      "canonical": "旗見エリカ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "旗見エリカ",
+        "하타미 에리카",
+        "Hatami Erika"
+      ],
+      "localizations": {
+        "ko": "하타미 에리카",
+        "ja": "旗見エリカ",
+        "en": "Hatami Erika"
+      }
+    },
+    {
+      "canonical": "日下部ヒビキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "日下部ヒビキ",
+        "쿠사카베 히비키",
+        "Kusakabe Hibiki"
+      ],
+      "localizations": {
+        "ko": "쿠사카베 히비키",
+        "ja": "日下部ヒビキ",
+        "en": "Kusakabe Hibiki"
+      }
+    },
+    {
+      "canonical": "早瀬ユウカ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "早瀬ユウカ",
+        "하야세 유우카",
+        "Hayase Yuuka"
+      ],
+      "localizations": {
+        "ko": "하야세 유우카",
+        "ja": "早瀬ユウカ",
+        "en": "Hayase Yuuka"
+      }
+    },
+    {
+      "canonical": "明星ヒマリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "明星ヒマリ",
+        "아케보시 히마리",
+        "Akeboshi Himari"
+      ],
+      "localizations": {
+        "ko": "아케보시 히마리",
+        "ja": "明星ヒマリ",
+        "en": "Akeboshi Himari"
+      }
+    },
+    {
+      "canonical": "春原ココナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "春原ココナ",
+        "스노하라 코코나",
+        "Sunohara Kokona"
+      ],
+      "localizations": {
+        "ko": "스노하라 코코나",
+        "ja": "春原ココナ",
+        "en": "Sunohara Kokona"
+      }
+    },
+    {
+      "canonical": "春原シュン",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "春原シュン",
+        "하루하라 슌",
+        "Haruhara Shun"
+      ],
+      "localizations": {
+        "ko": "하루하라 슌",
+        "ja": "春原シュン",
+        "en": "Haruhara Shun"
+      }
+    },
+    {
+      "canonical": "春日ツバキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "春日ツバキ",
+        "카스가 츠바키",
+        "Kasuga Tsubaki"
+      ],
+      "localizations": {
+        "ko": "카스가 츠바키",
+        "ja": "春日ツバキ",
+        "en": "Kasuga Tsubaki"
+      }
+    },
+    {
+      "canonical": "月雪ミヤコ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "月雪ミヤコ",
+        "츠키유키 미야코",
+        "Tsukiyuki Miyako"
+      ],
+      "localizations": {
+        "ko": "츠키유키 미야코",
+        "ja": "月雪ミヤコ",
+        "en": "Tsukiyuki Miyako"
+      }
+    },
+    {
+      "canonical": "朝顔ハナエ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "朝顔ハナエ",
+        "아사가오 하나에",
+        "Asagao Hanae"
+      ],
+      "localizations": {
+        "ko": "아사가오 하나에",
+        "ja": "朝顔ハナエ",
+        "en": "Asagao Hanae"
+      }
+    },
+    {
+      "canonical": "杏山カズサ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "杏山カズサ",
+        "쿄야마 카즈사",
+        "Kyouyama Kazusa"
+      ],
+      "localizations": {
+        "ko": "쿄야마 카즈사",
+        "ja": "杏山カズサ",
+        "en": "Kyouyama Kazusa"
+      }
+    },
+    {
+      "canonical": "柚鳥ナツ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "柚鳥ナツ",
+        "유도리 나츠",
+        "Yudori Natsu"
+      ],
+      "localizations": {
+        "ko": "유도리 나츠",
+        "ja": "柚鳥ナツ",
+        "en": "Yudori Natsu"
+      }
+    },
+    {
+      "canonical": "栗村アイリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "栗村アイリ",
+        "쿠리무라 아이리",
+        "Kurimura Airi"
+      ],
+      "localizations": {
+        "ko": "쿠리무라 아이리",
+        "ja": "栗村アイリ",
+        "en": "Kurimura Airi"
+      }
+    },
+    {
+      "canonical": "桐生キキョウ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "桐生キキョウ",
+        "키류 키쿄",
+        "Kiryuu Kikyou"
+      ],
+      "localizations": {
+        "ko": "키류 키쿄",
+        "ja": "桐生キキョウ",
+        "en": "Kiryuu Kikyou"
+      }
+    },
+    {
+      "canonical": "歌住サクラコ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "歌住サクラコ",
+        "우타스미 사쿠라코",
+        "Utasumi Sakurako"
+      ],
+      "localizations": {
+        "ko": "우타스미 사쿠라코",
+        "ja": "歌住サクラコ",
+        "en": "Utasumi Sakurako"
+      }
+    },
+    {
+      "canonical": "氷室セナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "氷室セナ",
+        "히무로 세나",
+        "Himuro Sena"
+      ],
+      "localizations": {
+        "ko": "히무로 세나",
+        "ja": "氷室セナ",
+        "en": "Himuro Sena"
+      }
+    },
+    {
+      "canonical": "河和シズコ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "河和シズコ",
+        "카와와 시즈코",
+        "Kawawa Shizuko"
+      ],
+      "localizations": {
+        "ko": "카와와 시즈코",
+        "ja": "河和シズコ",
+        "en": "Kawawa Shizuko"
+      }
+    },
+    {
+      "canonical": "浅黄ムツキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "浅黄ムツキ",
+        "아사기 무츠키",
+        "Asagi Mutsuki"
+      ],
+      "localizations": {
+        "ko": "아사기 무츠키",
+        "ja": "浅黄ムツキ",
+        "en": "Asagi Mutsuki"
+      }
+    },
+    {
+      "canonical": "浦和ハナコ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "浦和ハナコ",
+        "우라와 하나코",
+        "Urawa Hanako"
+      ],
+      "localizations": {
+        "ko": "우라와 하나코",
+        "ja": "浦和ハナコ",
+        "en": "Urawa Hanako"
+      }
+    },
+    {
+      "canonical": "清澄アキラ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "清澄アキラ",
+        "키요스미 아키라",
+        "Kiyozumi Akira"
+      ],
+      "localizations": {
+        "ko": "키요스미 아키라",
+        "ja": "清澄アキラ",
+        "en": "Kiyozumi Akira"
+      }
+    },
+    {
+      "canonical": "火宮チナツ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "火宮チナツ",
+        "히노미야 치나츠",
+        "Hinomiya Chinatsu"
+      ],
+      "localizations": {
+        "ko": "히노미야 치나츠",
+        "ja": "火宮チナツ",
+        "en": "Hinomiya Chinatsu"
+      }
+    },
+    {
+      "canonical": "牛牧ジュリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "牛牧ジュリ",
+        "우시마키 주리",
+        "Ushimaki Juri"
+      ],
+      "localizations": {
+        "ko": "우시마키 주리",
+        "ja": "牛牧ジュリ",
+        "en": "Ushimaki Juri"
+      }
+    },
+    {
+      "canonical": "猫塚ヒビキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "猫塚ヒビキ",
+        "네코즈카 히비키",
+        "Nekozuka Hibiki"
+      ],
+      "localizations": {
+        "ko": "네코즈카 히비키",
+        "ja": "猫塚ヒビキ",
+        "en": "Nekozuka Hibiki"
+      }
+    },
+    {
+      "canonical": "獅子堂イズミ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "獅子堂イズミ",
+        "시시도우 이즈미",
+        "Shishidou Izumi"
+      ],
+      "localizations": {
+        "ko": "시시도우 이즈미",
+        "ja": "獅子堂イズミ",
+        "en": "Shishidou Izumi"
+      }
+    },
+    {
+      "canonical": "生塩ノア",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "生塩ノア",
+        "우시오 노아",
+        "Ushio Noa"
+      ],
+      "localizations": {
+        "ko": "우시오 노아",
+        "ja": "生塩ノア",
+        "en": "Ushio Noa"
+      }
+    },
+    {
+      "canonical": "砂狼シロコ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "砂狼シロコ",
+        "스나오카미 시로코",
+        "Sunaookami Shiroko"
+      ],
+      "localizations": {
+        "ko": "스나오카미 시로코",
+        "ja": "砂狼シロコ",
+        "en": "Sunaookami Shiroko"
+      }
+    },
+    {
+      "canonical": "空井サキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "空井サキ",
+        "소라이 사키",
+        "Sorai Saki"
+      ],
+      "localizations": {
+        "ko": "소라이 사키",
+        "ja": "空井サキ",
+        "en": "Sorai Saki"
+      }
+    },
+    {
+      "canonical": "竜華キサキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "竜華キサキ",
+        "류카 키사키",
+        "Ryuka Kisaki"
+      ],
+      "localizations": {
+        "ko": "류카 키사키",
+        "ja": "竜華キサキ",
+        "en": "Ryuka Kisaki"
+      }
+    },
+    {
+      "canonical": "羽川ハスミ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "羽川ハスミ",
+        "하네카와 하스미",
+        "Hanekawa Hasumi"
+      ],
+      "localizations": {
+        "ko": "하네카와 하스미",
+        "ja": "羽川ハスミ",
+        "en": "Hanekawa Hasumi"
+      }
+    },
+    {
+      "canonical": "羽沼マコト",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "羽沼マコト",
+        "하누마 마코토",
+        "Hanuma Makoto"
+      ],
+      "localizations": {
+        "ko": "하누마 마코토",
+        "ja": "羽沼マコト",
+        "en": "Hanuma Makoto"
+      }
+    },
+    {
+      "canonical": "聖園ミカ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "聖園ミカ",
+        "미소노 미카",
+        "Misono Mika"
+      ],
+      "localizations": {
+        "ko": "미소노 미카",
+        "ja": "聖園ミカ",
+        "en": "Misono Mika"
+      }
+    },
+    {
+      "canonical": "花岡ユズ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "花岡ユズ",
+        "하나오카 유즈",
+        "Hanaoka Yuzu"
+      ],
+      "localizations": {
+        "ko": "하나오카 유즈",
+        "ja": "花岡ユズ",
+        "en": "Hanaoka Yuzu"
+      }
+    },
+    {
+      "canonical": "若葉ヒナタ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "若葉ヒナタ",
+        "와카바 히나타",
+        "Wakaba Hinata"
+      ],
+      "localizations": {
+        "ko": "와카바 히나타",
+        "ja": "若葉ヒナタ",
+        "en": "Wakaba Hinata"
+      }
+    },
+    {
+      "canonical": "蒼森ミネ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "蒼森ミネ",
+        "아오모리 미네",
+        "Aomori Mine"
+      ],
+      "localizations": {
+        "ko": "아오모리 미네",
+        "ja": "蒼森ミネ",
+        "en": "Aomori Mine"
+      }
+    },
+    {
+      "canonical": "赤司ジュンコ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "赤司ジュンコ",
+        "아카시 준코",
+        "Akashi Junko"
+      ],
+      "localizations": {
+        "ko": "아카시 준코",
+        "ja": "赤司ジュンコ",
+        "en": "Akashi Junko"
+      }
+    },
+    {
+      "canonical": "赤城セリカ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "赤城セリカ",
+        "아카기 세리카",
+        "Akagi Serika"
+      ],
+      "localizations": {
+        "ko": "아카기 세리카",
+        "ja": "赤城セリカ",
+        "en": "Akagi Serika"
+      }
+    },
+    {
+      "canonical": "錠前サオリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "錠前サオリ",
+        "조마에 사오리",
+        "Joumae Saori"
+      ],
+      "localizations": {
+        "ko": "조마에 사오리",
+        "ja": "錠前サオリ",
+        "en": "Joumae Saori"
+      }
+    },
+    {
+      "canonical": "阿慈谷ヒフミ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "阿慈谷ヒフミ",
+        "아자이야 히후미",
+        "Azaiya Hifumi"
+      ],
+      "localizations": {
+        "ko": "아자이야 히후미",
+        "ja": "阿慈谷ヒフミ",
+        "en": "Azaiya Hifumi"
+      }
+    },
+    {
+      "canonical": "霞沢ミユ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "霞沢ミユ",
+        "카스미자와 미유",
+        "Kasumizawa Miyu"
+      ],
+      "localizations": {
+        "ko": "카스미자와 미유",
+        "ja": "霞沢ミユ",
+        "en": "Kasumizawa Miyu"
+      }
+    },
+    {
+      "canonical": "静山マシロ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "静山マシロ",
+        "시즈야마 마시로",
+        "Shizuyama Mashiro"
+      ],
+      "localizations": {
+        "ko": "시즈야마 마시로",
+        "ja": "静山マシロ",
+        "en": "Shizuyama Mashiro"
+      }
+    },
+    {
+      "canonical": "音瀬コタマ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "音瀬コタマ",
+        "오토세 코타마",
+        "Otose Kotama"
+      ],
+      "localizations": {
+        "ko": "오토세 코타마",
+        "ja": "音瀬コタマ",
+        "en": "Otose Kotama"
+      }
+    },
+    {
+      "canonical": "風倉モエ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "風倉モエ",
+        "카자쿠라 모에",
+        "Kazakura Moe"
+      ],
+      "localizations": {
+        "ko": "카자쿠라 모에",
+        "ja": "風倉モエ",
+        "en": "Kazakura Moe"
+      }
+    },
+    {
+      "canonical": "飛鳥馬トキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "飛鳥馬トキ",
+        "아스마 토키",
+        "Asuma Toki"
+      ],
+      "localizations": {
+        "ko": "아스마 토키",
+        "ja": "飛鳥馬トキ",
+        "en": "Asuma Toki"
+      }
+    },
+    {
+      "canonical": "鬼方カヨコ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "鬼方カヨコ",
+        "오니카타 카요코",
+        "Onikata Kayoko"
+      ],
+      "localizations": {
+        "ko": "오니카타 카요코",
+        "ja": "鬼方カヨコ",
+        "en": "Onikata Kayoko"
+      }
+    },
+    {
+      "canonical": "鰐渕アカリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "鰐渕アカリ",
+        "와니부치 아카리",
+        "Wanibuchi Akari"
+      ],
+      "localizations": {
+        "ko": "와니부치 아카리",
+        "ja": "鰐渕アカリ",
+        "en": "Wanibuchi Akari"
+      }
+    },
+    {
+      "canonical": "鷲見セリナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "鷲見セリナ",
+        "와시미 세리나",
+        "Washimi Serina"
+      ],
+      "localizations": {
+        "ko": "와시미 세리나",
+        "ja": "鷲見セリナ",
+        "en": "Washimi Serina"
+      }
+    },
+    {
+      "canonical": "黒崎コユキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "黒崎コユキ",
+        "쿠로사키 코유키",
+        "Kurosaki Koyuki"
+      ],
+      "localizations": {
+        "ko": "쿠로사키 코유키",
+        "ja": "黒崎コユキ",
+        "en": "Kurosaki Koyuki"
+      }
+    },
+    {
+      "canonical": "黒舘ハルナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "黒舘ハルナ",
+        "쿠로다테 하루나",
+        "Kurodate Haruna"
+      ],
+      "localizations": {
+        "ko": "쿠로다테 하루나",
+        "ja": "黒舘ハルナ",
+        "en": "Kurodate Haruna"
       }
     }
   ]

@@ -317,6 +317,255 @@ class TestBlueArchiveCoreCharactersP1:
         assert "空崎ヒナ" in json.loads(row["character_tags_json"])
 
 
+# ---------------------------------------------------------------------------
+# P2 — Blue Archive full alias expansion (78 new characters)
+# ---------------------------------------------------------------------------
+
+# Sample 15 representative new characters covering range:
+# - existing partial mention in user DB analysis (Yuuka, Shiroko, Asuna, Saori, etc.)
+# - structurally diverse surname romanizations
+# - mascots (Arona, Plana)
+_P2_NEW_CHARACTERS_SAMPLE: list[tuple[str, str, str]] = [
+    # (jp_full, ko_full, en_full)
+    ("早瀬ユウカ",       "하야세 유우카",       "Hayase Yuuka"),
+    ("砂狼シロコ",       "스나오카미 시로코",   "Sunaookami Shiroko"),
+    ("一之瀬アスナ",     "이치노세 아스나",     "Ichinose Asuna"),
+    ("錠前サオリ",       "조마에 사오리",       "Joumae Saori"),
+    ("聖園ミカ",         "미소노 미카",         "Misono Mika"),
+    ("生塩ノア",         "우시오 노아",         "Ushio Noa"),
+    ("鬼方カヨコ",       "오니카타 카요코",     "Onikata Kayoko"),
+    ("浅黄ムツキ",       "아사기 무츠키",       "Asagi Mutsuki"),
+    ("十六夜ノノミ",     "이자요이 노노미",     "Izayoi Nonomi"),
+    ("飛鳥馬トキ",       "아스마 토키",         "Asuma Toki"),
+    ("阿慈谷ヒフミ",     "아자이야 히후미",     "Azaiya Hifumi"),
+    ("羽川ハスミ",       "하네카와 하스미",     "Hanekawa Hasumi"),
+    ("赤城セリカ",       "아카기 세리카",       "Akagi Serika"),
+    ("アロナ",           "아로나",              "Arona"),
+    ("プラナ",           "프라나",              "Plana"),
+]
+
+# Aliases that must NOT be present in the pack — short/solo enforcement.
+_P2_FORBIDDEN_SOLO_ALIASES: list[str] = [
+    # Japanese given-name-only shorts (would clash with non-BA characters)
+    "ユウカ", "シロコ", "アスナ", "サオリ", "ミカ", "ノア", "カヨコ",
+    "ムツキ", "ノノミ", "トキ", "ヒフミ", "ハスミ", "セリカ",
+    # English given-name-only shorts (homonym risk)
+    "Yuuka", "Shiroko", "Asuna", "Saori", "Mika", "Noa", "Kayoko",
+    "Mutsuki", "Nonomi", "Toki", "Hifumi", "Hasumi", "Serika",
+    # Korean given-name-only shorts
+    "유우카", "시로코", "아스나", "사오리", "미카", "노아", "카요코",
+    "무츠키", "노노미", "토키", "히후미", "하스미", "세리카",
+]
+
+# Costume / variant tokens that must not appear anywhere in the pack
+_P2_FORBIDDEN_VARIANT_TOKENS: list[str] = [
+    "水着", "正月", "ドレス", "体操服", "私服",
+    "Swimsuit", "Dress", "New Year", "Cheerleader", "Nurse",
+    "수영복", "교복", "드레스",
+    "(swimsuit)", "(dress)", "(new year)", "(school uniform)",
+]
+
+# Hard exclusions that must not appear as a canonical
+_P2_EXCLUDED_CANONICALS: list[str] = ["先生", "黒服"]
+
+
+@pytest.fixture
+def pack_data():
+    """Load blue_archive.json once for static structural assertions."""
+    import json
+    from pathlib import Path
+    pack_path = Path(__file__).resolve().parent.parent / "resources" / "tag_packs" / "blue_archive.json"
+    with pack_path.open(encoding="utf-8") as f:
+        return json.load(f)
+
+
+class TestBlueArchiveFullExpansionStructure:
+    """Static pack-shape invariants for the expansion."""
+
+    def test_pack_version_bumped(self, pack_data) -> None:
+        assert pack_data["version"] == "1.3.0"
+
+    def test_pack_total_character_count_at_least_88(self, pack_data) -> None:
+        """10 builtin + 78 expansion (P1 Hina/Ako/Nagisa already counted)."""
+        assert len(pack_data["characters"]) >= 88
+
+    def test_every_character_has_blue_archive_parent_series(self, pack_data) -> None:
+        """모든 character 의 parent_series 가 Blue Archive 인지 확인.
+
+        한 줄이라도 다른 series 가 섞이면 inferred-series 흐름에서 잘못된
+        시리즈를 추가하게 된다.
+        """
+        offenders = [
+            c["canonical"] for c in pack_data["characters"]
+            if c.get("parent_series") != "Blue Archive"
+        ]
+        assert offenders == [], f"parent_series != Blue Archive: {offenders}"
+
+    def test_every_character_has_three_localizations(self, pack_data) -> None:
+        """ko/ja/en 모두 비어 있지 않아야 한다 (full-name policy)."""
+        offenders = []
+        for c in pack_data["characters"]:
+            locs = c.get("localizations", {})
+            if not (locs.get("ko") and locs.get("ja") and locs.get("en")):
+                offenders.append(c["canonical"])
+        assert offenders == [], f"missing ko/ja/en: {offenders}"
+
+    def test_excluded_canonicals_are_not_in_pack(self, pack_data) -> None:
+        """先生 / 黒服 처럼 일반명사·NPC noun 은 분류 오탐 위험으로 제외."""
+        canons = {c["canonical"] for c in pack_data["characters"]}
+        for excluded in _P2_EXCLUDED_CANONICALS:
+            assert excluded not in canons, f"{excluded!r} is excluded by policy"
+
+    def test_no_forbidden_solo_aliases_anywhere(self, pack_data) -> None:
+        """확장된 78명 캐릭터 alias 에는 short/solo alias 가 없어야 한다.
+
+        builtin 10 명에는 기존 short alias (Mari, Aru, Hoshino 등) 가 있지만
+        본 invariant 는 새 확장 분에 한정된다. 정책 위반은 새 entry 에서만
+        검사한다 (canonical 이 _P2_NEW_CHARACTERS_SAMPLE 또는 P2-added set
+        에 들어 있는 entry).
+        """
+        builtin_pre_p2_canon = {
+            "伊落マリー", "水羽ミモリ", "陸八魔アル", "天童アリス",
+            "白洲アズサ", "小鳥遊ホシノ", "狐坂ワカモ",
+            # P1 added (PR #110)
+            "空崎ヒナ", "天雨アコ", "桐藤ナギサ",
+        }
+        offenders: list[tuple[str, str]] = []
+        for c in pack_data["characters"]:
+            if c["canonical"] in builtin_pre_p2_canon:
+                continue
+            for a in c.get("aliases", []):
+                if a in _P2_FORBIDDEN_SOLO_ALIASES:
+                    offenders.append((c["canonical"], a))
+        assert offenders == [], f"P2 entry contains forbidden solo alias: {offenders}"
+
+    def test_no_costume_variant_tokens_anywhere(self, pack_data) -> None:
+        """확장 분에는 의상/이벤트 variant alias 가 없어야 한다."""
+        builtin_pre_p2_canon = {
+            "伊落マリー", "水羽ミモリ", "陸八魔アル", "天童アリス",
+            "白洲アズサ", "小鳥遊ホシノ", "狐坂ワカモ",
+            "空崎ヒナ", "天雨アコ", "桐藤ナギサ",
+        }
+        offenders = []
+        for c in pack_data["characters"]:
+            if c["canonical"] in builtin_pre_p2_canon:
+                continue
+            haystack = " ".join(c.get("aliases", []) + [c["canonical"]])
+            for token in _P2_FORBIDDEN_VARIANT_TOKENS:
+                if token in haystack:
+                    offenders.append((c["canonical"], token))
+        assert offenders == [], f"variant token in P2 entry: {offenders}"
+
+    def test_p2_aliases_have_at_most_three_full_names(self, pack_data) -> None:
+        """확장 분 entry 는 jp/ko/en full name 만, 정확히 3개 alias.
+
+        canonical 이 ja localization 과 동일하면 dedup 후 3 alias.
+        canonical != ja (예: mascot 의 single-name) 도 허용.
+        """
+        builtin_pre_p2_canon = {
+            "伊落マリー", "水羽ミモリ", "陸八魔アル", "天童アリス",
+            "白洲アズサ", "小鳥遊ホシノ", "狐坂ワカモ",
+            "空崎ヒナ", "天雨アコ", "桐藤ナギサ",
+        }
+        for c in pack_data["characters"]:
+            if c["canonical"] in builtin_pre_p2_canon:
+                continue
+            n = len(c.get("aliases", []))
+            assert 2 <= n <= 4, (
+                f"{c['canonical']}: expected 2-4 full-name aliases, got {n}: {c.get('aliases')}"
+            )
+
+
+class TestBlueArchiveFullExpansionMatching:
+    """Sample alias matching across JP / KO / EN full forms."""
+
+    @pytest.mark.parametrize("jp,ko,en", _P2_NEW_CHARACTERS_SAMPLE)
+    def test_jp_full_matches_character_and_infers_series(self, conn_with_pack, jp, ko, en) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags([jp], conn=conn_with_pack)
+        assert jp in result["character_tags"], f"JP full {jp!r} did not match"
+        assert "Blue Archive" in result["series_tags"]
+
+    @pytest.mark.parametrize("jp,ko,en", _P2_NEW_CHARACTERS_SAMPLE)
+    def test_ko_full_matches_character_and_infers_series(self, conn_with_pack, jp, ko, en) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags([ko], conn=conn_with_pack)
+        assert jp in result["character_tags"], f"KO full {ko!r} did not match → {jp}"
+        assert "Blue Archive" in result["series_tags"]
+
+    @pytest.mark.parametrize("jp,ko,en", _P2_NEW_CHARACTERS_SAMPLE)
+    def test_en_full_matches_character_and_infers_series(self, conn_with_pack, jp, ko, en) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags([en], conn=conn_with_pack)
+        assert jp in result["character_tags"], f"EN full {en!r} did not match → {jp}"
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_excluded_sensei_does_not_match(self, conn_with_pack) -> None:
+        """先生 (generic noun) 가 character 로 잡히면 모든 '선생/teacher' 태그가 BA 로 오분류된다."""
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["先生"], conn=conn_with_pack)
+        # 先生 는 어떤 BA character 로도 매칭되어선 안 됨.
+        assert result["character_tags"] == []
+        assert result["series_tags"] == []
+        assert "先生" in result["tags"]
+
+
+class TestBlueArchiveExpansionRetagFlow:
+    """End-to-end retag flow on representative new characters."""
+
+    def _setup_group(self, conn, raw_tags: list[str]) -> str:
+        import json
+        import uuid
+        from datetime import datetime, timezone
+        gid = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute(
+            "INSERT INTO artwork_groups "
+            "(group_id, source_site, artwork_id, downloaded_at, indexed_at, "
+            " metadata_sync_status, tags_json, series_tags_json, character_tags_json) "
+            "VALUES (?, 'pixiv', ?, ?, ?, 'json_only', ?, '[]', '[]')",
+            (gid, gid[:8], now, now, json.dumps(raw_tags, ensure_ascii=False)),
+        )
+        conn.commit()
+        return gid
+
+    def _read(self, conn, gid: str) -> dict:
+        import json
+        row = conn.execute(
+            "SELECT series_tags_json, character_tags_json FROM artwork_groups WHERE group_id=?",
+            (gid,),
+        ).fetchone()
+        return {
+            "series": json.loads(row["series_tags_json"]),
+            "character": json.loads(row["character_tags_json"]),
+        }
+
+    def test_retag_yuuka_only(self, conn_with_pack) -> None:
+        from core.tag_reclassifier import retag_groups_from_existing_tags
+        gid = self._setup_group(conn_with_pack, ["早瀬ユウカ"])
+        retag_groups_from_existing_tags(conn_with_pack, [gid])
+        out = self._read(conn_with_pack, gid)
+        assert "Blue Archive" in out["series"]
+        assert "早瀬ユウカ" in out["character"]
+
+    def test_retag_shiroko_only(self, conn_with_pack) -> None:
+        from core.tag_reclassifier import retag_groups_from_existing_tags
+        gid = self._setup_group(conn_with_pack, ["砂狼シロコ"])
+        retag_groups_from_existing_tags(conn_with_pack, [gid])
+        out = self._read(conn_with_pack, gid)
+        assert "Blue Archive" in out["series"]
+        assert "砂狼シロコ" in out["character"]
+
+    def test_retag_korean_full_name(self, conn_with_pack) -> None:
+        """KO full alias 만으로도 retag 가 character + series 를 채운다."""
+        from core.tag_reclassifier import retag_groups_from_existing_tags
+        gid = self._setup_group(conn_with_pack, ["조마에 사오리"])
+        retag_groups_from_existing_tags(conn_with_pack, [gid])
+        out = self._read(conn_with_pack, gid)
+        assert "Blue Archive" in out["series"]
+        assert "錠前サオリ" in out["character"]
+
+
 class TestSinglePreviewLocalizedPath:
     def test_wakamo_single_preview_ko_path(self, conn_with_pack, tmp_path) -> None:
         """단일 분류 미리보기에서 ko locale로 BySeries/블루 아카이브/코사카 와카모/ 경로 생성."""
