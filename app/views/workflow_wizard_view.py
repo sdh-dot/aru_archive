@@ -2238,6 +2238,49 @@ def _format_preview_rule(rule: str) -> str:
     return _RULE_DISPLAY.get(rule, "기타")
 
 
+def _format_multi_destination_filename(filename: str, dest_idx: int, total: int) -> str:
+    """multi-destination row 의 파일명 표시 텍스트.
+
+    같은 PreviewItem 이 destinations 를 여러 개 가질 때, 사용자가 같은 파일명이
+    여러 row 로 보이는 것을 중복 버그로 오해하지 않도록 ``· 대상 i/N`` suffix 를
+    파일명 셀에 추가한다. total ≤ 1 이면 suffix 없이 원본 파일명만 반환.
+
+    데이터(``source_path`` / ``destinations``) 자체는 변경하지 않으며, 이 함수는
+    cell 표시용 string 생성에만 사용된다.
+    """
+    if total <= 1:
+        return filename
+    return f"{filename}  ·  대상 {dest_idx}/{total}"
+
+
+def _multi_destination_tooltip_lines(
+    dest_idx: int, total: int, all_destinations: list[dict]
+) -> list[str]:
+    """multi-destination 안내 tooltip 의 추가 라인.
+
+    total ≤ 1 이면 빈 list 를 반환해 caller 가 그냥 base tooltip 만 표시하게
+    한다. 그렇지 않으면 ``이 파일은 N개 대상 경로로 분류됩니다.`` 안내 +
+    현재 dest 위치 + (가능하면) 전체 destination path 목록 5개까지를
+    bullet 으로 첨부한다.
+    """
+    if total <= 1:
+        return []
+    lines: list[str] = [
+        "",
+        f"이 파일은 {total}개 대상 경로로 분류됩니다.",
+        f"현재 행: 대상 {dest_idx}/{total}",
+    ]
+    # 전체 destination 목록 — 너무 길면 잘라낸다.
+    paths = [d.get("dest_path", "") for d in all_destinations if d.get("dest_path")]
+    if paths:
+        lines.append("전체 대상:")
+        for i, p in enumerate(paths[:5], 1):
+            lines.append(f"  {i}. {p}")
+        if len(paths) > 5:
+            lines.append(f"  … 외 {len(paths) - 5}개 더")
+    return lines
+
+
 class _Step7Preview(_StepPanel):
     preview_ready = Signal(dict)   # batch_preview 전달
 
@@ -2279,7 +2322,8 @@ class _Step7Preview(_StepPanel):
         # classification 로직에는 영향 없음.
         self._author_fallback_notice_lbl = QLabel(
             "원본 태그가 부족하거나 시리즈/캐릭터를 식별하지 못한 경우 "
-            "작가명 기준으로 분류됩니다. 필요한 항목은 미리보기에서 수동으로 수정하세요."
+            "작가명 기준으로 분류됩니다. 필요한 항목은 미리보기에서 수동으로 수정하세요.\n"
+            "여러 캐릭터가 감지된 이미지는 대상 경로별로 여러 줄 표시될 수 있습니다."
         )
         self._author_fallback_notice_lbl.setObjectName("step7AuthorFallbackNotice")
         self._author_fallback_notice_lbl.setWordWrap(True)
@@ -2745,7 +2789,10 @@ class _Step7Preview(_StepPanel):
             # 상태 컬럼 값 결정 (preview 단위)
             item_status, item_status_tip = self._compute_item_status(preview)
 
-            for dest in preview.get("destinations", []):
+            destinations = preview.get("destinations", [])
+            total_dests = len(destinations)
+
+            for dest_pos, dest in enumerate(destinations, start=1):
                 dest_path = dest.get("dest_path", "")
                 rule_type = dest.get("rule_type", "")
                 will_copy = dest.get("will_copy", False)
@@ -2773,14 +2820,23 @@ class _Step7Preview(_StepPanel):
                 })
 
                 rule_display = _format_preview_rule(rule_type)
+                filename_cell = _format_multi_destination_filename(
+                    filename, dest_pos, total_dests
+                )
+                multi_lines = _multi_destination_tooltip_lines(
+                    dest_pos, total_dests, destinations
+                )
                 base_tooltip = (
                     f"파일: {filename}\n제목: {title}\n"
                     f"규칙: {rule_display} ({rule_type})\n"
                     f"분류사유·비고: {warn_str}\n"
                     f"분류 경로: {dest_path}"
+                ) + ("\n" + "\n".join(multi_lines) if multi_lines else "")
+                status_tooltip = item_status_tip + (
+                    "\n" + "\n".join(multi_lines) if multi_lines else ""
                 )
                 col_values = [
-                    filename, title,
+                    filename_cell, title,
                     "분류됨" if will_copy else "제외",
                     rule_display, warn_str, dest_path,
                     item_status,
@@ -2788,7 +2844,7 @@ class _Step7Preview(_StepPanel):
                 for col, val in enumerate(col_values):
                     it = QTableWidgetItem(val)
                     if col == 6:
-                        it.setToolTip(item_status_tip)
+                        it.setToolTip(status_tooltip)
                     else:
                         it.setToolTip(base_tooltip)
                     self._preview_table.setItem(row, col, it)
@@ -2953,6 +3009,7 @@ class _Step7Preview(_StepPanel):
         destinations 리스트와 순서를 맞춰 row별로 덮어쓴다.
         """
         dests = updated_item.get("destinations", [])
+        total_dests = len(dests)
         dest_idx = 0
         source_path = updated_item.get("source_path", "")
         filename    = Path(source_path).name
@@ -2967,6 +3024,7 @@ class _Step7Preview(_StepPanel):
                 break
             dest = dests[dest_idx]
             dest_idx += 1
+            dest_pos = dest_idx  # 1-based
 
             dest_path = dest.get("dest_path", "")
             rule_type = dest.get("rule_type", "")
@@ -2984,14 +3042,23 @@ class _Step7Preview(_StepPanel):
             warn_str = ", ".join(warn_parts)
 
             rule_display = _format_preview_rule(rule_type)
+            filename_cell = _format_multi_destination_filename(
+                filename, dest_pos, total_dests
+            )
+            multi_lines = _multi_destination_tooltip_lines(
+                dest_pos, total_dests, dests
+            )
             base_tooltip = (
                 f"파일: {filename}\n제목: {title}\n"
                 f"규칙: {rule_display} ({rule_type})\n"
                 f"분류사유·비고: {warn_str}\n"
                 f"분류 경로: {dest_path}"
+            ) + ("\n" + "\n".join(multi_lines) if multi_lines else "")
+            status_tooltip = item_status_tip + (
+                "\n" + "\n".join(multi_lines) if multi_lines else ""
             )
             col_values = [
-                filename, title,
+                filename_cell, title,
                 "분류됨" if will_copy else "제외",
                 rule_display, warn_str, dest_path,
                 item_status,
@@ -3000,10 +3067,10 @@ class _Step7Preview(_StepPanel):
                 existing = self._preview_table.item(row, col)
                 if existing:
                     existing.setText(val)
-                    existing.setToolTip(item_status_tip if col == 6 else base_tooltip)
+                    existing.setToolTip(status_tooltip if col == 6 else base_tooltip)
                 else:
                     it = QTableWidgetItem(val)
-                    it.setToolTip(item_status_tip if col == 6 else base_tooltip)
+                    it.setToolTip(status_tooltip if col == 6 else base_tooltip)
                     self._preview_table.setItem(row, col, it)
 
         # 필터 재적용 (override 이후 상태 변경 반영)
