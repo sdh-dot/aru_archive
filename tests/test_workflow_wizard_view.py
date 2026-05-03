@@ -268,6 +268,23 @@ class TestStep1ScopeNotice:
             f"단정적인 'Pixiv 파일만' 표현 사용됨: {text!r}"
         )
 
+    def test_scope_notice_distinguishes_pixiv_fetch_from_classification(self, wizard):
+        """안내 문구가 Pixiv 가져오기와 일반 분류 대상 범위 차이를 명시한다.
+
+        Pixiv 메타데이터 가져오기는 Pixiv 출처 파일에만 적용되지만, 분류
+        미리보기/실행은 메타데이터 상태 기반으로 비-Pixiv 파일도 포함한다 —
+        이 차이를 사용자에게 명확히 안내해야 한다.
+        """
+        step1 = wizard._panels[0]
+        text = step1._scope_notice.text()
+        # Pixiv 가져오기 한정 안내 문구.
+        assert "Pixiv 메타데이터 가져오기" in text, (
+            f"안내에 'Pixiv 메타데이터 가져오기' 표기 누락: {text!r}"
+        )
+        assert "Pixiv 출처 파일에만" in text, (
+            f"안내에 'Pixiv 출처 파일에만' 표기 누락: {text!r}"
+        )
+
     def test_scope_notice_word_wraps(self, wizard):
         step1 = wizard._panels[0]
         assert step1._scope_notice.wordWrap() is True
@@ -284,3 +301,38 @@ class TestStep1ScopeNotice:
             if "작업 폴더 설정" in b.text()
         ]
         assert buttons, "'작업 폴더 설정' 버튼이 사라짐"
+
+
+# ---------------------------------------------------------------------------
+# Step 7 — preview button label 통일 (초기 / 재실행 후 동일)
+# ---------------------------------------------------------------------------
+
+class TestStep7PreviewButtonLabel:
+    """Step 7 의 [📋 분류 미리보기 생성] 버튼 라벨이 초기 / preview 완료 후
+    재실행 가능 상태에서 동일하게 표시되는지 lock — 사용자가 무엇을 분류
+    미리보는지 명확히 한다."""
+
+    EXPECTED_LABEL = "📋 분류 미리보기 생성"
+
+    def test_initial_label_is_normalized(self, wizard):
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        assert isinstance(step7, _Step7Preview)
+        assert step7._btn_preview.text() == self.EXPECTED_LABEL, (
+            f"초기 버튼 라벨이 통일된 표기와 다름: {step7._btn_preview.text()!r}"
+        )
+
+    def test_label_after_preview_done_is_same_as_initial(self, wizard):
+        """_on_preview_done 호출 후 버튼 라벨이 초기와 동일해야 한다 (이전에는
+        '📋 미리보기 생성' 으로 짧아져 일관성이 깨졌음)."""
+        step7 = wizard._panels[6]
+        initial = step7._btn_preview.text()
+        step7._on_preview_done({
+            "previews": [], "total_groups": 0, "estimated_copies": 0,
+            "estimated_bytes": 0, "author_fallback_count": 0,
+            "series_uncategorized_count": 0, "candidate_count": 0,
+            "warnings": [], "folder_locale": "ko",
+        })
+        assert step7._btn_preview.text() == initial == self.EXPECTED_LABEL, (
+            f"preview 완료 후 라벨이 초기와 다름: {step7._btn_preview.text()!r}"
+        )
