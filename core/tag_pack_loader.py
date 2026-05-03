@@ -8,12 +8,19 @@ tag pack JSON 형식:
   "version": "...",
   "source": "built_in",
   "series": [...],
-  "characters": [...]
+  "characters": [...],
+  "groups": [...]    # PR #121: 그룹/조직 (선택)
 }
 
+각 character / group 항목은 선택적으로 ``"kind"`` 필드를 가질 수 있다:
+  character: ''(기본) | 'student' | 'npc' | 'unit' …
+  group:     'group'(기본) | 'organization' | 'club' …
+``kind`` 는 분류 알고리즘에 영향을 주지 않으며 metadata 표시용이다.
+
 DB 저장 정책:
-  series alias   → tag_aliases (tag_type='series',    parent_series='')
-  character alias→ tag_aliases (tag_type='character', parent_series=parent_series)
+  series alias   → tag_aliases (tag_type='series',    parent_series='', kind='')
+  character alias→ tag_aliases (tag_type='character', parent_series=parent_series, kind=kind)
+  group alias    → tag_aliases (tag_type='group',     parent_series=parent_series, kind=kind)
   localization   → tag_localizations (INSERT OR IGNORE)
   source = 'built_in_pack:{pack_id}'
 
@@ -145,6 +152,19 @@ def _lint_pack_data(data: dict) -> tuple[list[dict], list[dict]]:
             _check(display_name, "tag_localizations", "display_name",
                    "character", canonical, locale=locale)
 
+    for group in data.get("groups", []):
+        if not isinstance(group, dict):
+            continue
+        canonical = group.get("canonical", "")
+        _check(canonical, "tag_aliases", "canonical", "group", canonical)
+        for alias in group.get("aliases", []):
+            _check(alias, "tag_aliases", "alias", "group", canonical)
+        for locale, display_name in group.get("localizations", {}).items():
+            if locale.startswith("_"):
+                continue
+            _check(display_name, "tag_localizations", "display_name",
+                   "group", canonical, locale=locale)
+
     return strong_hits, weak_hits
 
 
@@ -250,6 +270,8 @@ def validate_tag_pack(pack: dict) -> None:
         raise ValueError("'series'는 list여야 합니다")
     if not isinstance(pack.get("characters", []), list):
         raise ValueError("'characters'는 list여야 합니다")
+    if not isinstance(pack.get("groups", []), list):
+        raise ValueError("'groups'는 list여야 합니다")
 
 
 def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
@@ -263,6 +285,7 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
         {
             "series_aliases":    N,
             "character_aliases": N,
+            "group_aliases":     N,
             "localizations":     N,
             "conflicts": [{"alias": ..., "existing_canonical": ..., "pack_canonical": ...}],
         }
@@ -279,6 +302,7 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
 
     series_count = 0
     char_count = 0
+    group_count = 0
     loc_count = 0
     conflicts: list[dict] = []
 
@@ -338,6 +362,7 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
     for character in pack.get("characters", []):
         canonical = character["canonical"]
         parent_series = character.get("parent_series", "")
+        kind_value = character.get("kind", "")
 
         for alias in character.get("aliases", []):
             if _alias_skip_key(canonical, alias) in skip_keys:
@@ -361,10 +386,10 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
                     continue
                 conn.execute(
                     """INSERT OR IGNORE INTO tag_aliases
-                       (alias, canonical, tag_type, parent_series,
+                       (alias, canonical, tag_type, parent_series, kind,
                         source, enabled, created_at)
-                       VALUES (?, ?, 'character', ?, ?, 1, ?)""",
-                    (alias, canonical, parent_series, source, now),
+                       VALUES (?, ?, 'character', ?, ?, ?, 1, ?)""",
+                    (alias, canonical, parent_series, kind_value, source, now),
                 )
                 if conn.execute("SELECT changes()").fetchone()[0]:
                     char_count += 1
@@ -388,6 +413,63 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
             except Exception as exc:
                 logger.debug("character localization 삽입 실패 (%s/%s): %s", canonical, locale, exc)
 
+    # PR #121: groups — 캐릭터와 동일한 alias / localization seed 정책. tag_type
+    # 만 'group' 으로 저장한다. parent_series 는 PR #120 series-only resolver 가
+    # 시리즈 추론에 사용한다. kind 기본값은 'group'.
+    for group in pack.get("groups", []):
+        canonical = group["canonical"]
+        parent_series = group.get("parent_series", "")
+        kind_value = group.get("kind", "group")
+
+        for alias in group.get("aliases", []):
+            if _alias_skip_key(canonical, alias) in skip_keys:
+                continue
+            try:
+                existing = conn.execute(
+                    "SELECT canonical FROM tag_aliases "
+                    "WHERE alias=? AND tag_type='group' AND enabled=1",
+                    (alias,),
+                ).fetchone()
+                if existing and existing["canonical"] != canonical:
+                    conflicts.append({
+                        "alias":              alias,
+                        "existing_canonical": existing["canonical"],
+                        "pack_canonical":     canonical,
+                    })
+                    logger.debug(
+                        "group alias 충돌 (건너뜀): %s → %s (기존 %s)",
+                        alias, canonical, existing["canonical"],
+                    )
+                    continue
+                conn.execute(
+                    """INSERT OR IGNORE INTO tag_aliases
+                       (alias, canonical, tag_type, parent_series, kind,
+                        source, enabled, created_at)
+                       VALUES (?, ?, 'group', ?, ?, ?, 1, ?)""",
+                    (alias, canonical, parent_series, kind_value, source, now),
+                )
+                if conn.execute("SELECT changes()").fetchone()[0]:
+                    group_count += 1
+            except Exception as exc:
+                logger.debug("group alias 삽입 실패 (%s): %s", alias, exc)
+
+        for locale, display_name in group.get("localizations", {}).items():
+            if _loc_skip_key(canonical, locale, display_name) in skip_keys:
+                continue
+            try:
+                lid = str(uuid.uuid4())
+                conn.execute(
+                    """INSERT OR IGNORE INTO tag_localizations
+                       (localization_id, canonical, tag_type, parent_series,
+                        locale, display_name, source, enabled, created_at)
+                       VALUES (?, ?, 'group', ?, ?, ?, ?, 1, ?)""",
+                    (lid, canonical, parent_series, locale, display_name, source, now),
+                )
+                if conn.execute("SELECT changes()").fetchone()[0]:
+                    loc_count += 1
+            except Exception as exc:
+                logger.debug("group localization 삽입 실패 (%s/%s): %s", canonical, locale, exc)
+
     conn.commit()
     if conflicts:
         logger.warning(
@@ -398,6 +480,7 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
     return {
         "series_aliases":    series_count,
         "character_aliases": char_count,
+        "group_aliases":     group_count,
         "localizations":     loc_count,
         "conflicts":         conflicts,
     }
@@ -726,14 +809,17 @@ def seed_builtin_tag_packs(conn: sqlite3.Connection) -> dict:
     resources/tag_packs/ 내 모든 내장 tag pack을 seed한다.
     중복 삽입은 INSERT OR IGNORE로 방지한다.
 
-    반환: {"series_aliases": N, "character_aliases": N, "localizations": N}
+    반환: {"series_aliases": N, "character_aliases": N,
+            "group_aliases": N, "localizations": N}
     """
     packs_dir = Path(__file__).parent.parent / "resources" / "tag_packs"
     if not packs_dir.exists():
         logger.debug("tag_packs 디렉터리 없음: %s", packs_dir)
-        return {"series_aliases": 0, "character_aliases": 0, "localizations": 0}
+        return {"series_aliases": 0, "character_aliases": 0,
+                "group_aliases": 0, "localizations": 0}
 
-    total: dict[str, int] = {"series_aliases": 0, "character_aliases": 0, "localizations": 0}
+    total: dict[str, int] = {"series_aliases": 0, "character_aliases": 0,
+                             "group_aliases": 0, "localizations": 0}
     for pack_file in sorted(packs_dir.glob("*.json")):
         try:
             pack = load_tag_pack(pack_file)
