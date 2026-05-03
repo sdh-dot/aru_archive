@@ -904,6 +904,12 @@ class MainWindow(QMainWindow):
             "보수적으로 'json_only' 로 복구합니다.\n"
             "(dry-run 결과 확인 후 사용자 동의 시에만 실행)"
         )
+        self._act_classified_consistency = tool_menu.addAction("🔍 분류 결과 정합성 점검")
+        self._act_classified_consistency.setToolTip(
+            "현재 분류 규칙으로 만들어질 expected destination 과\n"
+            "DB 의 classified_copy 경로를 비교해 과거 폴더 잔여를 진단합니다.\n"
+            "파일이나 DB 를 절대 수정하지 않는 read-only 도구입니다."
+        )
         tool_menu.addSeparator()
         self._act_db_init    = tool_menu.addAction("⚠ 전체 DB 초기화")
         self._act_db_init.setToolTip(
@@ -999,6 +1005,9 @@ class MainWindow(QMainWindow):
         self._act_save_jobs.triggered.connect(self._on_show_save_jobs)
         self._act_dict_backup.triggered.connect(self._on_dict_backup)
         self._act_status_repair.triggered.connect(self._on_metadata_status_repair)
+        self._act_classified_consistency.triggered.connect(
+            self._on_classified_consistency_report
+        )
         self._act_db_init.triggered.connect(self._on_db_init)
 
         # 사이드바 / 갤러리
@@ -2342,6 +2351,167 @@ class MainWindow(QMainWindow):
             self._refresh_counts()
         except Exception as exc:
             self._log.append(f"[WARN] 사이드바 카운트 새로고침 실패 (무시): {exc}")
+
+    def _on_classified_consistency_report(self) -> None:
+        """분류 결과 정합성 점검 — read-only 진단 도구.
+
+        절대 파일이나 DB 를 수정하지 않는다. 결과는 dialog 로 보여주고
+        사용자가 확인 후 닫으면 끝난다.
+        """
+        try:
+            from core.classified_output_consistency import (
+                build_classified_output_consistency_report,
+            )
+        except Exception as exc:
+            self._log.append(f"[ERROR] 정합성 점검 모듈 로드 실패: {exc}")
+            return
+
+        conn = self._get_conn()
+        try:
+            report = build_classified_output_consistency_report(
+                conn, config=self.config, scope="all_classified",
+            )
+        except Exception as exc:
+            conn.close()
+            self._log.append(f"[ERROR] 분류 결과 정합성 점검 실패: {exc}")
+            QMessageBox.critical(
+                self, "분류 결과 정합성 점검",
+                f"점검 실행 중 오류가 발생했습니다:\n{exc}",
+            )
+            return
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+        s = report.summary
+        self._log.append(
+            f"[INFO] 분류 결과 정합성 점검: "
+            f"검사 {s.groups_scanned}개 / "
+            f"정상 {s.groups_consistent} / "
+            f"과거 잔여 {s.groups_with_legacy_extra} / "
+            f"누락 {s.groups_with_missing_expected} / "
+            f"확인 불가 {s.groups_unverifiable}"
+        )
+
+        try:
+            self._show_classified_consistency_dialog(report)
+        except Exception as exc:
+            self._log.append(f"[WARN] 정합성 점검 dialog 표시 실패: {exc}")
+            QMessageBox.information(
+                self, "분류 결과 정합성 점검",
+                f"검사한 작품: {s.groups_scanned}개\n"
+                f"정상: {s.groups_consistent}개\n"
+                f"과거 경로 잔여: {s.groups_with_legacy_extra}개\n"
+                f"현재 기준 누락: {s.groups_with_missing_expected}개\n"
+                f"확인 불가: {s.groups_unverifiable}개\n\n"
+                "이 도구는 진단만 수행하며 파일이나 DB를 수정하지 않습니다.",
+            )
+
+    def _show_classified_consistency_dialog(self, report) -> None:
+        """정합성 점검 결과를 비-modal 정보 dialog 로 표시."""
+        from PyQt6.QtWidgets import (
+            QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
+            QHeaderView, QDialogButtonBox,
+        )
+
+        s = report.summary
+        dlg = QDialog(self)
+        dlg.setWindowTitle("분류 결과 정합성 점검")
+        dlg.resize(900, 520)
+        v = QVBoxLayout(dlg)
+
+        head = QLabel(
+            f"<b>분류 결과 정합성 점검</b><br>"
+            f"검사한 작품: {s.groups_scanned}개<br>"
+            f"정상: {s.groups_consistent}개<br>"
+            f"과거 경로 잔여: {s.groups_with_legacy_extra}개 "
+            f"(파일 {s.legacy_file_count}건)<br>"
+            f"현재 기준 누락: {s.groups_with_missing_expected}개 "
+            f"(파일 {s.missing_expected_count}건)<br>"
+            f"확인 불가: {s.groups_unverifiable}개"
+        )
+        head.setTextFormat(Qt.TextFormat.RichText)
+        v.addWidget(head)
+
+        notice = QLabel(
+            "이 도구는 진단만 수행하며 파일이나 DB를 수정하지 않습니다. "
+            "결과는 참고용이며, 후속 조치는 사용자가 별도 도구로 직접 진행해야 합니다."
+        )
+        notice.setWordWrap(True)
+        notice.setStyleSheet(
+            "color: #C8B0A8; background: #221814; "
+            "border: 1px solid #4A2A20; border-radius: 4px; "
+            "padding: 6px 10px; font-size: 11px;"
+        )
+        v.addWidget(notice)
+
+        tbl = QTableWidget(0, 7, dlg)
+        tbl.setHorizontalHeaderLabels([
+            "상태", "작품 ID", "제목",
+            "현재 예상 경로 수", "기존 경로 수",
+            "과거 잔여 수", "누락 수",
+        ])
+        tbl.horizontalHeader().setStretchLastSection(False)
+        tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        tbl.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+
+        status_label = {
+            "consistent":         "정상",
+            "legacy_extra":       "과거 잔여",
+            "missing_expected":   "현재 누락",
+            "legacy_and_missing": "잔여+누락",
+            "unverifiable":       "확인 불가",
+        }
+        for it in report.items:
+            row = tbl.rowCount()
+            tbl.insertRow(row)
+            cells = [
+                status_label.get(it.status, it.status),
+                it.artwork_id or "",
+                it.title or "",
+                str(len(it.current_destinations)),
+                str(len(it.existing_classified_copies)),
+                str(len(it.legacy_extra_paths)),
+                str(len(it.missing_expected_paths)),
+            ]
+            tip_lines = []
+            if it.current_destinations:
+                tip_lines.append("현재 예상 경로:")
+                tip_lines.extend(f"  {p}" for p in it.current_destinations[:5])
+                if len(it.current_destinations) > 5:
+                    tip_lines.append(f"  … 외 {len(it.current_destinations) - 5}개")
+            if it.existing_classified_copies:
+                tip_lines.append("기존 classified_copy 경로:")
+                tip_lines.extend(f"  {p}" for p in it.existing_classified_copies[:5])
+                if len(it.existing_classified_copies) > 5:
+                    tip_lines.append(f"  … 외 {len(it.existing_classified_copies) - 5}개")
+            if it.legacy_extra_paths:
+                tip_lines.append("과거 잔여 경로:")
+                tip_lines.extend(f"  {p}" for p in it.legacy_extra_paths[:5])
+            if it.missing_expected_paths:
+                tip_lines.append("누락된 예상 경로:")
+                tip_lines.extend(f"  {p}" for p in it.missing_expected_paths[:5])
+            if it.notes:
+                tip_lines.append("메모:")
+                tip_lines.extend(f"  {n}" for n in it.notes)
+            tip = "\n".join(tip_lines)
+            for col, val in enumerate(cells):
+                item = QTableWidgetItem(val)
+                item.setToolTip(tip)
+                tbl.setItem(row, col, item)
+        v.addWidget(tbl, 1)
+
+        # 본 도구는 read-only 이므로 후속 조치 버튼은 추가하지 않는다.
+        # 사용자는 결과만 확인하고 dialog 를 닫는다.
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=dlg)
+        bb.rejected.connect(dlg.reject)
+        bb.accepted.connect(dlg.accept)
+        v.addWidget(bb)
+
+        dlg.exec()
 
     def _on_show_wizard(self) -> None:
         """워크플로우 마법사 다이얼로그를 연다."""
