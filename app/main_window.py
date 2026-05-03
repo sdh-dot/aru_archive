@@ -1102,30 +1102,49 @@ class MainWindow(QMainWindow):
             logger.warning("Inbox path not found: %s", inbox_dir)
 
     def _ensure_initial_workspace_setup(self) -> None:
-        inbox_dir = self._inbox_dir().strip()
+        # PR #122 follow-up: input/output 은 사용자가 명시 선택해야 한다 —
+        # inbox 의 sibling 으로 자동 derive 하지 않는다. classified_dir 가
+        # 비어 있으면 prompt 를 띄우고, managed_dir 는 항상 app_data_dir/managed
+        # 로 정규화한다.
+        from core.config_manager import (
+            ensure_app_data_dirs, resolve_app_data_dir,
+        )
+        inbox_dir      = self._inbox_dir().strip()
         classified_dir = self._classified_dir().strip()
-        managed_dir = self._managed_dir().strip()
 
-        inbox_exists = bool(inbox_dir) and Path(inbox_dir).exists()
+        inbox_exists      = bool(inbox_dir)      and Path(inbox_dir).exists()
         classified_exists = bool(classified_dir) and Path(classified_dir).exists()
-        managed_exists = bool(managed_dir) and Path(managed_dir).exists()
 
-        if inbox_exists:
-            if not classified_dir or not managed_dir:
-                update_workspace_from_inbox(self.config, inbox_dir)
-            if not classified_exists or not managed_exists:
-                ensure_workspace_directories(self.config)
-                try:
-                    save_config(self.config, self._config_path)
-                except Exception:
-                    pass
-                self._restore_workspace_paths()
+        # 관리 폴더는 항상 app_data_dir/managed — 사용자 선택과 무관하게 정규화.
+        app_data_dir   = resolve_app_data_dir(self.config)
+        target_managed = str(app_data_dir / "managed")
+        if self.config.get("managed_dir") != target_managed:
+            self.config["managed_dir"] = target_managed
+            try:
+                save_config(self.config, self._config_path)
+            except Exception:
+                pass
+        try:
+            ensure_app_data_dirs(app_data_dir)
+        except OSError as exc:
+            logger.warning("관리 폴더 하위 디렉터리 생성 실패: %s", exc)
+
+        if inbox_exists and classified_exists:
             return
 
-        if self._initial_workspace_prompt_attempted:
+        if inbox_exists and not classified_dir:
+            # legacy 사용자 — inbox 는 있지만 output 미설정 → 명시 선택 필요.
+            if self._initial_workspace_prompt_attempted:
+                return
+            self._initial_workspace_prompt_attempted = True
+            self._open_path_setup_dialog(first_run=True)
             return
-        self._initial_workspace_prompt_attempted = True
-        self._open_path_setup_dialog(first_run=True)
+
+        if not inbox_exists:
+            if self._initial_workspace_prompt_attempted:
+                return
+            self._initial_workspace_prompt_attempted = True
+            self._open_path_setup_dialog(first_run=True)
 
     def _schedule_initial_workspace_setup(self) -> None:
         if self._initial_workspace_prompt_scheduled:
@@ -1341,15 +1360,22 @@ class MainWindow(QMainWindow):
         self._open_path_setup_dialog(first_run=False)
 
     def _open_path_setup_dialog(self, *, first_run: bool) -> None:
-        start_dir = self._inbox_dir() or str(Path.home())
+        # PR #122 follow-up: input / output / managed 가 분리된 dialog 사용.
+        from core.config_manager import (
+            ensure_app_data_dirs, resolve_app_data_dir, sync_io_dir_aliases,
+        )
+        app_data_dir = str(resolve_app_data_dir(self.config))
         dlg = PathSetupDialog(
-            start_dir=start_dir,
-            data_dir=self._data_dir(),
+            start_input_dir=self.config.get("input_dir") or self._inbox_dir(),
+            start_output_dir=self.config.get("output_dir") or self._classified_dir(),
+            app_data_dir=app_data_dir,
             parent=self,
         )
         if first_run:
             dlg.setWindowTitle("첫 실행 폴더 설정")
-            self._log.append("[INFO] 첫 실행 감지: 분류 대상 폴더를 먼저 설정하세요.")
+            self._log.append(
+                "[INFO] 첫 실행 감지: 분류 대상 폴더와 분류 완료 폴더를 각각 선택하세요."
+            )
         if dlg.exec() != PathSetupDialog.DialogCode.Accepted:
             return
 
@@ -1357,10 +1383,18 @@ class MainWindow(QMainWindow):
         if not paths:
             return
 
-        update_workspace_from_inbox(self.config, paths["inbox_dir"])
+        # sibling 자동 파생 없이 사용자가 명시한 input/output 을 그대로 적용.
+        self.config["input_dir"]      = paths["input_dir"]
+        self.config["inbox_dir"]      = paths["input_dir"]
+        self.config["output_dir"]     = paths["output_dir"]
+        self.config["classified_dir"] = paths["output_dir"]
+        self.config["managed_dir"]    = paths["managed_dir"]
+        self.config["app_data_dir"]   = paths["app_data_dir"]
+        sync_io_dir_aliases(self.config)
         try:
             ensure_app_directories(self.config)
             ensure_workspace_directories(self.config)
+            ensure_app_data_dirs(resolve_app_data_dir(self.config))
             save_config(self.config, self._config_path)
             self._log.append(f"[INFO] Config saved: {self._config_path}")
         except Exception as exc:
@@ -1368,9 +1402,9 @@ class MainWindow(QMainWindow):
             return
 
         self._restore_workspace_paths()
-        self._log.append(f"[INFO] Inbox folder set: {self._inbox_dir()}")
-        self._log.append(f"[INFO] Classified folder set: {self._classified_dir()}")
-        self._log.append(f"[INFO] Managed folder set: {self._managed_dir()}")
+        self._log.append(f"[INFO] Input folder set: {self._inbox_dir()}")
+        self._log.append(f"[INFO] Output folder set: {self._classified_dir()}")
+        self._log.append(f"[INFO] Managed folder (internal): {self._managed_dir()}")
 
         if Path(self._db_path()).exists():
             self._refresh_gallery()
