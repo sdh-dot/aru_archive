@@ -238,6 +238,152 @@ class TestReprocessGroupRespectsEmbeddedMetadata:
 # 2. all_pixiv json_only protection invariant — cross-module integration
 # ---------------------------------------------------------------------------
 
+class TestReprocessGroupStatusDowngradeGuard:
+    """reprocess_group 이 의미 있는 status 를 약화시키지 않는다.
+
+    Wizard "XMP 데이터 입력" 버튼이 InboxScanner.reprocess_group 을 호출해
+    기존 ``full`` group 을 ``json_only`` 로 강등시키던 회귀를 차단한다.
+    진정한 XMP 재등록은 xmp_retry / explorer_meta_repair 가 담당하며 그
+    경로에서만 status 를 ``full`` 로 끌어올린다.
+    """
+
+    @staticmethod
+    def _make_png_with_aru(tmp_path):
+        png_path = tmp_path / "embed.png"
+        _write_png_with_aru_metadata(png_path, {
+            "schema_version": "1.0",
+            "source_site": "pixiv",
+            "artwork_id": "12345",
+            "tags": ["t1"],
+            "series_tags": ["Blue Archive"],
+            "character_tags": ["伊落マリー"],
+        })
+        return png_path
+
+    @staticmethod
+    def _setup_group(db, *, file_path, sync_status):
+        gid, _ = _insert_group_with_file(
+            db, file_path=str(file_path), file_format="png",
+            metadata_embedded=1, sync_status=sync_status,
+        )
+        return gid
+
+    @staticmethod
+    def _read_status(db, gid: str) -> str:
+        return db.execute(
+            "SELECT metadata_sync_status FROM artwork_groups WHERE group_id=?",
+            (gid,),
+        ).fetchone()["metadata_sync_status"]
+
+    def test_full_status_preserved_after_reprocess(self, db, tmp_path):
+        """기존 'full' group 은 reprocess 후에도 그대로 'full' 유지."""
+        png = self._make_png_with_aru(tmp_path)
+        gid = self._setup_group(db, file_path=png, sync_status="full")
+        scanner = _make_scanner(db, tmp_path)
+        scanner.reprocess_group(gid)
+        assert self._read_status(db, gid) == "full", (
+            "reprocess가 기존 'full'을 강등시킴 — Wizard XMP 입력 회귀"
+        )
+
+    def test_xmp_write_failed_preserved_after_reprocess(self, db, tmp_path):
+        """xmp_write_failed 는 명시 retry 경로로만 해소되어야 한다."""
+        png = self._make_png_with_aru(tmp_path)
+        gid = self._setup_group(db, file_path=png, sync_status="xmp_write_failed")
+        scanner = _make_scanner(db, tmp_path)
+        scanner.reprocess_group(gid)
+        assert self._read_status(db, gid) == "xmp_write_failed"
+
+    def test_metadata_write_failed_preserved_after_reprocess(self, db, tmp_path):
+        png = self._make_png_with_aru(tmp_path)
+        gid = self._setup_group(db, file_path=png, sync_status="metadata_write_failed")
+        scanner = _make_scanner(db, tmp_path)
+        scanner.reprocess_group(gid)
+        assert self._read_status(db, gid) == "metadata_write_failed"
+
+    def test_source_unavailable_preserved_after_reprocess(self, db, tmp_path):
+        png = self._make_png_with_aru(tmp_path)
+        gid = self._setup_group(db, file_path=png, sync_status="source_unavailable")
+        scanner = _make_scanner(db, tmp_path)
+        scanner.reprocess_group(gid)
+        assert self._read_status(db, gid) == "source_unavailable"
+
+    def test_metadata_missing_upgraded_when_aru_metadata_found(self, db, tmp_path):
+        """metadata_missing 은 reprocess 가 embedded JSON 발견 시 정당한 강화."""
+        png = self._make_png_with_aru(tmp_path)
+        gid = self._setup_group(db, file_path=png, sync_status="metadata_missing")
+        scanner = _make_scanner(db, tmp_path)
+        scanner.reprocess_group(gid)
+        # 보호 대상이 아니므로 reprocess 결과 'json_only' 로 갱신.
+        assert self._read_status(db, gid) == "json_only"
+
+    def test_pending_upgraded_when_aru_metadata_found(self, db, tmp_path):
+        png = self._make_png_with_aru(tmp_path)
+        gid = self._setup_group(db, file_path=png, sync_status="pending")
+        scanner = _make_scanner(db, tmp_path)
+        scanner.reprocess_group(gid)
+        assert self._read_status(db, gid) == "json_only"
+
+    def test_full_preserved_when_metadata_lookup_returns_none(self, db, tmp_path):
+        """원본에서 임베디드 JSON 을 못 읽어도 기존 'full' 은 유지.
+
+        scanner 의 reprocess 결과는 'metadata_missing' 이지만,
+        full 보호 정책에 의해 강등되지 않는다.
+        """
+        png_path = tmp_path / "blank.png"
+        # 유효 PNG 만, Aru iTXt 없음.
+        png_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+        gid = self._setup_group(db, file_path=png_path, sync_status="full")
+        scanner = _make_scanner(db, tmp_path)
+        scanner.reprocess_group(gid)
+        assert self._read_status(db, gid) == "full"
+
+    def test_helper_unit_decisions(self):
+        from core.inbox_scanner import _reprocess_should_overwrite_status
+        # 보호 대상 + downgrade-result → False (보존)
+        assert _reprocess_should_overwrite_status("full", "json_only") is False
+        assert _reprocess_should_overwrite_status("full", "metadata_missing") is False
+        assert _reprocess_should_overwrite_status("xmp_write_failed", "json_only") is False
+        assert _reprocess_should_overwrite_status("metadata_write_failed", "metadata_missing") is False
+        assert _reprocess_should_overwrite_status("source_unavailable", "json_only") is False
+        # 보호 대상이지만 결과가 downgrade-result 가 아닌 경우 → True (정당한 강화 가능)
+        assert _reprocess_should_overwrite_status("full", "convert_failed") is True
+        # 비보호 상태 → 항상 True
+        assert _reprocess_should_overwrite_status("metadata_missing", "json_only") is True
+        assert _reprocess_should_overwrite_status("pending", "json_only") is True
+        assert _reprocess_should_overwrite_status("json_only", "metadata_missing") is True
+
+
+class TestReregistrationPipelineConsistency:
+    """진정한 재등록 경로 (xmp_retry / explorer_meta_repair) 가
+    write_xmp_metadata_with_exiftool 의 clear-first 옵션을 사용한다 — PR #116
+    회귀 invariant. PR #116 직후 main 에 있어야 하므로 source-grep 으로 lock."""
+
+    def test_xmp_retry_uses_clear_first(self):
+        import inspect
+        import core.xmp_retry as mod
+        src = inspect.getsource(mod)
+        assert "clear_windows_xp_fields_before_write=True" in src
+
+    def test_explorer_meta_repair_uses_clear_first(self):
+        import inspect
+        import core.explorer_meta_repair as mod
+        src = inspect.getsource(mod)
+        assert "clear_windows_xp_fields_before_write=True" in src
+
+    def test_inbox_scanner_does_not_call_xmp_writer(self):
+        """InboxScanner 는 file scan 모듈 — XMP write 호출하지 않는다.
+
+        Wizard 'XMP 데이터 입력' 이 InboxScanner 를 거쳐 결과적으로 XMP
+        재등록 pipeline 을 우회하므로, status 는 보존되고 XMP write 는
+        명시 경로만 수행하는 분리가 유지된다.
+        """
+        import inspect
+        import core.inbox_scanner as mod
+        src = inspect.getsource(mod)
+        assert "write_xmp_metadata_with_exiftool" not in src
+        assert "write_windows_exif_fields" not in src
+
+
 class TestEnrichmentQueueProtectsJsonOnly:
     """build_enrichment_queue all_pixiv 모드가 json_only 를 보호하는지."""
 
@@ -247,7 +393,7 @@ class TestEnrichmentQueueProtectsJsonOnly:
         png_path = tmp_path / "json_only.png"
         png_path.write_bytes(b"x")
 
-        gid, fid = _insert_group_with_file(
+        _, fid = _insert_group_with_file(
             db, file_path=str(png_path), file_format="png",
             metadata_embedded=1, sync_status="json_only",
         )
@@ -264,7 +410,7 @@ class TestEnrichmentQueueProtectsJsonOnly:
         png_path = tmp_path / "missing.png"
         png_path.write_bytes(b"x")
 
-        gid, fid = _insert_group_with_file(
+        _, fid = _insert_group_with_file(
             db, file_path=str(png_path), file_format="png",
             metadata_embedded=0, sync_status="metadata_missing",
         )

@@ -41,6 +41,47 @@ SCAN_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", "
 LogFn = Callable[[str], None]
 
 
+# Status downgrade guard for InboxScanner.reprocess_group.
+# reprocess 는 file scan 만 수행한다 (XMP/XP write 는 안 함). 따라서 reprocess
+# 결과로 의미 있는 status 를 약화시키면 안 된다.
+#
+# - ``full``                  : XMP+XP 까지 정상 기록된 상태 — file scan 결과
+#                               'json_only' / 'metadata_missing' 로 강등 금지.
+# - ``xmp_write_failed``      : XMP write 시도 실패 — 사용자가 명시적으로
+#                               xmp_retry / explorer_meta_repair 로 풀어야 한다.
+#                               단순 file scan 으로 의미를 덮으면 사용자가
+#                               실패 사실을 잃는다.
+# - ``metadata_write_failed`` : 동일 — 명시 retry 경로로만 해소되어야 한다.
+# - ``source_unavailable``    : Pixiv 404 등 영구 조회 불가. file scan 결과와
+#                               의미가 다르므로 보존.
+_REPROCESS_PROTECTED_STATUSES: frozenset[str] = frozenset({
+    "full",
+    "xmp_write_failed",
+    "metadata_write_failed",
+    "source_unavailable",
+})
+
+# reprocess 가 정당하게 강화시킬 수 있는 결과 status. 그 외 (예: 'convert_failed')
+# 는 file scan 의 정당한 새 정보이므로 protected status 와 무관하게 적용.
+_REPROCESS_DOWNGRADE_RESULT_STATUSES: frozenset[str] = frozenset({
+    "json_only",
+    "metadata_missing",
+})
+
+
+def _reprocess_should_overwrite_status(current: str, new: str) -> bool:
+    """reprocess 결과가 기존 status 를 덮어써도 되는지 판정.
+
+    Returns False 인 경우 caller 는 UPDATE 를 skip 하고 기존 status 를 유지한다.
+    """
+    if (
+        current in _REPROCESS_PROTECTED_STATUSES
+        and new in _REPROCESS_DOWNGRADE_RESULT_STATUSES
+    ):
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # 결과 객체
 # ---------------------------------------------------------------------------
@@ -151,6 +192,22 @@ class InboxScanner:
         ``existing_meta`` 분기로 들어가 ``json_only`` 를 반환하고, 정상적으로
         보강된 group 의 metadata_sync_status 가 metadata_missing 으로
         강등되는 것을 막을 수 있다.
+
+        Status 보존 정책 (downgrade guard):
+            reprocess 는 file scan 만 수행하고 XMP/XP write 는 하지 않는다.
+            따라서 reprocess 결과 (``json_only`` / ``metadata_missing``) 가
+            의미 있는 상태 (``full`` / ``xmp_write_failed`` /
+            ``metadata_write_failed`` / ``source_unavailable``) 를 덮어쓰는
+            것은 status 의미에 어긋난다.
+
+            예: 사용자가 Wizard "XMP 데이터 입력" 을 누르면 이 함수가 호출되며,
+                기존 ``full`` 인 group 도 reprocess 결과 ``json_only`` 로
+                덮였다. 이 때문에 full → json_only 로 보이지 않는 강등이 발생.
+                ``_REPROCESS_STATUS_DOWNGRADE_GUARD`` 가 그 강등을 차단한다.
+
+            진정한 XMP 재등록 (status 를 명시적으로 ``full`` 로 끌어올리는
+            동작) 은 ``core.xmp_retry`` / ``core.explorer_meta_repair`` 가
+            담당하며, 그 경로는 그대로 동작한다.
         """
         row = self.conn.execute(
             "SELECT file_path, file_format, file_id FROM artwork_files "
@@ -175,10 +232,27 @@ class InboxScanner:
         page_status = self._process_by_format(
             file_path, file_format, group_id, original_file_id, existing_meta, now
         )
-        self.conn.execute(
-            "UPDATE artwork_groups SET metadata_sync_status=? WHERE group_id=?",
-            (page_status, group_id),
-        )
+
+        # downgrade guard — 기존 status 를 reprocess 결과가 약화시키는 것을 차단.
+        current_row = self.conn.execute(
+            "SELECT metadata_sync_status FROM artwork_groups WHERE group_id=?",
+            (group_id,),
+        ).fetchone()
+        current_status = current_row["metadata_sync_status"] if current_row else None
+        if current_status and not _reprocess_should_overwrite_status(
+            current_status, page_status,
+        ):
+            self.log_fn(
+                f"[INFO] reprocess: status 보존 "
+                f"({current_status!r} 유지, reprocess 결과 {page_status!r} 미적용): "
+                f"{file_path.name}"
+            )
+            page_status = current_status
+        else:
+            self.conn.execute(
+                "UPDATE artwork_groups SET metadata_sync_status=? WHERE group_id=?",
+                (page_status, group_id),
+            )
         self.conn.commit()
 
         thumb_src = self._find_thumb_source(group_id, file_path)
