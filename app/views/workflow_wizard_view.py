@@ -3076,6 +3076,14 @@ class _Step8Execute(_StepPanel):
         if self._execute_thread and self._execute_thread.isRunning():
             return
 
+        # Stale preview gate — Step 7 가 dirty 상태이면 사용자에게 확인 후 진행.
+        # 분류 기준이 바뀐 뒤 preview 를 다시 생성하지 않고 execute 했을 때 옛
+        # destination 으로 파일이 복사되는 사고를 방지한다. classification /
+        # destination / file copy 로직 자체는 변경하지 않는다 — 사용자 의사
+        # 확인만 추가.
+        if not self._confirm_proceed_with_dirty_preview():
+            return
+
         if QMessageBox.question(
             self._wizard, "분류 실행 확인",
             f"복사본 {self._batch_preview.get('estimated_copies',0)}개를 생성합니다.\n계속하시겠습니까?",
@@ -3105,6 +3113,61 @@ class _Step8Execute(_StepPanel):
         self._execute_thread.progress.connect(self._on_execute_progress)
         self._execute_thread.done.connect(self._on_execute_done)
         self._execute_thread.start()
+
+    def _find_step7_preview(self) -> Optional["_Step7Preview"]:
+        """wizard._panels 에서 _Step7Preview 인스턴스를 찾아 반환.
+
+        Step 7 가 없거나 wizard reference 가 끊긴 경우 None — 호출자는 fail-safe
+        로 기존 동작을 유지해야 한다.
+        """
+        wizard = getattr(self, "_wizard", None)
+        panels = getattr(wizard, "_panels", None) if wizard is not None else None
+        if not panels:
+            return None
+        for panel in panels:
+            if isinstance(panel, _Step7Preview):
+                return panel
+        return None
+
+    def _confirm_proceed_with_dirty_preview(self) -> bool:
+        """Step 7 preview 가 stale 상태이면 사용자에게 확인 dialog 를 띄운다.
+
+        Returns
+        -------
+        bool
+            True  — 진행해도 됨 (clean 이거나 사용자가 "그래도 실행" 선택).
+            False — 사용자가 취소 — execute 중단.
+
+        - Step 7 가 없거나 dirty API 가 없으면 fail-safe 로 True 반환 (기존 동작
+          유지).
+        - dirty 상태에서 사용자가 "그래도 실행" 을 선택해도 dirty flag 는 유지
+          한다 — preview 자체가 최신이 된 것은 아니므로.
+        """
+        step7 = self._find_step7_preview()
+        if step7 is None:
+            return True
+        is_dirty_fn = getattr(step7, "is_preview_dirty", None)
+        if not callable(is_dirty_fn):
+            return True
+        try:
+            if not is_dirty_fn():
+                return True
+        except Exception:
+            # is_preview_dirty 가 예외 던지면 안전하게 진행 허용.
+            return True
+
+        box = QMessageBox(self._wizard)
+        box.setWindowTitle("미리보기가 최신 상태가 아닙니다")
+        box.setText(
+            "분류 기준이 변경되어 현재 미리보기 결과가 이전 설정 기준일 수 있습니다.\n"
+            "정확한 결과를 위해 분류 미리보기를 다시 생성하는 것이 좋습니다."
+        )
+        box.setIcon(QMessageBox.Icon.Warning)
+        cancel_btn = box.addButton("취소", QMessageBox.ButtonRole.RejectRole)
+        proceed_btn = box.addButton("그래도 실행", QMessageBox.ButtonRole.AcceptRole)
+        box.setDefaultButton(cancel_btn)
+        box.exec()
+        return box.clickedButton() is proceed_btn
 
     def _on_execute_progress(self, done: int, total: int, message: str) -> None:
         self._progress.setRange(0, max(total, 1))

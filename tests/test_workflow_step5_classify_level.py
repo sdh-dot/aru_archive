@@ -341,3 +341,232 @@ class TestStep7PreviewDirtyState:
         assert isinstance(step7._scope_combo, QComboBox)
         assert isinstance(step7._locale_combo, QComboBox)
         assert isinstance(step7._btn_preview, QPushButton)
+
+
+# ---------------------------------------------------------------------------
+# Step 8 execute — stale preview gate
+# ---------------------------------------------------------------------------
+
+class _FakeExecuteThread:
+    """``_ExecuteThread`` 대체용 fake — 실제 thread 시작 / DB 쓰기 / 파일 복사
+    없이 instantiation 만 추적한다."""
+
+    instances: list["_FakeExecuteThread"] = []
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.started = False
+        # Qt signals 자리에 dummy connectable 객체.
+        self.log_msg = _FakeSignal()
+        self.progress = _FakeSignal()
+        self.done = _FakeSignal()
+        type(self).instances.append(self)
+
+    def start(self) -> None:
+        self.started = True
+
+    def isRunning(self) -> bool:  # noqa: N802 — Qt API name
+        return False
+
+    @classmethod
+    def reset(cls) -> None:
+        cls.instances = []
+
+
+class _FakeSignal:
+    """connect() 만 받는 dummy signal — 실제 emit 없음."""
+
+    def connect(self, _slot) -> None:
+        return None
+
+
+class TestStep8DirtyPreviewGate:
+    """Step 8 의 stale preview 확인 dialog 동작.
+
+    실제 _ExecuteThread / 파일 복사는 monkeypatch 로 차단 — gate 통과 여부만
+    검증한다. classification / destination / file copy 로직 자체는 변경되지
+    않는다.
+    """
+
+    def _seed_step8_with_preview(self, wizard):
+        """Step 8 에 비어있는 batch_preview 를 set 해 _on_execute 의 첫 가드를 통과
+        시킨다 (실제 데이터는 필요 없음 — gate 만 테스트)."""
+        step8 = wizard._panels[7]
+        step8.set_preview({
+            "previews": [], "estimated_copies": 0, "estimated_bytes": 0,
+        })
+        return step8
+
+    @pytest.fixture(autouse=True)
+    def _reset_fake_thread(self):
+        _FakeExecuteThread.reset()
+        yield
+        _FakeExecuteThread.reset()
+
+    @pytest.fixture
+    def patched_execute(self, monkeypatch):
+        """_ExecuteThread 와 두 번째 confirm 다이얼로그를 fake 로 대체.
+
+        - _ExecuteThread → _FakeExecuteThread (started 추적용, 실제 thread 시작 X)
+        - QMessageBox.question → 항상 Yes (downstream 분류 실행 확인 통과)
+        """
+        from PyQt6.QtWidgets import QMessageBox
+        from app.views import workflow_wizard_view as mod
+
+        monkeypatch.setattr(mod, "_ExecuteThread", _FakeExecuteThread)
+        monkeypatch.setattr(
+            QMessageBox, "question",
+            lambda *a, **k: QMessageBox.StandardButton.Yes,
+        )
+        return None
+
+    def test_clean_preview_proceeds_to_thread(self, qapp, tmp_path, patched_execute):
+        """Step 7 가 clean 이면 dirty gate 를 통과해 execute thread 가 시작됨."""
+        w = _make_wizard(tmp_path)
+        try:
+            step7 = w._panels[6]
+            step8 = self._seed_step8_with_preview(w)
+            step7.clear_preview_dirty()
+            assert step7.is_preview_dirty() is False
+
+            step8._on_execute()
+
+            assert len(_FakeExecuteThread.instances) == 1, (
+                "_ExecuteThread 가 시작되지 않음 — clean 상태에서 gate 가 잘못 차단"
+            )
+            assert _FakeExecuteThread.instances[0].started is True
+        finally:
+            w.close()
+
+    def test_dirty_preview_cancel_does_not_start_thread(
+        self, qapp, tmp_path, monkeypatch, patched_execute
+    ):
+        """dirty 상태 + 사용자 Cancel → execute thread 시작 안 됨."""
+        w = _make_wizard(tmp_path)
+        try:
+            step7 = w._panels[6]
+            step8 = self._seed_step8_with_preview(w)
+            step7.mark_preview_dirty("분류 기준이 변경되었습니다.")
+
+            # Gate 가 False 반환 (사용자가 취소 누른 것과 동일 효과).
+            monkeypatch.setattr(
+                step8, "_confirm_proceed_with_dirty_preview", lambda: False
+            )
+            step8._on_execute()
+
+            assert _FakeExecuteThread.instances == [], (
+                "Cancel 했는데 _ExecuteThread 가 생성됨"
+            )
+            # dirty 유지.
+            assert step7.is_preview_dirty() is True
+        finally:
+            w.close()
+
+    def test_dirty_preview_proceed_starts_thread(
+        self, qapp, tmp_path, monkeypatch, patched_execute
+    ):
+        """dirty 상태 + 사용자 '그래도 실행' → execute thread 시작."""
+        w = _make_wizard(tmp_path)
+        try:
+            step7 = w._panels[6]
+            step8 = self._seed_step8_with_preview(w)
+            step7.mark_preview_dirty("분류 기준이 변경되었습니다.")
+
+            monkeypatch.setattr(
+                step8, "_confirm_proceed_with_dirty_preview", lambda: True
+            )
+            step8._on_execute()
+
+            assert len(_FakeExecuteThread.instances) == 1
+            assert _FakeExecuteThread.instances[0].started is True
+            # "그래도 실행" 했어도 dirty flag 는 유지 (preview 자체가 최신이 된
+            # 것은 아님).
+            assert step7.is_preview_dirty() is True
+        finally:
+            w.close()
+
+    def test_dirty_flag_remains_after_cancel(
+        self, qapp, tmp_path, monkeypatch, patched_execute
+    ):
+        w = _make_wizard(tmp_path)
+        try:
+            step7 = w._panels[6]
+            step8 = self._seed_step8_with_preview(w)
+            reason = "round-trip dirty"
+            step7.mark_preview_dirty(reason)
+            monkeypatch.setattr(
+                step8, "_confirm_proceed_with_dirty_preview", lambda: False
+            )
+            step8._on_execute()
+            assert step7.is_preview_dirty() is True
+            assert step7._preview_dirty_reason == reason
+        finally:
+            w.close()
+
+    def test_dirty_flag_remains_after_confirm(
+        self, qapp, tmp_path, monkeypatch, patched_execute
+    ):
+        w = _make_wizard(tmp_path)
+        try:
+            step7 = w._panels[6]
+            step8 = self._seed_step8_with_preview(w)
+            reason = "user proceeded anyway"
+            step7.mark_preview_dirty(reason)
+            monkeypatch.setattr(
+                step8, "_confirm_proceed_with_dirty_preview", lambda: True
+            )
+            step8._on_execute()
+            assert step7.is_preview_dirty() is True
+            assert step7._preview_dirty_reason == reason
+        finally:
+            w.close()
+
+    def test_no_step7_panel_is_failsafe(
+        self, qapp, tmp_path, monkeypatch, patched_execute
+    ):
+        """Step 7 instance 를 못 찾으면 기존 execute 동작 유지 (gate 무시)."""
+        w = _make_wizard(tmp_path)
+        try:
+            step8 = self._seed_step8_with_preview(w)
+            # _wizard._panels 에서 _Step7Preview 가 안 보이도록 panels 를 dummy 로
+            # 교체.
+            monkeypatch.setattr(w, "_panels", [])
+            step8._on_execute()
+            assert len(_FakeExecuteThread.instances) == 1, (
+                "Step 7 부재 시 fail-safe 가 작동하지 않음 — 기존 execute 가 차단됨"
+            )
+        finally:
+            w.close()
+
+    def test_find_step7_helper_returns_panel(self, wizard):
+        """_find_step7_preview helper 단위 검증 — 정상 케이스."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step8 = wizard._panels[7]
+        result = step8._find_step7_preview()
+        assert isinstance(result, _Step7Preview)
+
+    def test_find_step7_helper_returns_none_when_panels_missing(
+        self, wizard, monkeypatch
+    ):
+        step8 = wizard._panels[7]
+        monkeypatch.setattr(wizard, "_panels", [])
+        assert step8._find_step7_preview() is None
+
+    def test_confirm_helper_returns_true_when_step7_clean(
+        self, wizard, patched_execute
+    ):
+        """_confirm_proceed_with_dirty_preview 가 dirty=False 일 때 dialog 없이
+        True 반환."""
+        step7 = wizard._panels[6]
+        step8 = wizard._panels[7]
+        step7.clear_preview_dirty()
+        # clean 이므로 dialog 없이 True (QMessageBox 호출 없음).
+        assert step8._confirm_proceed_with_dirty_preview() is True
+
+    def test_confirm_helper_returns_true_when_step7_missing(
+        self, wizard, monkeypatch, patched_execute
+    ):
+        step8 = wizard._panels[7]
+        monkeypatch.setattr(wizard, "_panels", [])
+        assert step8._confirm_proceed_with_dirty_preview() is True
