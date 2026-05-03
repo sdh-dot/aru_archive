@@ -226,3 +226,61 @@ class TestStep7PreviewTable:
         assert step7._preview_table.item(0, 2).text() == "분류됨"
         assert step7._preview_table.item(1, 2).text() == "제외"
         assert "would_skip" in step7._preview_table.item(1, 4).text()
+
+
+# ---------------------------------------------------------------------------
+# Step 1 — 작업 범위 안내 문구
+# ---------------------------------------------------------------------------
+
+class TestStep1ScopeNotice:
+    """Step 1 상단의 작업 범위 안내 라벨이 존재하고 사용자에게 정확한 의미를
+    전달하는지 lock. UI 텍스트만 변경 — wizard 의 실제 작업 로직과 분리된다."""
+
+    def test_step1_has_scope_notice_label(self, wizard):
+        from app.views.workflow_wizard_view import _Step1Root
+        step1 = wizard._panels[0]
+        assert isinstance(step1, _Step1Root)
+        assert hasattr(step1, "_scope_notice"), (
+            "Step 1 에 _scope_notice QLabel 이 추가되지 않음"
+        )
+        from PyQt6.QtWidgets import QLabel
+        assert isinstance(step1._scope_notice, QLabel)
+
+    def test_scope_notice_text_contains_keyword(self, wizard):
+        step1 = wizard._panels[0]
+        text = step1._scope_notice.text()
+        assert "작업 범위" in text, (
+            f"안내 문구에 '작업 범위' 표기 누락: {text!r}"
+        )
+
+    def test_scope_notice_mentions_pixiv_and_metadata(self, wizard):
+        step1 = wizard._panels[0]
+        text = step1._scope_notice.text()
+        assert "Pixiv" in text, "Pixiv 언급 누락"
+        assert "메타데이터" in text, "메타데이터 언급 누락"
+
+    def test_scope_notice_avoids_absolute_pixiv_only_phrasing(self, wizard):
+        """단정적인 'Pixiv 파일만' 표현은 피한다 (XMP 입력 / 분류 등은 비-Pixiv
+        파일도 대상이므로 사용자 오해 유발)."""
+        step1 = wizard._panels[0]
+        text = step1._scope_notice.text()
+        assert "Pixiv 파일만" not in text, (
+            f"단정적인 'Pixiv 파일만' 표현 사용됨: {text!r}"
+        )
+
+    def test_scope_notice_word_wraps(self, wizard):
+        step1 = wizard._panels[0]
+        assert step1._scope_notice.wordWrap() is True
+
+    def test_step1_existing_widgets_preserved(self, wizard):
+        """기존 status_table 과 폴더 설정 버튼이 그대로 남아 있다 (UI 회귀 가드)."""
+        step1 = wizard._panels[0]
+        assert hasattr(step1, "_status_table")
+        from PyQt6.QtWidgets import QPushButton, QTableWidget
+        assert isinstance(step1._status_table, QTableWidget)
+        # 「📁 작업 폴더 설정」 버튼이 child 로 살아 있다.
+        buttons = [
+            b for b in step1.findChildren(QPushButton)
+            if "작업 폴더 설정" in b.text()
+        ]
+        assert buttons, "'작업 폴더 설정' 버튼이 사라짐"

@@ -866,6 +866,20 @@ class _Step1Root(_StepPanel):
         layout.addWidget(_label("작업 폴더 설정", bold=True))
         layout.addWidget(_h_sep())
 
+        # Wizard 작업 범위 안내 — 사용자가 Pixiv 메타데이터 기반 처리 / 메타데이터
+        # 상태에 따른 대상 제한 정책을 사전에 인지하도록 subdued 스타일로 표시.
+        # UI-only — wizard 의 실제 분류 / metadata 로직은 변경 없음.
+        self._scope_notice = QLabel(
+            "작업 범위: Pixiv 메타데이터 기반 이미지 처리\n"
+            "메타데이터 상태에 따라 일부 파일은 제외될 수 있습니다."
+        )
+        self._scope_notice.setObjectName("step1ScopeNotice")
+        self._scope_notice.setWordWrap(True)
+        self._scope_notice.setStyleSheet(
+            "color: #8F8890; font-size: 11px; padding: 4px 0px;"
+        )
+        layout.addWidget(self._scope_notice)
+
         guide = QLabel(
             "선택한 폴더는 분류 대상 폴더로 그대로 사용됩니다.\n"
             "같은 위치에 Classified / Managed 폴더가 자동 생성됩니다.\n"
