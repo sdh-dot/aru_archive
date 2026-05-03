@@ -27,6 +27,9 @@ __all__ = [
     "ClassifiedOutputConsistencySummary",
     "ClassifiedOutputConsistencyReport",
     "build_classified_output_consistency_report",
+    "classified_output_report_to_rows",
+    "export_classified_output_report_csv",
+    "export_classified_output_report_json",
 ]
 
 
@@ -292,3 +295,139 @@ def build_classified_output_consistency_report(
         missing_expected_count=missing_expected_count,
     )
     return ClassifiedOutputConsistencyReport(summary=summary, items=tuple(items))
+
+
+# ---------------------------------------------------------------------------
+# export helpers — write a report to disk as CSV / JSON. Pure I/O on the
+# user-chosen target file. No DB access, no classified output read/modify,
+# no undo/copy_records touch.
+# ---------------------------------------------------------------------------
+
+import csv as _csv
+import json as _json
+
+
+_REPORT_ROW_FIELDS: tuple[str, ...] = (
+    "status",
+    "group_id",
+    "artwork_id",
+    "title",
+    "source_path",
+    "current_destination_count",
+    "existing_classified_copy_count",
+    "legacy_extra_count",
+    "missing_expected_count",
+    "current_destinations",
+    "existing_classified_copies",
+    "legacy_extra_paths",
+    "missing_expected_paths",
+    "notes",
+)
+
+# CSV uses a newline character to separate path entries inside a single cell.
+# JSON keeps the original list form.
+_CSV_LIST_SEP: str = "\n"
+
+
+def classified_output_report_to_rows(
+    report: ClassifiedOutputConsistencyReport,
+) -> list[dict]:
+    """report.items 를 export-친화적인 dict 리스트로 펼친다.
+
+    JSON 직렬화 시에는 list 가 그대로 유지되고, CSV 직렬화 시에는
+    ``_CSV_LIST_SEP`` 으로 join 한 단일 문자열로 변환된다 (caller 책임).
+
+    summary 는 별도 dict 로 export 함수가 직접 첨부한다.
+    """
+    out: list[dict] = []
+    for it in report.items:
+        out.append({
+            "status": it.status,
+            "group_id": it.group_id,
+            "artwork_id": it.artwork_id or "",
+            "title": it.title or "",
+            "source_path": it.source_path or "",
+            "current_destination_count": len(it.current_destinations),
+            "existing_classified_copy_count": len(it.existing_classified_copies),
+            "legacy_extra_count": len(it.legacy_extra_paths),
+            "missing_expected_count": len(it.missing_expected_paths),
+            "current_destinations": list(it.current_destinations),
+            "existing_classified_copies": list(it.existing_classified_copies),
+            "legacy_extra_paths": list(it.legacy_extra_paths),
+            "missing_expected_paths": list(it.missing_expected_paths),
+            "notes": list(it.notes),
+        })
+    return out
+
+
+def _summary_to_dict(s: ClassifiedOutputConsistencySummary) -> dict:
+    return {
+        "groups_scanned": s.groups_scanned,
+        "groups_consistent": s.groups_consistent,
+        "groups_with_legacy_extra": s.groups_with_legacy_extra,
+        "groups_with_missing_expected": s.groups_with_missing_expected,
+        "groups_unverifiable": s.groups_unverifiable,
+        "legacy_file_count": s.legacy_file_count,
+        "missing_expected_count": s.missing_expected_count,
+    }
+
+
+def export_classified_output_report_csv(
+    report: ClassifiedOutputConsistencyReport,
+    path,
+) -> None:
+    """report 를 UTF-8 BOM CSV (Excel 한글 호환) 로 내보낸다.
+
+    list 컬럼 (current_destinations 등) 은 ``_CSV_LIST_SEP`` 줄바꿈으로
+    join 한 단일 문자열로 직렬화된다. summary 는 ``# `` prefix 의 주석
+    헤더 행으로 파일 맨 위에 첨부된다.
+
+    파일은 caller 가 지정한 경로에만 쓴다. DB 나 classified output 폴더
+    에는 어떤 영향도 없다.
+    """
+    rows = classified_output_report_to_rows(report)
+    summary = _summary_to_dict(report.summary)
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    # Excel 한글 인식: utf-8-sig (BOM). newline="" 은 csv 권장.
+    with target.open("w", encoding="utf-8-sig", newline="") as f:
+        # 요약 헤더 — 주석 행. CSV 표준에 # 주석은 없지만 사람이 한눈에
+        # 보고 grep / sed 로 제거하기 쉬운 prefix 를 사용한다.
+        for k, v in summary.items():
+            f.write(f"# {k}: {v}\n")
+        f.write("# fields: " + ",".join(_REPORT_ROW_FIELDS) + "\n")
+
+        writer = _csv.DictWriter(f, fieldnames=list(_REPORT_ROW_FIELDS))
+        writer.writeheader()
+        for row in rows:
+            flat = dict(row)
+            for key in (
+                "current_destinations",
+                "existing_classified_copies",
+                "legacy_extra_paths",
+                "missing_expected_paths",
+                "notes",
+            ):
+                value = flat.get(key) or []
+                flat[key] = _CSV_LIST_SEP.join(str(x) for x in value)
+            writer.writerow(flat)
+
+
+def export_classified_output_report_json(
+    report: ClassifiedOutputConsistencyReport,
+    path,
+) -> None:
+    """report 를 UTF-8 (ensure_ascii=False) JSON 으로 내보낸다.
+
+    구조: ``{"summary": {...}, "items": [{...}, ...]}``.
+    list 형태의 path 컬럼은 그대로 list 로 보존된다.
+    """
+    payload = {
+        "summary": _summary_to_dict(report.summary),
+        "items": classified_output_report_to_rows(report),
+    }
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("w", encoding="utf-8", newline="") as f:
+        _json.dump(payload, f, ensure_ascii=False, indent=2)
