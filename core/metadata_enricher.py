@@ -175,7 +175,8 @@ def enrich_file_from_pixiv(
     try:
         write_aru_metadata(file_path, meta.to_dict(), file_format)
         sync_status: Optional[str] = "json_only"
-        logger.info("메타데이터 기록 완료: %s → %s", _file_basename, sync_status)
+        # 중간 단계 로그 — 최종 sync_status는 5-b 이후에 결정된다.
+        logger.info("JSON 메타데이터 기록 완료: %s", _file_basename)
     except Exception as exc:
         logger.error("메타데이터 쓰기 실패: %s → %s", _file_basename, exc)
         _set_sync_status(conn, group_id, "metadata_write_failed")
@@ -197,6 +198,11 @@ def enrich_file_from_pixiv(
             logger.warning("XMP 기록 실패: %s → %s", _file_basename, exc)
             sync_status = "xmp_write_failed"
     _mark("write_xmp")
+
+    # 최종 sync_status 로그 — JSON 기록과 XMP 기록 시도가 모두 끝난 시점에서만
+    # 의미가 있다. 사용자가 "기록 완료 → json_only"를 보고 곧이어 전환되는
+    # full / xmp_write_failed를 놓치지 않도록 한 줄로 명확히 표시한다.
+    logger.info("메타데이터 기록 완료: %s → %s", _file_basename, sync_status)
 
     # 6. DB 갱신
     now = datetime.now(timezone.utc).isoformat()

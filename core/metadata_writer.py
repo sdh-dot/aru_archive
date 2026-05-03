@@ -197,21 +197,31 @@ def _write_windows_exif_fields_best_effort(
     file_path: str,
     metadata: dict,
     exiftool_path: Optional[str],
-) -> None:
+) -> str:
     """
     Prefer ExifTool for Explorer-facing XP fields and fall back to direct write.
 
     Explorer compatibility is better when XP fields are written by ExifTool.
     The direct piexif path is kept as a fallback for environments where
     ExifTool is unavailable after XMP was already written.
+
+    Returns
+    -------
+    "primary"  — ExifTool path 성공
+    "fallback" — ExifTool 실패(또는 미설정) 후 piexif direct write 성공
+
+    Raises
+    ------
+    XmpWriteError — primary와 fallback이 모두 실패
     """
     if exiftool_path:
         try:
             if write_windows_exif_fields(file_path, metadata, exiftool_path=exiftool_path):
-                return
+                return "primary"
         except XmpWriteError as exc:
             logger.warning("ExifTool XP field write failed, falling back to direct EXIF write: %s", exc)
     _write_windows_exif_fields_direct(file_path, metadata)
+    return "fallback"
 
 
 def write_aru_metadata(file_path: str, metadata: dict, file_format: str) -> None:
@@ -520,14 +530,21 @@ def write_xmp_metadata_with_exiftool(
                 f"ExifTool 실패 (returncode={result.returncode}): "
                 f"{stderr.strip() or stdout.strip()}"
             )
+        xp_path_used: Optional[str] = None
         if effective_include_xp and Path(file_path).exists():
-            _write_windows_exif_fields_best_effort(
+            xp_path_used = _write_windows_exif_fields_best_effort(
                 file_path,
                 metadata,
                 exiftool_path,
             )
-        logger.info("XMP%s 기록 완료: %s",
-                    "+XP" if effective_include_xp else "", file_path)
+        if not effective_include_xp:
+            logger.info("XMP 기록 완료: %s", file_path)
+        elif xp_path_used == "fallback":
+            logger.info(
+                "XMP+XP 기록 완료 (XP는 fallback 경로 사용): %s", file_path
+            )
+        else:
+            logger.info("XMP+XP 기록 완료: %s", file_path)
         _success = True
         return True
     except subprocess.TimeoutExpired:
