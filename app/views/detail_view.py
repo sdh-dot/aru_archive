@@ -19,17 +19,21 @@ from PyQt6.QtWidgets import (
 )
 
 from app.ui_action_text import (
-    EXPLORER_META_REPAIR_LABEL,
-    EXPLORER_META_REPAIR_TOOLTIP,
+    EXPLORER_META_REPAIR_LABEL,  # noqa: F401 — backwards-compat re-export
+    EXPLORER_META_REPAIR_TOOLTIP,  # noqa: F401
     PIXIV_META_LABEL,
     PIXIV_META_TOOLTIP,
     PIXIV_META_TOOLTIP_MISSING,
-    READ_EMBEDDED_META_LABEL,
-    READ_EMBEDDED_META_TOOLTIP,
-    REINDEX_LABEL,
-    REINDEX_TOOLTIP,
-    XMP_RETRY_LABEL,
-    XMP_RETRY_TOOLTIP,
+    READ_EMBEDDED_META_LABEL,  # noqa: F401 — backwards-compat re-export
+    READ_EMBEDDED_META_TOOLTIP,  # noqa: F401
+    RE_REGISTER_META_LABEL,
+    RE_REGISTER_META_TOOLTIP,
+    REINDEX_LABEL,  # noqa: F401 — backwards-compat re-export
+    REINDEX_TOOLTIP,  # noqa: F401
+    RESCAN_LABEL,
+    RESCAN_TOOLTIP,
+    XMP_RETRY_LABEL,  # noqa: F401 — backwards-compat re-export
+    XMP_RETRY_TOOLTIP,  # noqa: F401
 )
 from core.filename_parser import parse_pixiv_filename
 
@@ -154,6 +158,8 @@ class DetailView(QWidget):
             ("group_id",             "Group ID"),
             ("source_site",          "Source"),
             ("artwork_id",           "Artwork ID"),
+            # 생성 URL 은 source/artwork_id 로부터 표시 시점에 계산 (DB 컬럼 없음).
+            ("source_url",           "생성 URL"),
             ("artwork_title",        "Title"),
             ("artist_name",          "Artist"),
             ("metadata_sync_status", "Status"),
@@ -212,102 +218,56 @@ class DetailView(QWidget):
         action_vl = QVBoxLayout(action_box)
         action_vl.setSpacing(4)
 
-        self._btn_read_meta   = _btn(
-            READ_EMBEDDED_META_LABEL,
-            READ_EMBEDDED_META_TOOLTIP
-        )
+        # PR #119 정리:
+        #   - "파일 내 메타데이터 읽기" / "BMP → PNG managed" /
+        #     "GIF → WebP managed" / "Sidecar 생성" / "Pixiv 보강 Delete" 버튼
+        #     은 release 사용자 흐름에서 노출하지 않으므로 detail panel 에서
+        #     제거. 연결된 Signal 객체와 외부 caller 의 connect 는 그대로 둔다
+        #     (gallery context menu 등 다른 진입점에서 emit 가능).
+        #   - "🔄 XMP 재처리" 와 "🛠 Explorer 메타 복구" 는 사실상 동일 (PR #116
+        #     이 두 경로 모두 같은 clear-first writer 를 통일). 단일
+        #     "🔄 메타데이터 재등록" 버튼으로 통합하고 기존 xmp_retry_requested
+        #     signal 을 그대로 emit 한다 (handler 무변경).
         self._btn_pixiv_meta  = _btn(
             PIXIV_META_LABEL,
-            PIXIV_META_TOOLTIP
+            PIXIV_META_TOOLTIP,
         )
         self._btn_regen_thumb = _btn(
-            "썸네일 재생성",
-            "thumbnail_cache 재생성"
+            "🖼 썸네일 재생성",
+            "선택한 파일의 썸네일을 다시 생성합니다.",
         )
-        self._btn_bmp         = _btn(
-            "BMP → PNG managed",
-            "BMP original에서 PNG managed 생성"
-        )
-        self._btn_gif         = _btn(
-            "GIF → WebP managed",
-            "animated GIF에서 WebP managed 생성"
-        )
-        self._btn_sidecar     = _btn(
-            "Sidecar 생성",
-            "static GIF / ZIP용 .aru.json 생성"
+        self._btn_re_register_meta = _btn(
+            RE_REGISTER_META_LABEL,
+            RE_REGISTER_META_TOOLTIP,
         )
         self._btn_reindex     = _btn(
-            REINDEX_LABEL,
-            REINDEX_TOOLTIP
-        )
-        self._btn_xmp_retry   = _btn(
-            XMP_RETRY_LABEL,
-            XMP_RETRY_TOOLTIP
-        )
-
-        self._btn_explorer_meta = _btn(
-            EXPLORER_META_REPAIR_LABEL,
-            EXPLORER_META_REPAIR_TOOLTIP
+            RESCAN_LABEL,
+            RESCAN_TOOLTIP,
         )
 
         for b in [
-            self._btn_read_meta, self._btn_pixiv_meta,
-            self._btn_regen_thumb, self._btn_bmp,
-            self._btn_gif, self._btn_sidecar,
-            self._btn_xmp_retry, self._btn_explorer_meta, self._btn_reindex,
+            self._btn_pixiv_meta,
+            self._btn_regen_thumb,
+            self._btn_re_register_meta,
+            self._btn_reindex,
         ]:
             action_vl.addWidget(b)
 
-        self._btn_read_meta  .clicked.connect(
-            lambda: self._emit_if_selected(self.read_meta_requested)
-        )
         self._btn_pixiv_meta .clicked.connect(
             lambda: self._emit_if_selected(self.pixiv_meta_requested)
         )
         self._btn_regen_thumb.clicked.connect(
             lambda: self._emit_if_selected(self.regen_thumb_requested)
         )
-        self._btn_bmp        .clicked.connect(
-            lambda: self._emit_if_selected(self.bmp_convert_requested)
-        )
-        self._btn_gif        .clicked.connect(
-            lambda: self._emit_if_selected(self.gif_convert_requested)
-        )
-        self._btn_sidecar    .clicked.connect(
-            lambda: self._emit_if_selected(self.sidecar_requested)
-        )
-        self._btn_xmp_retry  .clicked.connect(
+        # 통합 버튼 — 기존 XMP retry handler 를 그대로 사용. PR #116/#117 의
+        # write_xmp_metadata_with_exiftool(clear_windows_xp_fields_before_write=True)
+        # 경로가 발화된다.
+        self._btn_re_register_meta.clicked.connect(
             lambda: self._emit_if_selected(self.xmp_retry_requested)
-        )
-        self._btn_explorer_meta.clicked.connect(
-            self.explorer_meta_repair_requested.emit
         )
         self._btn_reindex    .clicked.connect(self.reindex_requested.emit)
 
         layout.addWidget(action_box)
-
-        # Pixiv 보강 결과 (초기에는 숨김 — show_pixiv_result() 호출 시 표시)
-        self._pixiv_box = QGroupBox("Pixiv 보강")
-        pixiv_form = QFormLayout(self._pixiv_box)
-        pixiv_form.setSpacing(4)
-        pixiv_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-
-        self._lbl_pixiv_id     = _info_lbl()
-        self._lbl_pixiv_url    = _info_lbl()
-        self._lbl_pixiv_url.setOpenExternalLinks(True)
-        self._lbl_pixiv_status = _info_lbl()
-
-        for key, lbl in [
-            ("추출된 ID",  self._lbl_pixiv_id),
-            ("생성 URL",   self._lbl_pixiv_url),
-            ("상태",       self._lbl_pixiv_status),
-        ]:
-            row_lbl = QLabel(f"{key}:")
-            row_lbl.setStyleSheet("font-size: 11px; color: #D8AEBB;")
-            pixiv_form.addRow(row_lbl, lbl)
-
-        self._pixiv_box.hide()
-        layout.addWidget(self._pixiv_box)
         layout.addStretch()
 
         scroll.setWidget(inner)
@@ -339,27 +299,19 @@ class DetailView(QWidget):
             lbl.setToolTip("")
         self._tags_edit.clear()
         for b in [
-            self._btn_read_meta, self._btn_pixiv_meta, self._btn_regen_thumb,
-            self._btn_bmp, self._btn_gif, self._btn_sidecar,
-            self._btn_xmp_retry, self._btn_explorer_meta, self._btn_reindex,
+            self._btn_pixiv_meta, self._btn_regen_thumb,
+            self._btn_re_register_meta, self._btn_reindex,
         ]:
             b.setEnabled(False)
-        self._pixiv_box.hide()
-        for lbl in [self._lbl_pixiv_id, self._lbl_pixiv_url, self._lbl_pixiv_status]:
-            lbl.setText("—")
 
-    def show_pixiv_result(self, artwork_id: str, url: str) -> None:
-        """Pixiv 파일명 추출 결과를 Pixiv 보강 섹션에 표시한다."""
-        self._lbl_pixiv_id.setText(artwork_id)
-        self._lbl_pixiv_url.setTextFormat(Qt.TextFormat.RichText)
-        self._lbl_pixiv_url.setText(
-            f'<a href="{url}" style="color:#D8AEBB;">{url}</a>'
-        )
-        self._lbl_pixiv_status.setText("Fetcher 미구현 — URL 생성만 완료")
-        self._lbl_pixiv_status.setStyleSheet(
-            "font-size: 11px; color: #FFC857;"
-        )
-        self._pixiv_box.show()
+    def show_pixiv_result(self, artwork_id: str, url: str) -> None:  # noqa: ARG002
+        """레거시 호환 stub — PR #119 에서 별도 'Pixiv 보강' 섹션을 제거.
+
+        artwork_id / url 정보는 기본 정보 영역의 'Source' / 'Artwork ID' /
+        '생성 URL' row 가 자동으로 표시한다 (set_group / show_group 흐름).
+        본 메서드는 외부 caller (MainWindow._on_pixiv_meta) 호환을 위해
+        남겨두지만 추가 UI 출력은 하지 않는다.
+        """
 
     # ------------------------------------------------------------------
     # 내부: show_group 분리 메서드
@@ -367,6 +319,8 @@ class DetailView(QWidget):
 
     def _update_info_section(self, group: dict) -> None:
         sync = group.get("metadata_sync_status", "pending")
+        source = (group.get("source_site") or "").strip()
+        artwork_id = (group.get("artwork_id") or "").strip()
         for key, lbl in self._info.items():
             if key == "metadata_sync_status":
                 display = _STATUS_DISPLAY.get(sync, sync)
@@ -375,6 +329,14 @@ class DetailView(QWidget):
                 lbl.setStyleSheet(
                     f"font-size: 11px; color: {color}; font-weight: bold;"
                 )
+            elif key == "source_url":
+                # 표시 시점에 계산 (DB 컬럼 없음 — schema 무수정).
+                if source == "pixiv" and artwork_id:
+                    url = f"https://www.pixiv.net/artworks/{artwork_id}"
+                else:
+                    url = "—"
+                lbl.setText(url)
+                lbl.setStyleSheet(_STYLE_VAL_LBL)
             else:
                 lbl.setText(str(group.get(key) or "—")[:80])
                 lbl.setStyleSheet(_STYLE_VAL_LBL)
@@ -415,51 +377,16 @@ class DetailView(QWidget):
         self._tags_edit.setPlainText(", ".join(tags) if tags else "(없음)")
 
     def _update_button_states(self, files: list[dict]) -> None:
-        fmts  = {f.get("file_format", "") for f in files}
-        roles = {f.get("file_role", "") for f in files}
-        has_bmp     = "bmp" in fmts
-        has_gif     = "gif" in fmts
-        has_zip     = "zip" in fmts
-        has_managed = "managed" in roles
+        # PR #119: BMP / GIF / Sidecar / Read meta / XMP retry / Explorer 메타
+        # 복구 버튼은 detail panel 에서 제거됐으므로 여기서 enable 처리하지
+        # 않는다. 남은 4개 버튼만 정책에 맞게 활성화한다.
 
-        # 항상 활성 (그룹 선택 시)
-        self._btn_read_meta  .setEnabled(True)
+        # 항상 활성 (그룹 선택 시) — 썸네일 재생성 / 메타데이터 재등록 / 재스캔
         self._btn_regen_thumb.setEnabled(True)
-        self._btn_reindex    .setEnabled(True)
-        self._btn_explorer_meta.setEnabled(True)
+        self._btn_re_register_meta.setEnabled(True)
+        self._btn_reindex.setEnabled(True)
 
-        # BMP → PNG
-        bmp_ok = has_bmp and not has_managed
-        self._btn_bmp.setEnabled(bmp_ok)
-        if bmp_ok:
-            bmp_tip = "BMP original에서 PNG managed 생성"
-        elif not has_bmp:
-            bmp_tip = "BMP original이 없습니다"
-        else:
-            bmp_tip = "이미 managed 파일이 존재합니다"
-        self._btn_bmp.setToolTip(bmp_tip)
-
-        # GIF → WebP
-        gif_ok = has_gif and not has_managed
-        self._btn_gif.setEnabled(gif_ok)
-        if gif_ok:
-            gif_tip = "animated GIF에서 WebP managed 생성"
-        elif not has_gif:
-            gif_tip = "animated GIF original이 없습니다"
-        else:
-            gif_tip = "이미 managed 파일이 존재합니다"
-        self._btn_gif.setToolTip(gif_tip)
-
-        # Sidecar
-        sidecar_ok = has_gif or has_zip
-        self._btn_sidecar.setEnabled(sidecar_ok)
-        self._btn_sidecar.setToolTip(
-            "static GIF / ZIP용 .aru.json 생성"
-            if sidecar_ok
-            else "static GIF 또는 ZIP 파일이 선택되어야 합니다"
-        )
-
-        # Pixiv 메타데이터 가져오기
+        # Pixiv 메타데이터 가져오기 — Pixiv 파일명 패턴이 있을 때만 활성.
         has_pixiv = any(
             f.get("file_role") == "original" and
             parse_pixiv_filename(f.get("file_path", "")) is not None
@@ -470,10 +397,6 @@ class DetailView(QWidget):
             self._btn_pixiv_meta.setToolTip(PIXIV_META_TOOLTIP_MISSING)
         else:
             self._btn_pixiv_meta.setToolTip(PIXIV_META_TOOLTIP)
-
-        # XMP 재시도 — json_only / xmp_write_failed 상태에서 활성
-        # (실제 ExifTool 가용 여부는 MainWindow에서 체크)
-        self._btn_xmp_retry.setEnabled(True)
 
     # ------------------------------------------------------------------
 

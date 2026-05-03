@@ -430,54 +430,54 @@ def test_detail_show_group(qt_app):
     )
 
 
-def test_detail_bmp_buttons(qt_app):
-    """DetailView — BMP 파일 시 BMP 변환 버튼 활성, GIF 버튼 비활성."""
+def test_detail_legacy_format_conversion_buttons_removed(qt_app):
+    """PR #119: BMP / GIF / Sidecar / Read meta 등 legacy 변환 버튼은 detail
+    panel 에서 제거됐다. attribute 자체가 사라졌어야 한다 (UI noise 제거)."""
     from app.views.detail_view import DetailView
     v = DetailView()
+    for attr in (
+        "_btn_bmp", "_btn_gif", "_btn_sidecar",
+        "_btn_read_meta", "_btn_xmp_retry", "_btn_explorer_meta",
+    ):
+        assert not hasattr(v, attr), (
+            f"DetailView 가 여전히 {attr} 를 노출함 — PR #119 정리 누락"
+        )
+
+
+def test_detail_re_register_meta_button_present_and_uses_xmp_retry_signal(qt_app):
+    """통합된 '메타데이터 재등록' 버튼이 존재하고 xmp_retry_requested 를 emit."""
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    assert hasattr(v, "_btn_re_register_meta")
+    text = v._btn_re_register_meta.text()
+    assert "메타데이터 재등록" in text
+    # Pixiv 파일명 fixture 로 group set → 버튼 활성 + signal emit 확인.
+    received: list[str] = []
+    v.xmp_retry_requested.connect(received.append)
     v.show_group(
-        {"group_id": "g1", "metadata_sync_status": "pending"},
-        [{"file_role": "original", "file_path": "/f.bmp", "file_format": "bmp"}],
+        {"group_id": "g-rr", "metadata_sync_status": "json_only"},
+        [{
+            "file_role": "original",
+            "file_path": "/downloads/141100516_p0.jpg",
+            "file_format": "jpg",
+        }],
     )
-    assert v._btn_bmp.isEnabled()
-    assert not v._btn_gif.isEnabled()
+    v._btn_re_register_meta.click()
+    assert received == ["g-rr"], (
+        "메타데이터 재등록 버튼이 xmp_retry_requested 를 emit 하지 않음"
+    )
 
 
-def test_detail_gif_buttons(qt_app):
-    """DetailView — GIF 파일 시 GIF 버튼 활성, BMP 버튼 비활성."""
+def test_detail_rescan_button_label_clarified(qt_app):
+    """DB 재색인 버튼 label 이 'DB/파일 상태 재스캔' 의미로 명확화 됐다."""
     from app.views.detail_view import DetailView
     v = DetailView()
-    v.show_group(
-        {"group_id": "g1", "metadata_sync_status": "pending"},
-        [{"file_role": "original", "file_path": "/f.gif", "file_format": "gif"}],
-    )
-    assert not v._btn_bmp.isEnabled()
-    assert v._btn_gif.isEnabled()
-
-
-def test_detail_read_meta_button_label(qt_app):
-    """DetailView — '파일 내 메타데이터 읽기' 버튼 이름 확인."""
-    from app.views.detail_view import DetailView
-    v = DetailView()
-    assert v._btn_read_meta.text() == "파일 내 메타데이터 읽기"
-
-
-def test_detail_pixiv_meta_signal_exists(qt_app):
-    """DetailView — pixiv_meta_requested 시그널 존재 확인."""
-    from app.views.detail_view import DetailView
-    v = DetailView()
-    received = []
-    v.pixiv_meta_requested.connect(received.append)
-    # Pixiv 파일명 패턴 파일이 없으면 버튼 비활성 — 시그널은 emit되지 않아야 함
-    v.show_group(
-        {"group_id": "g1", "metadata_sync_status": "pending"},
-        [{"file_role": "original", "file_path": "/f.jpg", "file_format": "jpg"}],
-    )
-    assert not v._btn_pixiv_meta.isEnabled()
-    assert received == []
+    label = v._btn_reindex.text()
+    assert "재스캔" in label, f"unexpected label: {label!r}"
 
 
 def test_detail_pixiv_meta_button_enabled_for_pixiv_filename(qt_app):
-    """DetailView — Pixiv 파일명 패턴일 때 Pixiv 버튼 활성."""
+    """DetailView — Pixiv 파일명 패턴일 때 Pixiv 버튼 활성 (기존 동작 유지)."""
     from app.views.detail_view import DetailView
     v = DetailView()
     v.show_group(
@@ -493,23 +493,132 @@ def test_detail_pixiv_meta_button_enabled_for_pixiv_filename(qt_app):
     assert v._btn_pixiv_meta.isEnabled()
 
 
-def test_detail_show_pixiv_result(qt_app):
-    """DetailView.show_pixiv_result() 호출 시 Pixiv 보강 섹션이 표시된다."""
+def test_detail_show_pixiv_result_is_compat_noop(qt_app):
+    """show_pixiv_result() 는 PR #119 에서 backwards-compat stub 으로 남았다.
+
+    별도 'Pixiv 보강' 섹션은 제거됐으므로 호출해도 예외가 나지 않으면 충분.
+    artwork_id / URL 정보는 기본 정보 영역의 'Source' / 'Artwork ID' / '생성 URL'
+    row 가 set_group/show_group 흐름에서 자동으로 표시한다.
+    """
     from app.views.detail_view import DetailView
     v = DetailView()
     v.show_pixiv_result("141100516", "https://www.pixiv.net/artworks/141100516")
-    assert not v._pixiv_box.isHidden()
-    assert v._lbl_pixiv_id.text() == "141100516"
-    assert "141100516" in v._lbl_pixiv_url.text()
+    assert not hasattr(v, "_pixiv_box")
 
 
-def test_detail_clear_hides_pixiv_section(qt_app):
-    """DetailView.clear() 시 Pixiv 보강 섹션이 숨겨진다."""
+def test_detail_info_section_renders_pixiv_source_url(qt_app):
+    """기본 정보 영역에 source=pixiv + artwork_id 가 있으면 생성 URL 표시."""
     from app.views.detail_view import DetailView
     v = DetailView()
-    v.show_pixiv_result("999", "https://www.pixiv.net/artworks/999")
-    v.clear()
-    assert v._pixiv_box.isHidden()
+    v.show_group(
+        {
+            "group_id": "g-pix",
+            "source_site": "pixiv",
+            "artwork_id": "141100516",
+            "artwork_title": "테스트 작품",
+            "metadata_sync_status": "json_only",
+        },
+        [{
+            "file_role": "original",
+            "file_path": "/downloads/141100516_p0.jpg",
+            "file_format": "jpg",
+        }],
+    )
+    url_lbl = v._info["source_url"]
+    assert url_lbl.text() == "https://www.pixiv.net/artworks/141100516"
+
+
+def test_detail_info_section_renders_dash_when_no_pixiv_source(qt_app):
+    """source 가 pixiv 가 아니면 생성 URL = —."""
+    from app.views.detail_view import DetailView
+    v = DetailView()
+    v.show_group(
+        {
+            "group_id": "g-local",
+            "source_site": "local",
+            "artwork_id": "abc",
+            "metadata_sync_status": "json_only",
+        },
+        [{"file_role": "original", "file_path": "/f.jpg", "file_format": "jpg"}],
+    )
+    assert v._info["source_url"].text() == "—"
+
+
+# ---------------------------------------------------------------------------
+# Gallery card 단순화 (PR #119)
+# ---------------------------------------------------------------------------
+
+class TestGalleryCardSimplified:
+    """Explorer gallery card 는 제목, 파일 형식 라벨, 상태 아이콘만 표시.
+
+    raw status text (Full / JSON / NoMeta / source_unavailable / xmp_write_failed
+    등) 와 file role text (original / classified_copy / managed) 는 노출 금지.
+    상세 정보는 우측 detail panel + tooltip 에서만 확인.
+    """
+
+    @staticmethod
+    def _build_card(status: str, role_summary: str = "") -> tuple[str, str]:
+        from app.views.gallery_view import GalleryView
+        gv = GalleryView()
+        try:
+            item = gv._make_item({
+                "group_id": "g-test",
+                "artwork_title": "샘플 작품",
+                "file_format": "jpg",
+                "metadata_sync_status": status,
+                "role_summary": role_summary,
+                "thumb_path": None,
+            })
+            return item.text(), item.toolTip()
+        finally:
+            gv.deleteLater()
+
+    def test_card_text_does_not_contain_raw_status_words(self, qt_app):
+        for status in (
+            "full", "json_only", "metadata_missing",
+            "xmp_write_failed", "source_unavailable",
+        ):
+            text, _ = self._build_card(status, role_summary="original, classified_copy")
+            for forbidden in (
+                "Full", "JSON", "NoMeta",
+                "source_unavailable", "metadata_missing",
+                "xmp_write_failed", "metadata_write_failed", "json_only",
+                "Source Unavailable", "XMP",
+            ):
+                assert forbidden not in text, (
+                    f"raw status token {forbidden!r} 가 card body 에 노출됨 "
+                    f"(status={status!r}, body={text!r})"
+                )
+
+    def test_card_text_does_not_contain_file_role_words(self, qt_app):
+        text, _ = self._build_card("full", role_summary="original, classified_copy, managed")
+        for forbidden in ("original", "classified_copy", "managed", "sidecar"):
+            assert forbidden not in text, (
+                f"file role token {forbidden!r} 가 card body 에 노출됨: {text!r}"
+            )
+
+    def test_card_keeps_format_label_and_status_icon(self, qt_app):
+        text, _ = self._build_card("full")
+        assert "[JPG]" in text
+        # 상태 아이콘은 유지 — 'full' 에 해당하는 ✅ 가 들어 있어야 한다.
+        assert "✅" in text
+
+    def test_card_keeps_title(self, qt_app):
+        text, _ = self._build_card("full")
+        assert "샘플 작품" in text
+
+    def test_card_tooltip_still_carries_status_and_role_summary(self, qt_app):
+        text, tip = self._build_card("xmp_write_failed", role_summary="original")
+        # 본문엔 raw word 없지만 tooltip 에는 풀 라벨이 살아 있어야 한다.
+        assert "XMP" in tip or "Write Failed" in tip
+        assert "original" in tip
+        # body 와 분리되어 있다는 점도 같이 검증.
+        assert "original" not in text
+
+    def test_card_unknown_status_does_not_inject_raw_code(self, qt_app):
+        """알 수 없는 status code 는 card body 에 raw 로 노출되지 않는다."""
+        text, _ = self._build_card("brand_new_unknown_code")
+        assert "brand_new_unknown_code" not in text
 
 
 # ---------------------------------------------------------------------------
