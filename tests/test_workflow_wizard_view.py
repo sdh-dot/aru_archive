@@ -221,7 +221,14 @@ class TestStep7PreviewTable:
         step7._show_preview_summary(preview)
 
         assert step7._preview_table.rowCount() == 2
-        assert step7._preview_table.item(0, 0).text() == "sample.jpg"
+        # col 0: 파일명 — 두 row 모두 sample.jpg 가 prefix 로 포함되며, 본 fixture
+        # 는 destinations 2개 multi-destination 이므로 ' · 대상 i/2' suffix 동반.
+        cell0 = step7._preview_table.item(0, 0).text()
+        cell1 = step7._preview_table.item(1, 0).text()
+        assert cell0.startswith("sample.jpg")
+        assert cell1.startswith("sample.jpg")
+        assert "대상 1/2" in cell0
+        assert "대상 2/2" in cell1
         # col 2: 분류 대상 여부 ("분류됨" / "제외") — 데이터 컬럼 (사용자에게는 hidden)
         assert step7._preview_table.item(0, 2).text() == "분류됨"
         assert step7._preview_table.item(1, 2).text() == "제외"
@@ -361,6 +368,146 @@ class TestStep7PreviewGridLabels:
         # preview_items 내부의 rule_type 보존
         item = step7._preview_items["g-test"]
         assert item["destinations"][0]["rule_type"] == "series_character"
+
+
+class TestStep7PreviewMultiDestination:
+    """단일 PreviewItem 의 destinations 가 여러 개일 때 UX 표시 invariants.
+
+    예: source 파일 1개 + series 1개 + character 4명 → series_character
+    rule 로 destination 4개 생성. UI 는 destination 단위로 row 4개를 펼쳐
+    보여주되, 사용자가 같은 파일명이 4번 보이는 걸 중복 버그로 오해하지
+    않도록 ``대상 i/N`` 표기와 안내 tooltip / 안내 라벨을 추가한다.
+    """
+
+    @staticmethod
+    def _multi_dest_preview() -> dict:
+        """파일 1개 + character 4명 destinations 를 가진 preview fixture."""
+        characters = ["伊落マリー", "水羽ミモリ", "陸八魔アル", "天童アリス"]
+        destinations = [
+            {
+                "rule_type": "series_character",
+                "dest_path": f"C:/cls/BySeries/Blue Archive/{c}/p0.jpg",
+                "will_copy": True,
+                "conflict": "none",
+            }
+            for c in characters
+        ]
+        return {
+            "total_groups": 1, "classifiable_groups": 1, "excluded_groups": 0,
+            "estimated_copies": 4, "estimated_bytes": 4096,
+            "series_uncategorized_count": 0, "author_fallback_count": 0,
+            "candidate_count": 0,
+            "previews": [{
+                "group_id": "g-multi",
+                "source_path": "C:/inbox/p0_master1200.jpg",
+                "artwork_title": "샘플",
+                "destinations": destinations,
+            }],
+        }
+
+    def test_one_row_per_destination(self, wizard):
+        """destinations 4개 → row 4개 (group-by 안 함, flatten 유지)."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        assert isinstance(step7, _Step7Preview)
+        step7._show_preview_summary(self._multi_dest_preview())
+        assert step7._preview_table.rowCount() == 4
+
+    def test_filename_cell_carries_dest_index_suffix(self, wizard):
+        """파일명 셀에 '대상 1/4' ~ '대상 4/4' suffix 가 표시된다."""
+        step7 = wizard._panels[6]
+        step7._show_preview_summary(self._multi_dest_preview())
+        for i in range(4):
+            cell_text = step7._preview_table.item(i, 0).text()
+            assert "p0_master1200.jpg" in cell_text
+            assert f"대상 {i + 1}/4" in cell_text, (
+                f"row {i} filename cell missing dest index: {cell_text!r}"
+            )
+
+    def test_destinations_data_preserved(self, wizard):
+        """UI 표시는 변환되어도 PreviewItem.destinations 는 그대로."""
+        step7 = wizard._panels[6]
+        preview = self._multi_dest_preview()
+        step7._show_preview_summary(preview)
+        item = step7._preview_items["g-multi"]
+        assert len(item["destinations"]) == 4
+        for dest in item["destinations"]:
+            assert dest["rule_type"] == "series_character"
+            assert dest["dest_path"].endswith("/p0.jpg")
+            assert dest["will_copy"] is True
+        # source_path 도 보존
+        assert item["source_path"] == "C:/inbox/p0_master1200.jpg"
+
+    def test_path_cell_shows_per_row_dest_path(self, wizard):
+        """경로 셀 (col 5) 은 row 별 고유 destination path."""
+        step7 = wizard._panels[6]
+        step7._show_preview_summary(self._multi_dest_preview())
+        paths = [step7._preview_table.item(i, 5).text() for i in range(4)]
+        assert len(set(paths)) == 4, f"paths duplicated: {paths}"
+        for p in paths:
+            assert "BySeries/Blue Archive/" in p
+
+    def test_tooltip_contains_multi_destination_notice(self, wizard):
+        """tooltip 에 multi-destination 안내 + 현재 위치가 포함된다."""
+        step7 = wizard._panels[6]
+        step7._show_preview_summary(self._multi_dest_preview())
+        tip = step7._preview_table.item(0, 0).toolTip()
+        assert "이 파일은 4개 대상 경로로 분류됩니다." in tip
+        assert "대상 1/4" in tip
+
+    def test_single_destination_has_no_suffix(self, wizard):
+        """destinations 가 1개뿐인 preview 는 suffix / 안내 tooltip 모두 없음."""
+        step7 = wizard._panels[6]
+        single = {
+            "total_groups": 1, "classifiable_groups": 1, "excluded_groups": 0,
+            "estimated_copies": 1, "estimated_bytes": 1024,
+            "series_uncategorized_count": 0, "author_fallback_count": 0,
+            "candidate_count": 0,
+            "previews": [{
+                "group_id": "g-single",
+                "source_path": "C:/inbox/solo.jpg",
+                "destinations": [{
+                    "rule_type": "series_character",
+                    "dest_path": "C:/cls/Blue Archive/A/solo.jpg",
+                    "will_copy": True, "conflict": "none",
+                }],
+            }],
+        }
+        step7._show_preview_summary(single)
+        cell = step7._preview_table.item(0, 0).text()
+        assert cell == "solo.jpg", f"unexpected suffix on single-dest row: {cell!r}"
+        tip = step7._preview_table.item(0, 0).toolTip()
+        assert "여러 줄" not in tip
+        assert "대상 1/" not in tip
+
+    def test_notice_label_mentions_multi_destination(self, wizard):
+        """안내 라벨에 multi-destination 안내 문구가 포함된다."""
+        step7 = wizard._panels[6]
+        notice_text = step7._author_fallback_notice_lbl.text()
+        assert "여러 캐릭터" in notice_text or "여러 줄 표시" in notice_text, (
+            f"notice label missing multi-destination guidance: {notice_text!r}"
+        )
+
+    def test_helper_format_multi_destination_filename(self):
+        from app.views.workflow_wizard_view import _format_multi_destination_filename
+        # single → no suffix
+        assert _format_multi_destination_filename("a.jpg", 1, 1) == "a.jpg"
+        # multi → suffix appended
+        out = _format_multi_destination_filename("a.jpg", 2, 4)
+        assert out.startswith("a.jpg")
+        assert "대상 2/4" in out
+
+    def test_helper_multi_destination_tooltip_lines(self):
+        from app.views.workflow_wizard_view import _multi_destination_tooltip_lines
+        assert _multi_destination_tooltip_lines(1, 1, []) == []
+        lines = _multi_destination_tooltip_lines(
+            2, 3,
+            [{"dest_path": "/a/p"}, {"dest_path": "/b/p"}, {"dest_path": "/c/p"}],
+        )
+        joined = "\n".join(lines)
+        assert "이 파일은 3개 대상 경로로 분류됩니다." in joined
+        assert "대상 2/3" in joined
+        assert "/a/p" in joined and "/b/p" in joined and "/c/p" in joined
 
 
 # ---------------------------------------------------------------------------
