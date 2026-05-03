@@ -331,3 +331,249 @@ class TestPreviewGuardOnEmptyClassifiedDir:
         assert step7.is_preview_dirty() is True
         # cleanup
         step7.clear_preview_dirty()
+
+
+# ---------------------------------------------------------------------------
+# P0 — Wizard preview scope 'current_filter' / 'selected' group ids 전달
+# ---------------------------------------------------------------------------
+#
+# 배경:
+#   _Step7Preview._on_preview 가 collect_classifiable_group_ids() 호출 시
+#   selected_group_ids / current_filter_group_ids 를 전달하지 않아, scope
+#   dropdown 에서 "현재 목록 (메인 창 필터)" 를 선택하면 항상 빈 list 가 반환
+#   되어 preview 가 0건이 되는 BUG 가 있었다.
+#
+#   본 테스트는 wizard 가 외부 provider (MainWindow 의 _get_current_filter_group_ids
+#   / _gallery.get_selected_group_ids) 를 정확히 호출해 group ids 를 전달하는지
+#   lock 한다. classifier / destination / file ops 영향 없음.
+
+class TestStep7PreviewScopeProviders:
+    """``WorkflowWizardView`` 의 group ids provider 가 Step 7 preview scope 에
+    정확히 전달되는지 검증."""
+
+    @pytest.fixture
+    def qapp(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        return QApplication.instance() or QApplication(sys.argv)
+
+    def _make_wizard(self, qapp, tmp_path, **wizard_kwargs):
+        from app.views.workflow_wizard_view import WorkflowWizardView
+
+        db_path = str(tmp_path / "scope.db")
+        initialize_database(db_path).close()
+        config = {
+            "data_dir": "",
+            "inbox_dir": "",
+            "classified_dir": str(tmp_path / "Classified"),
+            "managed_dir": "",
+            "db": {"path": db_path},
+            "classification": {"classification_level": "series_character"},
+        }
+        config_path = str(tmp_path / "config.json")
+        return WorkflowWizardView(
+            lambda: initialize_database(db_path),
+            config,
+            config_path,
+            **wizard_kwargs,
+        )
+
+    def test_wizard_accepts_provider_kwargs(self, qapp, tmp_path):
+        """WorkflowWizardView.__init__ 가 새 provider kwarg 를 수용한다."""
+        called = []
+
+        def filter_provider():
+            called.append("filter")
+            return ["g1", "g2"]
+
+        def selected_provider():
+            called.append("selected")
+            return ["g3"]
+
+        w = self._make_wizard(
+            qapp, tmp_path,
+            current_filter_group_ids_provider=filter_provider,
+            selected_group_ids_provider=selected_provider,
+        )
+        try:
+            assert w._current_filter_group_ids_provider is filter_provider
+            assert w._selected_group_ids_provider is selected_provider
+        finally:
+            w.close()
+
+    def test_wizard_provider_kwargs_default_none(self, qapp, tmp_path):
+        """Provider 미전달 시 기본값 None — 기존 호출자 호환."""
+        w = self._make_wizard(qapp, tmp_path)
+        try:
+            assert w._current_filter_group_ids_provider is None
+            assert w._selected_group_ids_provider is None
+        finally:
+            w.close()
+
+    def test_collect_provider_ids_handles_none(self, qapp, tmp_path):
+        """``_Step7Preview._collect_provider_ids`` 정적 helper — defensive 처리."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        # None / non-callable / 예외 / 빈 결과 → 빈 list
+        assert _Step7Preview._collect_provider_ids(None) == []
+        assert _Step7Preview._collect_provider_ids("not_callable") == []
+        assert _Step7Preview._collect_provider_ids(lambda: None) == []
+        assert _Step7Preview._collect_provider_ids(lambda: []) == []
+
+        def raising():
+            raise RuntimeError("intentional")
+
+        assert _Step7Preview._collect_provider_ids(raising) == []
+
+    def test_collect_provider_ids_returns_list_copy(self, qapp, tmp_path):
+        """provider 가 list 또는 iterable 을 반환해도 list 로 정규화."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        assert _Step7Preview._collect_provider_ids(lambda: ["a", "b"]) == ["a", "b"]
+        assert _Step7Preview._collect_provider_ids(lambda: ("x", "y")) == ["x", "y"]
+
+    def test_on_preview_passes_filter_provider_result_to_collect(
+        self, qapp, tmp_path, monkeypatch
+    ):
+        """scope='current_filter' 시 provider 결과가 collect_classifiable_group_ids
+        의 current_filter_group_ids 인자로 전달된다."""
+        from app.views.workflow_wizard_view import WorkflowWizardView
+
+        provider_ids = ["filter-gid-001", "filter-gid-002"]
+
+        w = self._make_wizard(
+            qapp, tmp_path,
+            current_filter_group_ids_provider=lambda: provider_ids,
+            selected_group_ids_provider=lambda: [],
+        )
+        try:
+            step7 = w._panels[6]
+            # scope dropdown 을 'current_filter' 로 설정.
+            idx = step7._scope_combo.findData("current_filter")
+            assert idx >= 0
+            step7._scope_combo.setCurrentIndex(idx)
+
+            # collect_classifiable_group_ids 호출 인자 capture.
+            captured = {}
+
+            def fake_collect(conn, scope, **kwargs):
+                captured["scope"] = scope
+                captured["selected_group_ids"] = kwargs.get("selected_group_ids")
+                captured["current_filter_group_ids"] = kwargs.get(
+                    "current_filter_group_ids"
+                )
+                # 빈 결과 반환 — 본 테스트는 인자 전달만 검증.
+                return {"included_group_ids": [], "excluded": []}
+
+            from core import batch_classifier as bc_mod
+            monkeypatch.setattr(
+                bc_mod, "collect_classifiable_group_ids", fake_collect
+            )
+            # _on_preview 가 _PreviewThread 를 시작하지 않도록 thread class 도 fake.
+            from app.views import workflow_wizard_view as wwv
+            monkeypatch.setattr(wwv, "_PreviewThread", _NoopThread)
+
+            step7._on_preview()
+
+            assert captured["scope"] == "current_filter"
+            assert captured["current_filter_group_ids"] == provider_ids
+            assert captured["selected_group_ids"] == []
+        finally:
+            w.close()
+
+    def test_on_preview_passes_selected_provider_result_to_collect(
+        self, qapp, tmp_path, monkeypatch
+    ):
+        """scope='selected' 가 dropdown 에 없더라도 _on_preview 는 양 provider
+        결과를 항상 collect 에 전달한다 (collect 내부에서 scope 분기 처리)."""
+        from app.views.workflow_wizard_view import WorkflowWizardView
+
+        sel_ids = ["sel-gid-001"]
+        flt_ids = ["flt-gid-001", "flt-gid-002"]
+
+        w = self._make_wizard(
+            qapp, tmp_path,
+            current_filter_group_ids_provider=lambda: flt_ids,
+            selected_group_ids_provider=lambda: sel_ids,
+        )
+        try:
+            step7 = w._panels[6]
+            captured = {}
+
+            def fake_collect(conn, scope, **kwargs):
+                captured["selected_group_ids"] = kwargs.get("selected_group_ids")
+                captured["current_filter_group_ids"] = kwargs.get(
+                    "current_filter_group_ids"
+                )
+                return {"included_group_ids": [], "excluded": []}
+
+            from core import batch_classifier as bc_mod
+            monkeypatch.setattr(
+                bc_mod, "collect_classifiable_group_ids", fake_collect
+            )
+            from app.views import workflow_wizard_view as wwv
+            monkeypatch.setattr(wwv, "_PreviewThread", _NoopThread)
+
+            step7._on_preview()
+
+            # 두 provider 결과 모두 전달.
+            assert captured["selected_group_ids"] == sel_ids
+            assert captured["current_filter_group_ids"] == flt_ids
+        finally:
+            w.close()
+
+    def test_on_preview_no_provider_passes_empty_lists(
+        self, qapp, tmp_path, monkeypatch
+    ):
+        """Provider 미설정 시에도 _on_preview 가 정상 동작하며 빈 list 가
+        전달된다. (기존 all_classifiable scope 사용자 회귀 가드)"""
+        w = self._make_wizard(qapp, tmp_path)
+        try:
+            step7 = w._panels[6]
+            captured = {}
+
+            def fake_collect(conn, scope, **kwargs):
+                captured["selected_group_ids"] = kwargs.get("selected_group_ids")
+                captured["current_filter_group_ids"] = kwargs.get(
+                    "current_filter_group_ids"
+                )
+                return {"included_group_ids": [], "excluded": []}
+
+            from core import batch_classifier as bc_mod
+            monkeypatch.setattr(
+                bc_mod, "collect_classifiable_group_ids", fake_collect
+            )
+            from app.views import workflow_wizard_view as wwv
+            monkeypatch.setattr(wwv, "_PreviewThread", _NoopThread)
+
+            step7._on_preview()
+            assert captured["selected_group_ids"] == []
+            assert captured["current_filter_group_ids"] == []
+        finally:
+            w.close()
+
+
+class _NoopThread:
+    """_PreviewThread fake — 실제 background thread / DB / classifier 호출 안 함.
+    _on_preview 의 인자 전달 검증 용도."""
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+
+    @property
+    def log_msg(self):
+        return _NoopSignal()
+
+    @property
+    def done(self):
+        return _NoopSignal()
+
+    def start(self) -> None:
+        return None
+
+    def isRunning(self) -> bool:  # noqa: N802 — Qt API name
+        return False
+
+
+class _NoopSignal:
+    def connect(self, _slot) -> None:
+        return None
