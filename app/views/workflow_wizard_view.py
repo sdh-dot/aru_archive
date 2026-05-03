@@ -2717,10 +2717,16 @@ class _Step7Preview(_StepPanel):
             updated = apply_override_to_preview_item(
                 conn, preview_item, override, config=cfg
             )
-            # 메모리 내 preview item 갱신
+            # 메모리 내 preview item 갱신 — UI 표시 source.
             self._preview_items[group_id] = updated
-            # 동일 group_id를 가진 모든 table row 갱신
+            # 동일 group_id를 가진 모든 table row 갱신.
             self._refresh_preview_rows_for_group(group_id, updated)
+            # Step 8 execute 가 사용하는 self._batch_preview["previews"] 리스트의
+            # 같은 group entry 도 in-place 교체. apply_override_to_preview_item
+            # 이 deepcopy 를 반환하므로 _preview_items 와 batch_preview 의 ref 가
+            # 끊긴 상태 — 두 곳 모두 갱신해야 UI 표시와 실제 copy destination 이
+            # 일치한다 (preview/execute consistency).
+            self._replace_batch_preview_item(group_id, updated)
 
         conn.close()
         self.log_msg.emit(
@@ -2790,6 +2796,44 @@ class _Step7Preview(_StepPanel):
 
         # 필터 재적용 (override 이후 상태 변경 반영)
         self._apply_filter(self._filter_mode)
+
+    def _replace_batch_preview_item(self, group_id: str, updated: dict) -> bool:
+        """``self._batch_preview["previews"]`` 의 group_id 일치 entry 를 in-place 교체.
+
+        Step 7 UI 표시 source (``self._preview_items``) 와 Step 8 execute source
+        (``self._batch_preview["previews"]``) 가 동일한 destinations 를 갖도록
+        한다. ``_open_manual_override_dialog`` 에서 ``apply_override_to_preview_item``
+        이 deepcopy 를 반환하기 때문에 두 자료구조의 dict reference 가 끊긴다 —
+        본 helper 가 그 끊김을 복구한다.
+
+        Step 8 의 ``_batch_preview`` 는 같은 dict object 를 reference 로 보유하고,
+        ``previews`` 리스트도 공유하므로 list element 만 교체하면 두 단계 모두
+        새 destinations 를 본다. 별도의 ``preview_ready`` 재emit 은 불필요.
+
+        Returns
+        -------
+        bool
+            교체에 성공했으면 True, batch_preview 가 없거나 매칭 entry 가 없어
+            건너뛰면 False. 어느 경우에도 예외를 던지지 않는다 — manual override
+            의 다른 경로 (DB 저장 / UI 갱신) 가 끊기지 않도록 한다.
+        """
+        if not isinstance(self._batch_preview, dict):
+            return False
+        previews = self._batch_preview.get("previews")
+        if not isinstance(previews, list):
+            return False
+        for idx, item in enumerate(previews):
+            if not isinstance(item, dict):
+                continue
+            if item.get("group_id") == group_id:
+                previews[idx] = updated
+                return True
+        # 매칭 entry 없음 — 일관성 깨질 위험은 없으나 향후 디버깅을 위해 로그.
+        self.log_msg.emit(
+            f"[DEBUG] manual override batch_preview 매칭 entry 없음: "
+            f"group_id={group_id[:8]}…"
+        )
+        return False
 
     # ------------------------------------------------------------------
     # 필터 + 상태 컬럼 helper
