@@ -74,7 +74,13 @@ def repair_explorer_meta_for_group(
         }
 
     try:
-        ok = write_xmp_metadata_with_exiftool(file_path, metadata, exiftool_path)
+        # Explorer 메타 복구 경로 — 사용자가 명시적으로 선택해 깨진 XP 컬럼을
+        # 다시 등록하려는 흐름이므로 clear-first 모드로 호출. 기존 malformed
+        # XP 바이트를 모두 제거한 뒤 새 값으로 채운다.
+        ok = write_xmp_metadata_with_exiftool(
+            file_path, metadata, exiftool_path,
+            clear_windows_xp_fields_before_write=True,
+        )
     except XmpWriteError as exc:
         _set_sync_status(conn, group_id, "xmp_write_failed")
         logger.warning("Explorer metadata repair failed (group=%s): %s", group_id, exc)
