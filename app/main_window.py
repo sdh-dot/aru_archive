@@ -692,15 +692,30 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         self._restore_workspace_paths()
 
-        if Path(self._db_path()).exists():
-            try:
-                conn = self._get_conn()
-                self._seed_localizations(conn)
-                conn.close()
-            except Exception:
-                pass
+        # clean first-run 에서도 built-in tag pack / localization 이 즉시 seed
+        # 되도록 DB 존재 여부와 무관하게 _get_conn() 을 거쳐 seed 한다.
+        # _get_conn() 이 db_path parent mkdir + initialize_database 까지 처리
+        # 하므로 파일이 없는 첫 실행에서도 안전하게 DB 가 생성되며,
+        # seed_builtin_tag_packs / seed_builtin_localizations 는 INSERT OR
+        # IGNORE 기반이라 second-run 에서도 중복 row 가 생기지 않는다.
+        # 이 한 줄을 건너뛰면 Wizard manual override / autocomplete 가
+        # tag_aliases 가 비어 후보를 못 찾는 회귀가 재현된다.
+        try:
+            conn = self._get_conn()
+            self._seed_localizations(conn)
+            conn.close()
+            self._builtin_tag_packs_seeded = True
+        except Exception as exc:
+            logger.warning("startup tag pack seed 실패 (무시): %s", exc)
+            self._builtin_tag_packs_seeded = False
+        try:
             self._refresh_gallery()
+        except Exception as exc:
+            logger.warning("startup gallery refresh 실패 (무시): %s", exc)
+        try:
             self._refresh_counts()
+        except Exception as exc:
+            logger.warning("startup counts refresh 실패 (무시): %s", exc)
 
         self._start_ipc_server()
 
