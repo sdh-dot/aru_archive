@@ -28,6 +28,7 @@ def conn():
             tag_type      TEXT NOT NULL DEFAULT 'general',
             parent_series TEXT NOT NULL DEFAULT '',
             media_type    TEXT,
+            kind          TEXT NOT NULL DEFAULT '',
             source        TEXT,
             confidence_score REAL,
             enabled       INTEGER NOT NULL DEFAULT 1,

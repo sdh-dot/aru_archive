@@ -236,11 +236,20 @@ def _migrate_tag_aliases(conn: sqlite3.Connection) -> None:
         "tag_type",
         "parent_series",
     ]:
+        # 복합 PK 는 이미 적용된 상태 — kind 컬럼만 보강 (PR #121, NPC/group 구분).
+        # tag_aliases 의 모든 row 정책에 영향을 주지 않는 단순 부가 컬럼이며
+        # 분류 알고리즘은 kind 를 읽지 않는다.
+        _add_column_if_missing(
+            conn, "tag_aliases", cols, "kind",
+            "TEXT NOT NULL DEFAULT ''",
+        )
+        conn.commit()
         return
 
     tag_type_expr = "tag_type" if "tag_type" in cols else "'general'"
     parent_expr = "parent_series" if "parent_series" in cols else "''"
     media_expr = "media_type" if "media_type" in cols else "NULL"
+    kind_expr = "kind" if "kind" in cols else "''"
     source_expr = "source" if "source" in cols else (
         "source_site" if "source_site" in cols else "NULL"
     )
@@ -260,6 +269,7 @@ def _migrate_tag_aliases(conn: sqlite3.Connection) -> None:
                 tag_type         TEXT NOT NULL DEFAULT 'general',
                 parent_series    TEXT NOT NULL DEFAULT '',
                 media_type       TEXT,
+                kind             TEXT NOT NULL DEFAULT '',
                 source           TEXT,
                 confidence_score REAL,
                 enabled          INTEGER NOT NULL DEFAULT 1,
@@ -271,10 +281,12 @@ def _migrate_tag_aliases(conn: sqlite3.Connection) -> None:
         )
         conn.execute(
             f"""INSERT OR IGNORE INTO tag_aliases__migration
-                (alias, canonical, tag_type, parent_series, media_type, source,
-                 confidence_score, enabled, created_by, created_at, updated_at)
+                (alias, canonical, tag_type, parent_series, media_type, kind,
+                 source, confidence_score, enabled, created_by, created_at,
+                 updated_at)
                 SELECT alias, canonical, COALESCE({tag_type_expr}, 'general'),
-                       COALESCE({parent_expr}, ''), {media_expr}, {source_expr},
+                       COALESCE({parent_expr}, ''), {media_expr},
+                       COALESCE({kind_expr}, ''), {source_expr},
                        {confidence_expr}, COALESCE({enabled_expr}, 1),
                        {created_by_expr}, COALESCE({created_at_expr}, datetime('now')),
                        {updated_at_expr}
