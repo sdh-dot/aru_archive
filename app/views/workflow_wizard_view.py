@@ -3395,6 +3395,12 @@ class WorkflowWizardView(QDialog):
         self._loading_dialog.hide()
         _log_phase("loading.hide", (time.perf_counter() - _t0) * 1000)
 
+    # Loading dialog detail label 표시용 max characters. 원문은 wizard 의
+    # _log_area (QTextEdit) 와 호출자 logger 에 보존되므로 detail 한 줄을 짧게
+    # 잘라도 정보 손실 없음. dialog 측 set_detail_text 도 자체 truncate 하지만
+    # caller 단에서 짧게 보내는 게 중복 호출 비용 / Qt resize 비용을 더 줄인다.
+    _DETAIL_MIRROR_MAX_CHARS = 140
+
     def _mirror_loading_log(self, message: str) -> None:
         dialog = self._loading_dialog
         if dialog is None:
@@ -3404,8 +3410,13 @@ class WorkflowWizardView(QDialog):
             if clean.startswith(prefix):
                 clean = clean[len(prefix):]
                 break
-        if clean:
-            dialog.set_detail_text(clean)
+        if not clean:
+            return
+        # Layout 안정화 — 긴 한 줄을 detail 로 그대로 넘기면 wrap 으로 dialog
+        # height 가 흔들린다. 원문은 _log_area 에 이미 추가됨.
+        if len(clean) > self._DETAIL_MIRROR_MAX_CHARS:
+            clean = clean[: self._DETAIL_MIRROR_MAX_CHARS - 1].rstrip() + "…"
+        dialog.set_detail_text(clean)
 
     def _go_to_step(self, idx: int) -> None:
         idx = max(0, min(idx, len(_STEPS) - 1))
