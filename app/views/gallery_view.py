@@ -34,18 +34,38 @@ _FMT_COLOR: dict[str, str] = {
     "zip":  "#4A7B2D",
 }
 
-_STATUS_SHORT: dict[str, str] = {
-    "full":                  "✅ Full",
-    "json_only":             "🟡 JSON",
-    "pending":               "⏳ Pending",
-    "convert_failed":        "❌ Convert",
-    "metadata_write_failed": "❌ MetaFail",
-    "xmp_write_failed":      "⚠️ XMP",
-    "metadata_missing":      "❓ NoMeta",
-    "file_write_failed":     "❌ FileFail",
-    "db_update_failed":      "❌ DB",
-    "needs_reindex":         "↺ Reindex",
-    "out_of_sync":           "! Sync",
+# PR #119 정리: gallery card 는 raw status / file role text 를 표시하지 않는다.
+# 사용자에게는 상태 아이콘만 보여주고, 풀 라벨/메모는 우측 detail panel 의
+# Status row (와 card tooltip) 에서 확인하도록 한다.
+_STATUS_ICON: dict[str, str] = {
+    "full":                  "✅",
+    "json_only":             "🟡",
+    "pending":               "⏳",
+    "convert_failed":        "❌",
+    "metadata_write_failed": "❌",
+    "xmp_write_failed":      "⚠️",
+    "metadata_missing":      "❓",
+    "file_write_failed":     "❌",
+    "db_update_failed":      "❌",
+    "needs_reindex":         "↺",
+    "out_of_sync":           "!",
+    "source_unavailable":    "🚫",
+}
+
+# tooltip 전용 — hover 시에만 보이는 풀 라벨 (디버깅 / 상세 확인용).
+_STATUS_TOOLTIP_LABEL: dict[str, str] = {
+    "full":                  "Full",
+    "json_only":             "JSON Only",
+    "pending":               "Pending",
+    "convert_failed":        "Convert Failed",
+    "metadata_write_failed": "Metadata Write Failed",
+    "xmp_write_failed":      "XMP Write Failed",
+    "metadata_missing":      "Metadata Missing",
+    "file_write_failed":     "File Write Failed",
+    "db_update_failed":      "DB Update Failed",
+    "needs_reindex":         "Needs Reindex",
+    "out_of_sync":           "Out of Sync",
+    "source_unavailable":    "Source Unavailable",
 }
 
 
@@ -206,15 +226,21 @@ class GalleryView(QWidget):
         status   = row.get("metadata_sync_status", "pending")
         role_sum = row.get("role_summary") or ""
 
-        status_txt = _STATUS_SHORT.get(status, status)
+        # PR #119: card body 는 제목, 파일 형식 라벨, 상태 아이콘만 표시.
+        # raw metadata_sync_status / file_role 텍스트는 노출하지 않는다.
+        status_icon = _STATUS_ICON.get(status, "")
         # Line 1: title truncated with ellipsis
         line1 = title if len(title) <= 17 else title[:16] + "…"
-        # Line 2: format badge + status in one line
-        line2 = f"[{fmt.upper()}]  {status_txt}"
-        # Line 3: role summary (small)
-        line3 = role_sum[:22] if role_sum else ""
+        # Line 2: format badge + status icon (no raw status text, no role summary)
+        line2 = f"[{fmt.upper()}]  {status_icon}".rstrip()
 
-        text = "\n".join(filter(None, [line1, line2, line3]))
+        text = "\n".join([line1, line2])
+
+        # tooltip — 사용자가 hover 했을 때만 풀 status / file role 노출.
+        tooltip_status = _STATUS_TOOLTIP_LABEL.get(status, status)
+        tooltip_lines = [title, f"[{fmt.upper()}] {status_icon} {tooltip_status}".strip()]
+        if role_sum:
+            tooltip_lines.append(role_sum)
 
         icon = _load_icon(thumb, fmt)
         item = QListWidgetItem(icon, text)
@@ -222,7 +248,7 @@ class GalleryView(QWidget):
         item.setSizeHint(QSize(ITEM_W, ITEM_H))
         item.setTextAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
         item.setForeground(QColor("#F7E8EC"))
-        item.setToolTip(f"{title}\n[{fmt.upper()}] {status_txt}\n{role_sum}")
+        item.setToolTip("\n".join(tooltip_lines))
         return item
 
     def _on_changed(
