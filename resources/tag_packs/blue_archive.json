@@ -1,7 +1,7 @@
 {
   "pack_id": "blue_archive",
   "name": "Blue Archive",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "source": "built_in",
   "series": [
     {
@@ -584,6 +584,21 @@
         "ko": "미사사기 나구사",
         "ja": "御稜ナグサ",
         "en": "Misasagi Nagusa"
+      }
+    },
+    {
+      "canonical": "扇喜アオイ",
+      "parent_series": "Blue Archive",
+      "kind": "npc",
+      "aliases": [
+        "扇喜アオイ",
+        "오키 아오이",
+        "Oki Aoi"
+      ],
+      "localizations": {
+        "ko": "오키 아오이",
+        "ja": "扇喜アオイ",
+        "en": "Oki Aoi"
       }
     },
     {
@@ -1284,6 +1299,26 @@
         "ko": "쿠로다테 하루나",
         "ja": "黒舘ハルナ",
         "en": "Kurodate Haruna"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "canonical": "便利屋68",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "便利屋68",
+        "便利屋 68",
+        "흥신소68",
+        "흥신소 68",
+        "Problem Solver 68",
+        "Problem Solver68"
+      ],
+      "localizations": {
+        "ko": "흥신소68",
+        "ja": "便利屋68",
+        "en": "Problem Solver 68"
       }
     }
   ]
