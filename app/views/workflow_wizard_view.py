@@ -2419,6 +2419,22 @@ class _Step7Preview(_StepPanel):
     def _on_preview(self) -> None:
         if self._preview_thread and self._preview_thread.isRunning():
             return
+
+        # P0 가드: classified_dir 미설정 시 preview thread를 시작하지 않는다.
+        # build_classify_preview()가 모든 group에 대해 silently None을 반환해
+        # 0건 결과로 보이는 상황을 사전 차단하고 사용자에게 원인을 알린다.
+        # 버튼 상태와 _batch_preview는 손대지 않으므로 dirty state / preview≡execute
+        # frozen 구조에 영향이 없다.
+        classified_dir = (self._config().get("classified_dir") or "").strip()
+        if not classified_dir:
+            QMessageBox.warning(
+                self._wizard,
+                "분류 폴더 미설정",
+                "분류 미리보기를 만들려면 먼저 Step 1 작업폴더에서 "
+                "분류 결과를 저장할 폴더를 지정해야 합니다.",
+            )
+            return
+
         self._btn_preview.setEnabled(False)
         self._btn_preview.setText("생성 중…")
         self._batch_preview = None
