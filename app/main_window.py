@@ -657,6 +657,12 @@ def _apply_wine_style(app: QApplication) -> None:
 
 class MainWindow(QMainWindow):
 
+    # 사용자 사전 (tag_aliases / tag_localizations) 변경 후 emit. 현재는
+    # WorkflowWizardView 가 구독해 Step 7 preview 의 dirty 표시를 trigger 한다.
+    # signal 자체는 emit-and-forget — 구독자가 없거나 wizard 가 닫혀 있으면
+    # 무해하게 사라진다.
+    local_dictionary_changed = Signal()
+
     def __init__(
         self,
         config: dict,
@@ -2146,6 +2152,9 @@ class MainWindow(QMainWindow):
             conn.close()
         except Exception as exc:
             self._log.append(f"[ERROR] 후보 태그 다이얼로그 오류: {exc}")
+        # 다이얼로그 안에서 accept / merge / accept-as-general 액션이 tag_aliases
+        # 를 변경했을 수 있으므로 사전 변경 알림 emit. 변경이 없었어도 무해.
+        self._emit_local_dictionary_changed()
 
     def _on_show_dict_import(self) -> None:
         """외부 사전 후보 가져오기 다이얼로그를 연다."""
@@ -2161,6 +2170,9 @@ class MainWindow(QMainWindow):
             dlg.exec()
         except Exception as exc:
             self._log.append(f"[ERROR] 웹 사전 다이얼로그 오류: {exc}")
+        # 외부 사전 후보 승인 (_AcceptThread → accept_external_entry) 으로
+        # tag_aliases 가 변경됐을 수 있다. 다이얼로그 결과와 무관하게 emit.
+        self._emit_local_dictionary_changed()
 
     def _on_dict_export(self) -> None:
         """공개용 tag pack (aliases + localizations) 을 JSON 파일로 내보낸다."""
@@ -2227,9 +2239,39 @@ class MainWindow(QMainWindow):
             # Step 3 중복 검사 버튼 → Top Menu와 동일한 MainWindow handler 재사용
             dlg.exact_duplicate_scan_requested.connect(self._on_exact_duplicate_check)
             dlg.visual_duplicate_scan_requested.connect(self._on_visual_duplicate_check)
-            dlg.exec()
+            # 사용자 사전 변경 알림 → wizard Step 7 preview dirty 표시.
+            # connect/disconnect 를 try/finally 로 감싸 dialog 닫힘 시 안전 정리.
+            handler = getattr(dlg, "handle_local_dictionary_changed", None)
+            connected = False
+            if callable(handler):
+                try:
+                    self.local_dictionary_changed.connect(handler)
+                    connected = True
+                except Exception:
+                    connected = False
+            try:
+                dlg.exec()
+            finally:
+                if connected:
+                    try:
+                        self.local_dictionary_changed.disconnect(handler)
+                    except (TypeError, RuntimeError):
+                        # already disconnected / dialog GC 와 race 무해 처리
+                        pass
         except Exception as exc:
             self._log.append(f"[ERROR] 작업 마법사 오류: {exc}")
+
+    def _emit_local_dictionary_changed(self) -> None:
+        """사용자 사전 (tag_aliases / tag_localizations) 변경 후 호출.
+
+        구독자 (예: 열려있는 wizard) 에게 stale 표시 trigger 를 보낸다. emit
+        자체에서 발생하는 모든 예외는 silently 흡수 — UI 메인 흐름을 끊지
+        않는다 (signal 은 사용자 사전 변경의 부속 알림이므로).
+        """
+        try:
+            self.local_dictionary_changed.emit()
+        except Exception:
+            pass
 
     def _on_show_save_jobs(self) -> None:
         """저장 작업 상태 다이얼로그를 연다."""

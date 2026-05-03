@@ -3638,3 +3638,32 @@ class WorkflowWizardView(QDialog):
         step8 = self._panels[7]
         if isinstance(step8, _Step8Execute):
             step8.set_preview(batch_preview)
+
+    # ------------------------------------------------------------------
+    # 외부 신호 처리 — Local Dictionary 변경 알림
+    # ------------------------------------------------------------------
+
+    def handle_local_dictionary_changed(self) -> None:
+        """MainWindow 의 ``local_dictionary_changed`` signal slot.
+
+        사용자 사전 (tag_aliases / tag_localizations) 이 변경되었을 때
+        MainWindow 가 emit 한다. wizard 가 살아 있다면 Step 7 preview 의
+        dirty 상태를 표시해 사용자에게 미리보기 재생성을 유도한다.
+
+        주의: wizard 는 현재 ``dlg.exec()`` 로 ApplicationModal 이라 MainWindow
+        Top Menu 의 dict 변경 dialog 가 열리는 동안 wizard 와 동시에 살아 있을
+        일이 거의 없다. 본 slot 은 향후 wizard non-modal 화 또는 in-wizard
+        dict 편집 도입을 대비한 defense-in-depth.
+
+        Step 7 패널이 없거나 ``mark_preview_dirty`` 가 부재하면 silently
+        no-op — 다른 dict 변경 / UI 갱신 흐름을 끊지 않는다.
+        """
+        for panel in self._panels:
+            if isinstance(panel, _Step7Preview):
+                marker = getattr(panel, "mark_preview_dirty", None)
+                if callable(marker):
+                    try:
+                        marker("사용자 사전이 변경되었습니다.")
+                    except Exception:
+                        pass
+                return
