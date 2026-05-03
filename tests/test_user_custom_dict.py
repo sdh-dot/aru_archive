@@ -428,7 +428,7 @@ class TestPriorityOverHardcoded:
         from core.tag_classifier import load_db_aliases
 
         add_user_alias(conn, "유저시리즈", "UserSeries", "series")
-        series, _ = load_db_aliases(conn)
+        series, _, _ = load_db_aliases(conn)
         assert "유저시리즈" in series
         assert series["유저시리즈"] == "UserSeries"
 
@@ -439,7 +439,7 @@ class TestPriorityOverHardcoded:
             conn, "유저캐릭", "UserCharacter", "character",
             parent_series="UserSeries"
         )
-        _, chars = load_db_aliases(conn)
+        _, chars, _ = load_db_aliases(conn)
         assert "유저캐릭" in chars
         assert chars["유저캐릭"][0]["canonical"] == "UserCharacter"
         assert chars["유저캐릭"][0]["series"] == "UserSeries"
