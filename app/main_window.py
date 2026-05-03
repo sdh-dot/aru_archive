@@ -2228,11 +2228,32 @@ class MainWindow(QMainWindow):
         """워크플로우 마법사 다이얼로그를 연다."""
         try:
             from app.views.workflow_wizard_view import WorkflowWizardView
+
+            # Step 7 preview scope 가 'current_filter' / 'selected' 일 때 wizard 가
+            # 호출해 group ids 를 조회한다. lambda wrapper 로 호출 시점 (preview
+            # 버튼 클릭) 의 최신 필터/선택 상태를 반영.
+            def _filter_provider() -> list[str]:
+                return self._get_current_filter_group_ids()
+
+            def _selected_provider() -> list[str]:
+                gallery = getattr(self, "_gallery", None)
+                if gallery is None:
+                    return []
+                getter = getattr(gallery, "get_selected_group_ids", None)
+                if not callable(getter):
+                    return []
+                try:
+                    return list(getter() or [])
+                except Exception:
+                    return []
+
             dlg = WorkflowWizardView(
                 self._get_conn,
                 self.config,
                 self._config_path,
                 parent=self,
+                current_filter_group_ids_provider=_filter_provider,
+                selected_group_ids_provider=_selected_provider,
             )
             dlg.refresh_main.connect(self._refresh_gallery)
             dlg.refresh_main.connect(self._refresh_counts)

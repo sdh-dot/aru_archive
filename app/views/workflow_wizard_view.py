@@ -2416,6 +2416,24 @@ class _Step7Preview(_StepPanel):
         cfg["classification"] = cls
         return cfg
 
+    @staticmethod
+    def _collect_provider_ids(provider) -> list[str]:
+        """Wizard 외부에서 주입된 group ids provider 를 안전하게 호출.
+
+        Provider 가 None / non-callable / 예외 발생 시 빈 list 반환 — preview
+        흐름이 끊기지 않도록 한다. ``collect_classifiable_group_ids`` 가 빈 list
+        를 받으면 기존 정책대로 candidate 0건으로 처리한다.
+        """
+        if not callable(provider):
+            return []
+        try:
+            result = provider()
+        except Exception:
+            return []
+        if not result:
+            return []
+        return list(result)
+
     def _on_preview(self) -> None:
         if self._preview_thread and self._preview_thread.isRunning():
             return
@@ -2447,8 +2465,19 @@ class _Step7Preview(_StepPanel):
         try:
             conn     = self._conn_factory()
             scope    = self._scope_combo.currentData() or "all_classifiable"
+            # P0 fix: scope='current_filter' / 'selected' 시 wizard 외부에서 주입된
+            # provider 를 통해 group ids 를 조회한다. provider 미설정 시 기본값
+            # (None → 빈 list) — 기존 all_classifiable 동작은 영향 없음.
+            selected_ids = self._collect_provider_ids(
+                getattr(self._wizard, "_selected_group_ids_provider", None)
+            )
+            filter_ids = self._collect_provider_ids(
+                getattr(self._wizard, "_current_filter_group_ids_provider", None)
+            )
             gathered = collect_classifiable_group_ids(
                 conn, scope,
+                selected_group_ids=selected_ids,
+                current_filter_group_ids=filter_ids,
                 classified_dir=cfg.get("classified_dir", ""),
             )
             group_ids = gathered.get("included_group_ids", [])
@@ -3389,12 +3418,19 @@ class WorkflowWizardView(QDialog):
         config_path: str,
         *,
         parent=None,
+        current_filter_group_ids_provider=None,
+        selected_group_ids_provider=None,
     ) -> None:
         super().__init__(parent)
         self._conn_factory = conn_factory
         self._config       = config
         self._config_path  = config_path
         self._loading_dialog: Optional[LoadingOverlayDialog] = None
+        # Step 7 preview scope 가 'current_filter' / 'selected' 일 때 사용. 제공되지
+        # 않으면 빈 list 가 전달되며, batch_classifier 가 빈 candidate 처리한다.
+        # MainWindow 외에서 wizard 를 띄우거나 단위 테스트에서는 None 그대로 사용.
+        self._current_filter_group_ids_provider = current_filter_group_ids_provider
+        self._selected_group_ids_provider = selected_group_ids_provider
 
         self.setWindowTitle("🧭 Aru Archive 작업 마법사")
         self.setMinimumSize(800, 600)
