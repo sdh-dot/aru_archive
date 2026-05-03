@@ -47,6 +47,174 @@ CLASSIFIABLE_STATUSES: frozenset[str] = frozenset(
 
 
 # ---------------------------------------------------------------------------
+# series-only resolver — explicit series 와 character.parent_series 의 관계로
+# 시리즈 폴더만 모드의 destination 을 결정한다.
+#
+# series-only mode 의 cfg signature:
+#   enable_series_character         = False
+#   enable_series_uncategorized     = True
+#   enable_character_without_series = False
+#
+# 이 모듈의 함수들은 metadata pipeline / DB schema / classified_copy 생성
+# 정책을 변경하지 않는다. preview 단계에서 시리즈 destination 결정과
+# needs_review 판정에만 영향을 준다.
+# ---------------------------------------------------------------------------
+
+# series-only resolver 가 반환하는 review reason 상수.
+SERIES_ONLY_REASON_PARENT_CONFLICT      = "series_parent_conflict"
+SERIES_ONLY_REASON_MULTI_REQ_CONFIRM    = "multiple_parent_series_requires_confirmation"
+SERIES_ONLY_REASON_UNIDENTIFIED         = "series_unidentified"
+
+# series-only resolver 가 반환하는 ready rule 상수.
+SERIES_ONLY_RULE_SERIES_TAG             = "series_tag"
+SERIES_ONLY_RULE_PARENT_SERIES          = "parent_series"
+SERIES_ONLY_RULE_MULTIPLE_PARENT_SERIES = "multiple_parent_series"
+
+
+def is_series_only_mode(cfg: dict) -> bool:
+    """cfg 가 series-only mode signature 인지 검사한다.
+
+    Wizard Step 5 의 ``classification_level == 'series_only'`` 가 적용되면
+    `_apply_level_to_cfg` 가 위 3개 플래그를 세팅한다. 이 함수는 그 결과를
+    classifier 단에서 다시 검출해 series-only resolver 분기를 트리거한다.
+    """
+    return bool(
+        cfg.get("enable_series_character") is False
+        and cfg.get("enable_series_uncategorized") is True
+        and cfg.get("enable_character_without_series") is False
+    )
+
+
+def resolve_series_only_destination(
+    explicit_series: list[str],
+    parent_series_map: dict[str, str],
+    *,
+    allow_multi_destination: bool = True,
+) -> dict:
+    """series-only mode 의 destination 결정 로직 (pure function).
+
+    Args:
+        explicit_series:    raw_tags 에서 직접 series alias 매칭으로 식별된
+                            canonical series 목록 (Pixiv 가 명시한 series).
+                            character.parent_series 로부터 역추론된 series 는
+                            포함하지 않는다.
+        parent_series_map:  character canonical → parent_series canonical
+                            매핑. 비어 있는 parent_series 는 caller 가 미리
+                            제외해서 넘긴다.
+        allow_multi_destination:
+                            True 면 explicit 가 없고 parent_series 가 여러
+                            개일 때 모두 destination 으로 emit 한다.
+                            False 면 needs_review (사용자 확인 필요) 로 분기.
+
+    Returns:
+        ready 케이스:
+            {
+                "status": "ready",
+                "rule":   "series_tag" | "parent_series" | "multiple_parent_series",
+                "series": [series_canonical, ...],
+            }
+        needs_review 케이스:
+            {
+                "status": "needs_review",
+                "reason": "series_parent_conflict" |
+                          "multiple_parent_series_requires_confirmation" |
+                          "series_unidentified",
+                "series":        [...],   # explicit series (있을 때)
+                "parent_series": [...],   # detected parent_series keys
+            }
+    """
+    explicit_set: list[str] = list(dict.fromkeys(explicit_series or []))
+    parent_keys: list[str] = sorted(
+        {s for s in (parent_series_map or {}).values() if s}
+    )
+
+    if explicit_set:
+        # Rule 1/2: explicit series O — parent_series 와 비교해 충돌 확인.
+        if parent_keys and not (set(explicit_set) & set(parent_keys)):
+            return {
+                "status":        "needs_review",
+                "reason":        SERIES_ONLY_REASON_PARENT_CONFLICT,
+                "series":        sorted(explicit_set),
+                "parent_series": parent_keys,
+            }
+        return {
+            "status": "ready",
+            "rule":   SERIES_ONLY_RULE_SERIES_TAG,
+            "series": sorted(explicit_set),
+        }
+
+    # Rule 3: explicit X, parent_series 1 → 단일 destination.
+    if len(parent_keys) == 1:
+        return {
+            "status": "ready",
+            "rule":   SERIES_ONLY_RULE_PARENT_SERIES,
+            "series": parent_keys,
+        }
+
+    # Rule 4/5: explicit X, parent_series 다수.
+    if len(parent_keys) > 1:
+        if allow_multi_destination:
+            return {
+                "status": "ready",
+                "rule":   SERIES_ONLY_RULE_MULTIPLE_PARENT_SERIES,
+                "series": parent_keys,
+            }
+        return {
+            "status":        "needs_review",
+            "reason":        SERIES_ONLY_REASON_MULTI_REQ_CONFIRM,
+            "series":        [],
+            "parent_series": parent_keys,
+        }
+
+    # Rule 6: explicit X, parent_series X → 시리즈 미식별.
+    return {
+        "status":        "needs_review",
+        "reason":        SERIES_ONLY_REASON_UNIDENTIFIED,
+        "series":        [],
+        "parent_series": [],
+    }
+
+
+def _resolve_series_only_inputs(
+    raw_tags: list[str],
+    conn: Optional[sqlite3.Connection],
+) -> tuple[list[str], dict[str, str]]:
+    """raw_tags 로부터 explicit series 와 character.parent_series 매핑을 만든다.
+
+    `core.tag_classifier.classify_pixiv_tags` 의 evidence 를 사용해
+    direct/normalized/popularity-suffix 매칭으로 식별된 series 만 explicit 로
+    분리하고, character evidence 의 parent_series 를 역추론용 매핑으로 모은다.
+
+    classify_pixiv_tags 호출이 실패해도 빈 결과를 반환 — preview 흐름이
+    끊기지 않도록 한다.
+    """
+    if not raw_tags:
+        return [], {}
+    try:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(raw_tags, conn=conn)
+    except Exception:
+        return [], {}
+
+    inferred: set[str] = set()
+    for ev in result.get("evidence", {}).get("series", []):
+        if ev.get("source") == "inferred_from_character" and ev.get("canonical"):
+            inferred.add(ev["canonical"])
+
+    all_series = list(result.get("series_tags") or [])
+    explicit_series = [s for s in all_series if s not in inferred]
+
+    parent_series_map: dict[str, str] = {}
+    for ev in result.get("evidence", {}).get("characters", []):
+        canonical = ev.get("canonical")
+        parent    = ev.get("parent_series") or ""
+        if canonical and parent:
+            parent_series_map.setdefault(canonical, parent)
+
+    return explicit_series, parent_series_map
+
+
+# ---------------------------------------------------------------------------
 # 분류 대상 파일 선택
 # ---------------------------------------------------------------------------
 
@@ -304,7 +472,58 @@ def build_classify_preview(
         return None
 
     cfg   = _cls_cfg(config)
-    dests = _build_destinations(dict(group), source, classified_dir, cfg, conn=conn)
+
+    # series-only mode 전용 destination resolver — explicit series 와
+    # character.parent_series 의 관계로 destination / needs_review 를 결정한다.
+    # 결과는 _build_destinations 의 series_tags_json virtual override 로 반영해
+    # 기존 Tier 2 (series_uncategorized) 경로를 그대로 사용한다.
+    series_only_review: dict | None = None
+    series_only_rule: str = ""
+    group_dict_for_build = dict(group)
+    if is_series_only_mode(cfg):
+        raw_tags_for_resolver = _parse_json_list(group_dict_for_build.get("tags_json"))
+        explicit_series, parent_series_map = _resolve_series_only_inputs(
+            raw_tags_for_resolver, conn
+        )
+        # 기존 DB 의 series_tags_json 도 보조 source 로 사용 — Pixiv API 가
+        # 명시한 series 가 raw_tags 에 없는 edge case 를 보완한다.
+        db_series = _parse_json_list(group_dict_for_build.get("series_tags_json"))
+        explicit_series = list(dict.fromkeys([*explicit_series, *db_series]))
+        # _resolve_series_only_inputs 가 inferred series 를 이미 explicit
+        # 목록에서 제외해서 반환하므로 추가 후처리는 불필요.
+
+        resolver = resolve_series_only_destination(
+            explicit_series,
+            parent_series_map,
+            allow_multi_destination=bool(
+                config.get("classification", {}).get(
+                    "allow_multi_destination", True,
+                )
+            ),
+        )
+        if resolver["status"] == "ready":
+            series_only_rule = resolver["rule"]
+            # group dict 의 series_tags_json 을 resolver 결과로 override —
+            # _build_destinations 의 Tier 2 가 이 값을 기반으로 dest 를 만든다.
+            group_dict_for_build["series_tags_json"] = json.dumps(
+                resolver["series"], ensure_ascii=False
+            )
+        else:
+            series_only_review = resolver
+            # destination 을 생성하지 않는다 — needs_review.
+            group_dict_for_build["series_tags_json"] = "[]"
+            group_dict_for_build["character_tags_json"] = "[]"
+            # author fallback 도 발동하지 않도록 cfg 임시 복사.
+            cfg = dict(cfg)
+            cfg["fallback_by_author"] = False
+
+    dests = _build_destinations(group_dict_for_build, source, classified_dir, cfg, conn=conn)
+
+    # series-only ready 케이스: 각 destination 에 resolver rule 메타를 부착해
+    # UI 가 시리즈 태그 / 캐릭터 소속 / 복수 소속 를 구분할 수 있게 한다.
+    if series_only_rule:
+        for d in dests:
+            d["series_only_rule"] = series_only_rule
 
     on_conflict = cfg["on_conflict"]
     for d in dests:
@@ -359,7 +578,37 @@ def build_classify_preview(
         except Exception:
             pass
 
-    if series_tags_list and not char_tags_list:
+    if series_only_review is not None:
+        # series-only resolver 가 needs_review 를 반환한 케이스 — 새 reason
+        # 코드를 classification_info 로 노출한다. raw_tags 는 후보 보조용.
+        try:
+            from core.tag_candidate_generator import GENERAL_TAG_BLACKLIST
+        except Exception:
+            GENERAL_TAG_BLACKLIST = frozenset()
+        candidate_source = [
+            t for t in raw_tags_list if t not in GENERAL_TAG_BLACKLIST
+        ][:10]
+        reason = series_only_review.get("reason", "")
+        suggestion_map = {
+            SERIES_ONLY_REASON_PARENT_CONFLICT:
+                "명시 시리즈와 캐릭터 소속 시리즈가 다릅니다. "
+                "잘못된 alias 를 정리하거나 분류 기준을 확인하세요.",
+            SERIES_ONLY_REASON_MULTI_REQ_CONFIRM:
+                "캐릭터 소속 시리즈가 여러 개입니다. "
+                "여러 폴더 분류를 허용하거나 캐릭터 alias 를 정리하세요.",
+            SERIES_ONLY_REASON_UNIDENTIFIED:
+                "시리즈 / 캐릭터 alias 후보를 확인해 시리즈를 식별하세요.",
+        }
+        classification_info = {
+            "classification_reason": reason,
+            "missing_parts":         ["series"],
+            "series_context":        "",
+            "candidate_source_tags": candidate_source,
+            "suggested_action":      suggestion_map.get(reason, ""),
+            "series":                series_only_review.get("series", []),
+            "parent_series":         series_only_review.get("parent_series", []),
+        }
+    elif series_tags_list and not char_tags_list:
         # series_uncategorized: series는 감지됐지만 character가 없음
         try:
             from core.tag_candidate_generator import GENERAL_TAG_BLACKLIST
