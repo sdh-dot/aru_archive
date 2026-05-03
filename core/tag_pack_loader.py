@@ -89,7 +89,10 @@ def _lint_pack_data(data: dict) -> tuple[list[dict], list[dict]]:
     -------
     (strong_hits, weak_hits)
         Each element is a list of dicts with keys:
-        table, field, value, reasons, tag_type, canonical.
+        table, field, value, reasons, tag_type, canonical, locale.
+
+        ``locale`` is the localization locale (``"ko"``/``"ja"``/``"en"`` etc.)
+        for ``tag_localizations`` rows, ``None`` for ``tag_aliases`` rows.
     """
     strong_hits: list[dict] = []
     weak_hits: list[dict] = []
@@ -109,6 +112,7 @@ def _lint_pack_data(data: dict) -> tuple[list[dict], list[dict]]:
             "reasons": reasons,
             "tag_type": tag_type,
             "canonical": canonical,
+            "locale": locale,
         }
         if severity == "strong":
             strong_hits.append(hit)
@@ -144,7 +148,45 @@ def _lint_pack_data(data: dict) -> tuple[list[dict], list[dict]]:
     return strong_hits, weak_hits
 
 
-def _apply_pack_lint(data: dict, *, pack_label: str = "") -> set[str]:
+# ---------------------------------------------------------------------------
+# Row-key skip — collateral skip 차단
+# ---------------------------------------------------------------------------
+# weak lint hit 발생 시, value 단위가 아니라 (kind, canonical, locale, value)
+# 4-tuple 단위로 skip 한다. 동일 value 가 다른 row (alias / 다른 locale) 에
+# 정상으로 등장하더라도 그 row 까지 collateral skip 되지 않는다.
+#
+# kind:
+#   "alias" — tag_aliases.alias 행. locale 은 항상 None.
+#   "loc"   — tag_localizations.display_name 행. locale 필수.
+#
+# canonical hit (field="canonical") 은 INSERT 의 부속 컬럼일 뿐 자체 row 가
+# 아니므로 skip set 에서 제외 (warning 만 발생).
+
+_SkipKey = tuple[str, str, str | None, str]
+
+
+def _alias_skip_key(canonical: str, alias: str) -> _SkipKey:
+    return ("alias", canonical, None, alias)
+
+
+def _loc_skip_key(canonical: str, locale: str, display_name: str) -> _SkipKey:
+    return ("loc", canonical, locale, display_name)
+
+
+def _hit_to_skip_key(hit: dict) -> _SkipKey | None:
+    """weak hit → row-key 변환. canonical hit 은 None 반환 (skip set 미진입)."""
+    field = hit.get("field")
+    if field == "alias":
+        return _alias_skip_key(hit["canonical"], hit["value"])
+    if field == "display_name":
+        locale = hit.get("locale")
+        if locale is None:
+            return None
+        return _loc_skip_key(hit["canonical"], locale, hit["value"])
+    return None
+
+
+def _apply_pack_lint(data: dict, *, pack_label: str = "") -> set[_SkipKey]:
     """Run mojibake lint on *data* and raise or warn as appropriate.
 
     Parameters
@@ -156,8 +198,16 @@ def _apply_pack_lint(data: dict, *, pack_label: str = "") -> set[str]:
 
     Returns
     -------
-    set of ``(table, field, value)`` tuples that should be **skipped**
-    (weak signals only).  Callers compare each row against this set.
+    set of ``(kind, canonical, locale, value)`` row-keys that should be
+    **skipped** (weak signals only).
+
+    ``kind`` is ``"alias"`` (with ``locale=None``) or ``"loc"``.
+    Callers compare each row against this set using ``_alias_skip_key`` /
+    ``_loc_skip_key`` helpers — collateral skip (same value sharing across
+    different rows) is intentionally avoided.
+
+    canonical hits are warned but not added to the skip set (canonical is
+    not a row of its own — it's an INSERT column on alias rows).
 
     Raises
     ------
@@ -170,16 +220,19 @@ def _apply_pack_lint(data: dict, *, pack_label: str = "") -> set[str]:
         reasons_summary = {"strong": len(strong_hits), "weak": len(weak_hits)}
         raise TagPackImportBlockedError(reasons_summary, strong_hits[:5])
 
-    skip_values: set[str] = set()
+    skip_keys: set[_SkipKey] = set()
     for hit in weak_hits:
-        val = hit["value"]
-        skip_values.add(val)
+        key = _hit_to_skip_key(hit)
+        if key is not None:
+            skip_keys.add(key)
         logger.warning(
-            "tag pack lint 경고 (%s): field=%s value=%r reasons=%s — 해당 row 건너뜀",
-            pack_label, hit["field"], val, hit["reasons"],
+            "tag pack lint 경고 (%s): canonical=%r field=%s locale=%s "
+            "value=%r reasons=%s — 해당 row 건너뜀",
+            pack_label, hit["canonical"], hit["field"], hit.get("locale"),
+            hit["value"], hit["reasons"],
         )
 
-    return skip_values
+    return skip_keys
 
 
 def load_tag_pack(path: Union[str, Path]) -> dict:
@@ -219,8 +272,10 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
     source = f"built_in_pack:{pack_id}"
     now = datetime.now(timezone.utc).isoformat()
 
-    # PR-6: mojibake lint — strong 신호 발견 시 즉시 중단, weak 신호는 skip 목록 반환
-    skip_values = _apply_pack_lint(pack, pack_label=pack_id)
+    # PR-6: mojibake lint — strong 신호 발견 시 즉시 중단, weak 신호는 skip 목록 반환.
+    # skip 단위는 row-key tuple (kind, canonical, locale, value) — 같은 value 의
+    # 다른 row 까지 collateral skip 되지 않는다.
+    skip_keys = _apply_pack_lint(pack, pack_label=pack_id)
 
     series_count = 0
     char_count = 0
@@ -232,7 +287,7 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
         media_type = series.get("media_type", "")
 
         for alias in series.get("aliases", []):
-            if alias in skip_values:
+            if _alias_skip_key(canonical, alias) in skip_keys:
                 continue
             try:
                 existing = conn.execute(
@@ -264,7 +319,7 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
                 logger.debug("series alias 삽입 실패 (%s): %s", alias, exc)
 
         for locale, display_name in series.get("localizations", {}).items():
-            if display_name in skip_values:
+            if _loc_skip_key(canonical, locale, display_name) in skip_keys:
                 continue
             try:
                 lid = str(uuid.uuid4())
@@ -285,7 +340,7 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
         parent_series = character.get("parent_series", "")
 
         for alias in character.get("aliases", []):
-            if alias in skip_values:
+            if _alias_skip_key(canonical, alias) in skip_keys:
                 continue
             try:
                 existing = conn.execute(
@@ -317,7 +372,7 @@ def seed_tag_pack(conn: sqlite3.Connection, pack: dict) -> dict:
                 logger.debug("character alias 삽입 실패 (%s): %s", alias, exc)
 
         for locale, display_name in character.get("localizations", {}).items():
-            if display_name in skip_values:
+            if _loc_skip_key(canonical, locale, display_name) in skip_keys:
                 continue
             try:
                 lid = str(uuid.uuid4())
@@ -462,8 +517,9 @@ def import_localized_tag_pack(
 
     # PR-6: mojibake lint — DB 쓰기 전 전체 scan.
     # Strong 신호 발견 시 TagPackImportBlockedError raise → DB 무변화 보장.
-    # Weak 신호는 skip_values에 포함 → 해당 row만 건너뜀.
-    skip_values = _apply_pack_lint(data, pack_label=pack_id)
+    # Weak 신호는 row-key (kind, canonical, locale, value) 단위로 skip — 같은
+    # value 의 다른 row 까지 collateral skip 되지 않는다.
+    skip_keys = _apply_pack_lint(data, pack_label=pack_id)
 
     series_count = 0
     char_count = 0
@@ -491,7 +547,7 @@ def import_localized_tag_pack(
             )
 
         for alias in s.get("aliases", []):
-            if alias in skip_values:
+            if _alias_skip_key(canonical, alias) in skip_keys:
                 continue
             try:
                 conn.execute(
@@ -508,7 +564,7 @@ def import_localized_tag_pack(
         for locale, display_name in s.get("localizations", {}).items():
             if not display_name or locale.startswith("_"):
                 continue
-            if display_name in skip_values:
+            if _loc_skip_key(canonical, locale, display_name) in skip_keys:
                 continue
             lc, conf = _upsert_localization(
                 conn, canonical, "series", "", locale, display_name, source, now
@@ -535,7 +591,7 @@ def import_localized_tag_pack(
             )
 
         for alias in char.get("aliases", []):
-            if alias in skip_values:
+            if _alias_skip_key(canonical, alias) in skip_keys:
                 continue
             try:
                 conn.execute(
@@ -552,7 +608,7 @@ def import_localized_tag_pack(
         for locale, display_name in char.get("localizations", {}).items():
             if not display_name or locale.startswith("_"):
                 continue
-            if display_name in skip_values:
+            if _loc_skip_key(canonical, locale, display_name) in skip_keys:
                 continue
             lc, conf = _upsert_localization(
                 conn, canonical, "character", parent_series, locale,
