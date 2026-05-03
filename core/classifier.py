@@ -268,8 +268,16 @@ def select_classify_target(
 # ---------------------------------------------------------------------------
 
 def _cls_cfg(config: dict) -> dict:
-    """classification 설정의 현재 정책값을 기본값과 병합한다."""
+    """classification 설정의 현재 정책값을 기본값과 병합한다.
+
+    PR #122: top-level ``folder_name_language`` 가 있으면 우선 사용한다.
+    없으면 기존 ``classification.folder_locale`` 을 그대로 이어 받는다 —
+    backward compat. 두 값은 같은 의미 (분류 폴더의 표시 언어) 이므로
+    서로 모순될 일이 없다.
+    """
     c = config.get("classification", {})
+    folder_name_lang = (config.get("folder_name_language") or "").strip()
+    folder_locale_value = folder_name_lang or c.get("folder_locale", "canonical")
     return {
         "enable_series_character":         c.get("enable_series_character", True),
         "enable_series_uncategorized":     c.get("enable_series_uncategorized", True),
@@ -279,9 +287,12 @@ def _cls_cfg(config: dict) -> dict:
         "enable_by_tag":                   c.get("enable_by_tag", False),
         "on_conflict":                     c.get("on_conflict", "rename"),
         # 다국어 폴더명
-        "folder_locale":                   c.get("folder_locale", "canonical"),
+        "folder_locale":                   folder_locale_value,
         "fallback_locale":                 c.get("fallback_locale", "canonical"),
         "enable_localized_folder_names":   c.get("enable_localized_folder_names", True),
+        # PR #122: 카테고리 폴더 (ByAuthor / BySeries / ByCharacter / ByTag) 의
+        # 표시 언어. 기본은 folder_locale 와 동일한 값을 따른다.
+        "folder_name_language":            folder_name_lang or c.get("folder_locale", "canonical"),
         # 일괄 분류
         "batch_existing_copy_policy":      c.get("batch_existing_copy_policy", "keep_existing"),
     }
@@ -305,6 +316,8 @@ def _build_destinations(
     localization 활성 시 series_canonical, series_display, character_canonical,
     character_display, locale, used_fallback 추가.
     """
+    from core.folder_localization import resolve_category_folder
+
     filename  = Path(source_file["file_path"]).name
     base      = Path(classified_dir)
     dests: list[dict] = []
@@ -316,6 +329,14 @@ def _build_destinations(
         and locale != "canonical"
         and conn is not None
     )
+    # PR #122: 카테고리 폴더명 (ByXxx) 의 표시 언어 — folder_name_language 가
+    # 우선이며, 미설정 시 folder_locale 로 fallback. 알 수 없는 값은 영어로
+    # 안전 fallback 된다 (resolve_category_folder 내부에서 처리).
+    cat_lang = cfg.get("folder_name_language") or locale
+    by_series_label    = resolve_category_folder("by_series",    cat_lang)
+    by_character_label = resolve_category_folder("by_character", cat_lang)
+    by_author_label    = resolve_category_folder("by_author",    cat_lang)
+    by_tag_label       = resolve_category_folder("by_tag",       cat_lang)
 
     def _display(canonical: str, tag_type: str, parent_series: str = "") -> tuple[str, bool]:
         if not use_locale:
@@ -343,7 +364,10 @@ def _build_destinations(
     has_series  = bool(series_tags)
     has_char    = bool(char_tags)
 
-    # Tier 1: BySeries/{series}/{char} — 시리즈 + 캐릭터 모두 있을 때
+    # Tier 1: BySeries/{series}/{char} — 시리즈 + 캐릭터 모두 있을 때.
+    # PR #122: 카테고리 폴더명은 folder_name_language 에 따라 ko/ja/en 으로
+    # 로컬라이즈된 라벨을 사용한다. 내부 rule_type ("series_character" 등) 은
+    # 변경하지 않으므로 DB / consistency report / preview 매칭은 영향 없음.
     if has_series and has_char and cfg["enable_series_character"]:
         for series in series_tags:
             s_display, s_fb = _display(series, "series")
@@ -357,7 +381,7 @@ def _build_destinations(
                     "locale": locale if use_locale else "canonical",
                     "used_fallback": s_fb or c_fb,
                 } if use_locale else {}
-                _add("series_character", base / "BySeries" / s / c, extra)
+                _add("series_character", base / by_series_label / s / c, extra)
 
     # Tier 2: BySeries/{series}/_uncategorized — 시리즈만 있을 때
     elif has_series and cfg["enable_series_uncategorized"]:
@@ -369,7 +393,7 @@ def _build_destinations(
                 "locale": locale if use_locale else "canonical",
                 "used_fallback": s_fb,
             } if use_locale else {}
-            _add("series_uncategorized", base / "BySeries" / s / "_uncategorized", extra)
+            _add("series_uncategorized", base / by_series_label / s / "_uncategorized", extra)
 
     # Tier 3: ByCharacter/{char} — 캐릭터만 있을 때
     elif has_char and cfg["enable_character_without_series"]:
@@ -381,22 +405,22 @@ def _build_destinations(
                 "locale": locale if use_locale else "canonical",
                 "used_fallback": c_fb,
             } if use_locale else {}
-            _add("character", base / "ByCharacter" / c, extra)
+            _add("character", base / by_character_label / c, extra)
 
     # Author fallback: 시리즈/캐릭터 모두 없을 때만
     if not has_series and not has_char and cfg["fallback_by_author"]:
         artist = (group_row.get("artist_name") or "").strip()
-        _add("author_fallback", base / "ByAuthor" / sanitize_path_component(artist, "_unknown_artist"))
+        _add("author_fallback", base / by_author_label / sanitize_path_component(artist, "_unknown_artist"))
 
     # Always-on author: 시리즈/캐릭터 유무와 무관하게 항상 추가
     if cfg["enable_by_author"]:
         artist = (group_row.get("artist_name") or "").strip()
-        _add("author", base / "ByAuthor" / sanitize_path_component(artist, "_unknown_artist"))
+        _add("author", base / by_author_label / sanitize_path_component(artist, "_unknown_artist"))
 
     # ByTag (기본 비활성)
     if cfg["enable_by_tag"]:
         for tag in _parse_json_list(group_row.get("tags_json")):
-            _add("by_tag", base / "ByTag" / sanitize_path_component(tag))
+            _add("by_tag", base / by_tag_label / sanitize_path_component(tag))
 
     # 같은 경로가 중복 생성된 경우 dedupe (먼저 등장한 항목 유지)
     seen_paths: set[str] = set()
