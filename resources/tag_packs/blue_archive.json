@@ -1,7 +1,7 @@
 {
   "pack_id": "blue_archive",
   "name": "Blue Archive",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "source": "built_in",
   "series": [
     {
@@ -144,6 +144,54 @@
         "ko": "코사카 와카모",
         "ja": "狐坂ワカモ",
         "en": "Kosaka Wakamo"
+      }
+    },
+    {
+      "canonical": "空崎ヒナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "空崎ヒナ",
+        "ヒナ",
+        "Sorasaki Hina",
+        "소라사키 히나",
+        "히나"
+      ],
+      "localizations": {
+        "ko": "소라사키 히나",
+        "ja": "空崎ヒナ",
+        "en": "Sorasaki Hina"
+      }
+    },
+    {
+      "canonical": "天雨アコ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "天雨アコ",
+        "アコ",
+        "Amau Ako",
+        "아마우 아코",
+        "아코"
+      ],
+      "localizations": {
+        "ko": "아마우 아코",
+        "ja": "天雨アコ",
+        "en": "Amau Ako"
+      }
+    },
+    {
+      "canonical": "桐藤ナギサ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "桐藤ナギサ",
+        "ナギサ",
+        "Kirifuji Nagisa",
+        "키리후지 나기사",
+        "나기사"
+      ],
+      "localizations": {
+        "ko": "키리후지 나기사",
+        "ja": "桐藤ナギサ",
+        "en": "Kirifuji Nagisa"
       }
     }
   ]
