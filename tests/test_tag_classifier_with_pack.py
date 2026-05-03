@@ -164,6 +164,159 @@ class TestWakamoAliases:
         assert "Blue Archive" in result["series_tags"]
 
 
+class TestBlueArchiveCoreCharactersP1:
+    """Blue Archive 1차 핵심 캐릭터 alias 보강 회귀 lock.
+
+    실 사용자 DB 에서 분류 실패가 확인된 3명 (ヒナ / アコ / ナギサ) 의
+    canonical / 일본어 단축 / 한국어 풀네임 / 한국어 단축 / 영문 풀네임이
+    모두 매칭되어야 한다. 영어 단독 (Hina/Ako/Nagisa) 은 동명이인 위험으로
+    pack 에서 의도적으로 제외했으므로 본 테스트도 검증하지 않는다.
+    """
+
+    # ---- 空崎ヒナ (Sorasaki Hina / 소라사키 히나) ------------------------
+
+    def test_hina_canonical_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["空崎ヒナ"], conn=conn_with_pack)
+        assert "空崎ヒナ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_hina_short_japanese_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["ヒナ"], conn=conn_with_pack)
+        assert "空崎ヒナ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_hina_korean_full_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["소라사키 히나"], conn=conn_with_pack)
+        assert "空崎ヒナ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_hina_korean_short_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["히나"], conn=conn_with_pack)
+        assert "空崎ヒナ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_hina_english_full_alias(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["Sorasaki Hina"], conn=conn_with_pack)
+        assert "空崎ヒナ" in result["character_tags"]
+
+    # ---- 天雨アコ (Amau Ako / 아마우 아코) -------------------------------
+
+    def test_ako_canonical_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["天雨アコ"], conn=conn_with_pack)
+        assert "天雨アコ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_ako_short_japanese_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["アコ"], conn=conn_with_pack)
+        assert "天雨アコ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_ako_korean_full_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["아마우 아코"], conn=conn_with_pack)
+        assert "天雨アコ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_ako_korean_short_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["아코"], conn=conn_with_pack)
+        assert "天雨アコ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_ako_english_full_alias(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["Amau Ako"], conn=conn_with_pack)
+        assert "天雨アコ" in result["character_tags"]
+
+    # ---- 桐藤ナギサ (Kirifuji Nagisa / 키리후지 나기사) ------------------
+
+    def test_nagisa_canonical_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["桐藤ナギサ"], conn=conn_with_pack)
+        assert "桐藤ナギサ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_nagisa_short_japanese_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["ナギサ"], conn=conn_with_pack)
+        assert "桐藤ナギサ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_nagisa_korean_full_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["키리후지 나기사"], conn=conn_with_pack)
+        assert "桐藤ナギサ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_nagisa_korean_short_infers_blue_archive(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["나기사"], conn=conn_with_pack)
+        assert "桐藤ナギサ" in result["character_tags"]
+        assert "Blue Archive" in result["series_tags"]
+
+    def test_nagisa_english_full_alias(self, conn_with_pack) -> None:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(["Kirifuji Nagisa"], conn=conn_with_pack)
+        assert "桐藤ナギサ" in result["character_tags"]
+
+    # ---- English-only solo aliases must remain unmatched -----------------
+
+    def test_english_solo_aliases_excluded(self, conn_with_pack) -> None:
+        """동명이인 위험으로 1차 PR 에서 의도적으로 제외한 solo 영어.
+
+        이 invariant 가 깨지면 누군가 'Hina' / 'Ako' / 'Nagisa' alias 를
+        섣불리 추가한 것이며 다른 시리즈 캐릭터와 충돌할 수 있다.
+        """
+        from core.tag_classifier import classify_pixiv_tags
+        for solo in ("Hina", "Ako", "Nagisa"):
+            result = classify_pixiv_tags([solo], conn=conn_with_pack)
+            assert result["character_tags"] == [], (
+                f"solo English alias {solo!r} 가 매칭됨 — 1차 PR 정책 위반"
+            )
+
+    # ---- retag flow: tags_json → series/character DB columns -------------
+
+    def test_retag_populates_series_for_hina_only_tag(self, conn_with_pack, tmp_path) -> None:
+        """tags_json 에 캐릭터만 있어도 retag 후 series_tags_json 에 BA 가 들어간다.
+
+        실 사용자 시나리오: enrichment 가 Pixiv API raw 만 가져오고 series
+        토큰이 빠졌을 때, retag 가 character alias 의 parent_series 로
+        series 를 역추론하는 흐름.
+        """
+        import json
+        import uuid
+        from datetime import datetime, timezone
+        from core.tag_reclassifier import retag_groups_from_existing_tags
+
+        gid = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        conn_with_pack.execute(
+            "INSERT INTO artwork_groups "
+            "(group_id, source_site, artwork_id, downloaded_at, indexed_at, "
+            " metadata_sync_status, tags_json, series_tags_json, character_tags_json) "
+            "VALUES (?, 'pixiv', '99999', ?, ?, 'json_only', ?, '[]', '[]')",
+            (gid, now, now, json.dumps(["空崎ヒナ"], ensure_ascii=False)),
+        )
+        conn_with_pack.commit()
+
+        result = retag_groups_from_existing_tags(conn_with_pack, [gid])
+        assert result["updated"] == 1
+
+        row = conn_with_pack.execute(
+            "SELECT series_tags_json, character_tags_json FROM artwork_groups WHERE group_id=?",
+            (gid,),
+        ).fetchone()
+        assert "Blue Archive" in json.loads(row["series_tags_json"])
+        assert "空崎ヒナ" in json.loads(row["character_tags_json"])
+
+
 class TestSinglePreviewLocalizedPath:
     def test_wakamo_single_preview_ko_path(self, conn_with_pack, tmp_path) -> None:
         """단일 분류 미리보기에서 ko locale로 BySeries/블루 아카이브/코사카 와카모/ 경로 생성."""
