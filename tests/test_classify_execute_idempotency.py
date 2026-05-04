@@ -236,6 +236,13 @@ class TestPhysicalFileWithoutDbRecord:
         ).fetchone()
         assert after["cnt"] == 1
 
+        # copy_records는 파일 복사가 실제로 발생하지 않았으므로 생성 안 됨 (undo 제외)
+        cr = db.execute(
+            "SELECT COUNT(*) AS cnt FROM copy_records WHERE dest_path = ?",
+            (str(dest_path),),
+        ).fetchone()
+        assert cr["cnt"] == 0
+
     def test_file_exists_different_hash_uses_conflict_policy(
         self, db: sqlite3.Connection, tmp_path: Path
     ) -> None:
@@ -383,9 +390,11 @@ class TestBatchIdempotency:
         # 2차 실행 — 모두 skipped, 오류 없음
         r2 = execute_classify_batch(db, batch, cfg)
         assert r2["success"] is True
+        assert r2["status"] == "completed"   # "failed" 아님
         assert r2["copied"] == 0
         assert r2["skipped"] == 3
         assert r2["failed_groups"] == 0
+        assert r2["error"] is None
 
     def test_batch_mixed_new_and_existing(self, db: sqlite3.Connection, tmp_path: Path) -> None:
         """이미 분류된 그룹과 새 그룹이 섞인 batch → 새 것만 copied, 기존은 skipped."""
