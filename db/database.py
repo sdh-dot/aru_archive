@@ -105,6 +105,8 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     _migrate_delete_batches(conn)
     _migrate_delete_records(conn)
     _migrate_classification_overrides(conn)
+    _migrate_artwork_files(conn)
+    _migrate_copy_records(conn)
     _ensure_startup_query_indexes(conn)
 
 
@@ -116,14 +118,16 @@ def _ensure_startup_query_indexes(conn: sqlite3.Connection) -> None:
             "ON artwork_groups(indexed_at DESC)"
         )
     if _table_exists(conn, "artwork_files"):
+        af_cols = {row["name"] for row in _table_columns(conn, "artwork_files")}
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_artwork_files_group_status "
             "ON artwork_files(group_id, file_status)"
         )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_artwork_files_group_role_page "
-            "ON artwork_files(group_id, file_role, page_index)"
-        )
+        if "page_index" in af_cols:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_artwork_files_group_role_page "
+                "ON artwork_files(group_id, file_role, page_index)"
+            )
     conn.commit()
 
 
@@ -425,6 +429,27 @@ def _migrate_delete_records(conn: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_delete_records_file "
         "ON delete_records(file_id)"
     )
+    conn.commit()
+
+
+def _migrate_artwork_files(conn: sqlite3.Connection) -> None:
+    """artwork_files에 분류 실행 bookkeeping 컬럼을 보강한다."""
+    if not _table_exists(conn, "artwork_files"):
+        return
+    cols = {row["name"] for row in _table_columns(conn, "artwork_files")}
+    _add_column_if_missing(conn, "artwork_files", cols, "metadata_embedded", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "artwork_files", cols, "source_file_id", "TEXT")
+    _add_column_if_missing(conn, "artwork_files", cols, "classify_rule_id", "TEXT")
+    conn.commit()
+
+
+def _migrate_copy_records(conn: sqlite3.Connection) -> None:
+    """copy_records에 분류 실행 bookkeeping 컬럼을 보강한다."""
+    if not _table_exists(conn, "copy_records"):
+        return
+    cols = {row["name"] for row in _table_columns(conn, "copy_records")}
+    _add_column_if_missing(conn, "copy_records", cols, "dest_mtime_at_copy", "TEXT")
+    _add_column_if_missing(conn, "copy_records", cols, "dest_hash_at_copy", "TEXT")
     conn.commit()
 
 
