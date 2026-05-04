@@ -882,11 +882,15 @@ class _Step1Root(_StepPanel):
         )
         layout.addWidget(self._scope_notice)
 
+        # PR #122: 3개 폴더 개념 (분류 대상 / 분류 완료 / 관리) 을 명확히 분리.
+        # 관리 폴더는 사용자가 일반 설정에서 임의로 바꾸지 않으며 읽기 전용.
         guide = QLabel(
-            "선택한 폴더는 분류 대상 폴더로 그대로 사용됩니다.\n"
-            "같은 위치에 Classified / Managed 폴더가 자동 생성됩니다.\n"
-            "앱 내부 데이터(DB, 로그, 썸네일)는 사용자 홈의 AruArchive 아래에 저장됩니다."
+            "분류 대상 폴더: 분류할 이미지가 들어 있는 폴더입니다.\n"
+            "분류 완료 폴더: 분류 완료된 이미지가 배치될 폴더입니다.\n"
+            "관리 폴더: 로그, 썸네일 캐시, 런타임 파일 등 앱 관리 데이터가 "
+            "저장됩니다 (Path.home() / AruArchive 기준 고정)."
         )
+        guide.setObjectName("step1FolderGuide")
         guide.setWordWrap(True)
         layout.addWidget(guide)
 
@@ -907,6 +911,50 @@ class _Step1Root(_StepPanel):
         btn_row.addWidget(btn_open)
         btn_row.addStretch()
         layout.addLayout(btn_row)
+
+        # PR #122: 전역 언어 설정 영역. app_language (UI 언어) 와
+        # folder_name_language (분류 폴더명 언어) 를 분리해서 표시한다.
+        # destination 결정은 folder_name_language 만 사용 — app_language 변경은
+        # 새 폴더명에 영향을 주지 않는다.
+        layout.addWidget(_h_sep())
+        layout.addWidget(_label("언어 설정", bold=True))
+
+        lang_row1 = QHBoxLayout()
+        lang_row1.addWidget(QLabel("앱 언어 (UI 표시):"))
+        self._app_lang_combo = QComboBox()
+        self._app_lang_combo.setObjectName("step1AppLanguageCombo")
+        for val, label in (("ko", "한국어"), ("ja", "日本語"), ("en", "English")):
+            self._app_lang_combo.addItem(label, val)
+        lang_row1.addWidget(self._app_lang_combo)
+        lang_row1.addStretch()
+        layout.addLayout(lang_row1)
+
+        lang_row2 = QHBoxLayout()
+        lang_row2.addWidget(QLabel("분류 폴더명 언어:"))
+        self._folder_lang_combo = QComboBox()
+        self._folder_lang_combo.setObjectName("step1FolderNameLanguageCombo")
+        for val, label in (("ko", "한국어"), ("ja", "日本語"), ("en", "English")):
+            self._folder_lang_combo.addItem(label, val)
+        lang_row2.addWidget(self._folder_lang_combo)
+        lang_row2.addStretch()
+        layout.addLayout(lang_row2)
+
+        self._folder_lang_notice = QLabel(
+            "선택한 언어로 분류 완료 폴더의 하위 폴더명이 생성됩니다. "
+            "이미 생성된 기존 폴더명은 자동 변경되지 않습니다."
+        )
+        self._folder_lang_notice.setObjectName("step1FolderNameLanguageNotice")
+        self._folder_lang_notice.setWordWrap(True)
+        self._folder_lang_notice.setStyleSheet(
+            "color: #8F8890; font-size: 11px; padding: 4px 0px;"
+        )
+        layout.addWidget(self._folder_lang_notice)
+
+        # 초기값을 config 에서 로드하고 변경 시 저장.
+        self._restore_language_settings()
+        self._app_lang_combo.currentIndexChanged.connect(self._on_app_lang_changed)
+        self._folder_lang_combo.currentIndexChanged.connect(self._on_folder_lang_changed)
+
         layout.addStretch()
 
     def refresh(self) -> None:
@@ -914,7 +962,9 @@ class _Step1Root(_StepPanel):
         data_dir = cfg.get("data_dir", "")
         inbox    = cfg.get("inbox_dir", "")
         classified = cfg.get("classified_dir", "")
-        managed = cfg.get("managed_dir", "")
+        # PR #122: 관리 폴더는 항상 default_app_data_dir() 또는 명시 설정.
+        from core.config_manager import resolve_app_data_dir
+        managed_root = str(resolve_app_data_dir(cfg))
         db_path  = cfg.get("db", {}).get("path") or (
             f"{data_dir}/.runtime/aru_archive.db" if data_dir else ""
         )
@@ -935,16 +985,18 @@ class _Step1Root(_StepPanel):
             except Exception:
                 pass
 
+        # PR #122: 3개 폴더 (분류 대상 / 분류 완료 / 관리) 를 명확히 분리해 표시.
         rows = [
-            ("앱 데이터 폴더",  data_dir or "미설정"),
             ("분류 대상 폴더",  inbox or "미설정"),
             ("분류 대상 상태",  _chk(inbox)),
             ("분류 완료 폴더",  classified or "미설정"),
             ("분류 완료 상태",  _chk(classified)),
-            ("관리 폴더",      managed or "미설정"),
-            ("관리 폴더 상태",  _chk(managed)),
-            (".thumbcache",   _chk(f"{data_dir}/.thumbcache" if data_dir else "")),
-            (".runtime",      _chk(f"{data_dir}/.runtime" if data_dir else "")),
+            ("관리 폴더",      managed_root),
+            ("관리 폴더 상태",  _chk(managed_root)),
+            (".runtime",      _chk(f"{managed_root}/.runtime")),
+            ("logs",          _chk(f"{managed_root}/logs")),
+            ("thumbcache",    _chk(f"{managed_root}/thumbcache")),
+            ("managed",       _chk(f"{managed_root}/managed")),
             ("DB 파일",       "✅ 정상" if db_ok else ("❌ 연결 실패" if db_path else "⚠ 미설정")),
         ]
         self._status_table.setRowCount(len(rows))
@@ -952,22 +1004,86 @@ class _Step1Root(_StepPanel):
             self._status_table.setItem(r, 0, QTableWidgetItem(k))
             self._status_table.setItem(r, 1, QTableWidgetItem(v))
 
+    def _restore_language_settings(self) -> None:
+        cfg = self._config()
+        app_lang    = cfg.get("app_language") or cfg.get("ui_language") or "ko"
+        folder_lang = (
+            cfg.get("folder_name_language")
+            or cfg.get("classification", {}).get("folder_locale")
+            or "ko"
+        )
+        if folder_lang == "canonical":
+            folder_lang = "en"
+        for combo, value in (
+            (self._app_lang_combo,    app_lang),
+            (self._folder_lang_combo, folder_lang),
+        ):
+            idx = combo.findData(value)
+            if idx < 0:
+                idx = combo.findData("ko")
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+
+    def _on_app_lang_changed(self, _index: int) -> None:
+        cfg = self._config()
+        cfg["app_language"] = self._app_lang_combo.currentData() or "ko"
+        self._save_cfg()
+
+    def _on_folder_lang_changed(self, _index: int) -> None:
+        cfg = self._config()
+        new_lang = self._folder_lang_combo.currentData() or "ko"
+        cfg["folder_name_language"] = new_lang
+        # classification.folder_locale 도 같은 값으로 동기화 — series/character
+        # display 언어와 카테고리 폴더 언어는 같은 정책을 따른다.
+        cfg.setdefault("classification", {})["folder_locale"] = new_lang
+        self._save_cfg()
+
+    def _save_cfg(self) -> None:
+        try:
+            from core.config_manager import save_config
+            save_config(self._config(), self._wizard._config_path)
+        except Exception as exc:
+            logger.warning("config 저장 실패 (Step1 language): %s", exc)
+
     def _on_select_root(self) -> None:
-        cfg   = self._config()
-        start = cfg.get("inbox_dir") or str(Path.home())
-        dlg = PathSetupDialog(start_dir=start, data_dir=cfg.get("data_dir", ""), parent=self)
+        cfg = self._config()
+        from core.config_manager import (
+            ensure_app_data_dirs, ensure_app_directories,
+            ensure_workspace_directories, resolve_app_data_dir,
+            save_config, sync_io_dir_aliases,
+        )
+        # PR #122 follow-up: 두 picker (input / output) + 읽기 전용 관리 폴더.
+        # input/output 을 sibling 으로 자동 파생하지 않는다.
+        app_data_dir = str(resolve_app_data_dir(cfg))
+        dlg = PathSetupDialog(
+            start_input_dir=cfg.get("input_dir") or cfg.get("inbox_dir", ""),
+            start_output_dir=cfg.get("output_dir") or cfg.get("classified_dir", ""),
+            app_data_dir=app_data_dir,
+            parent=self,
+        )
         if dlg.exec() != PathSetupDialog.DialogCode.Accepted:
             return
-        from core.config_manager import (
-            ensure_app_directories, ensure_workspace_directories,
-            save_config, update_workspace_from_inbox,
-        )
         paths = dlg.selected_paths()
         if not paths:
             return
-        update_workspace_from_inbox(cfg, paths["inbox_dir"])
+        # dialog 가 input/output/managed/app_data 를 모두 명시 반환 — sibling
+        # 자동 파생 (update_workspace_from_inbox) 은 호출하지 않는다.
+        cfg["input_dir"]      = paths["input_dir"]
+        cfg["inbox_dir"]      = paths["input_dir"]
+        cfg["output_dir"]     = paths["output_dir"]
+        cfg["classified_dir"] = paths["output_dir"]
+        cfg["managed_dir"]    = paths["managed_dir"]
+        cfg["app_data_dir"]   = paths["app_data_dir"]
+        sync_io_dir_aliases(cfg)
         ensure_app_directories(cfg)
         ensure_workspace_directories(cfg)
+        # PR #122: 관리 폴더 (Path.home() / AruArchive 또는 명시 경로) 의 표준
+        # 하위 폴더를 보장한다. 실패 시 사용자가 확인할 수 있도록 로그에 남기지만
+        # wizard 흐름은 막지 않는다 (DB 가 다른 경로일 수도 있음).
+        try:
+            ensure_app_data_dirs(resolve_app_data_dir(cfg))
+        except OSError as exc:
+            logger.warning("관리 폴더 하위 디렉터리 생성 실패: %s", exc)
         try:
             save_config(cfg, self._wizard._config_path)
         except Exception as exc:
@@ -2224,7 +2340,10 @@ def _is_preview_item_manual_override(item: dict) -> bool:
 _RULE_DISPLAY: dict[str, str] = {
     "author_fallback":      "작가명 분류",
     "series_character":     "캐릭터 분류",
-    "series_uncategorized": "시리즈 미식별",
+    # series_uncategorized: series는 식별됐으나 character 정보 없어 _uncategorized 배치.
+    # "시리즈 미식별"은 series_unidentified(실제 시리즈 탐지 실패)와 혼동을 유발하므로
+    # "캐릭터 미분류"로 변경한다. rule_type 자체는 변경하지 않는다.
+    "series_uncategorized": "캐릭터 미분류",
     "manual_override":      "수동 분류",
     "series":               "시리즈 분류",
     "character":            "캐릭터 단독 분류",
@@ -2322,6 +2441,20 @@ class _Step7Preview(_StepPanel):
         )
         self._stale_notice_lbl.setVisible(False)
         layout.addWidget(self._stale_notice_lbl)
+
+        # 현재 분류 모드 안내 — series_character / series_only 에 따라 텍스트가
+        # 달라진다. preview 생성 시 _update_mode_notice() 로 갱신된다.
+        # 표시 전용이며 classification 로직에는 영향 없음.
+        self._mode_notice_lbl = QLabel("")
+        self._mode_notice_lbl.setObjectName("step7ModeNotice")
+        self._mode_notice_lbl.setWordWrap(True)
+        self._mode_notice_lbl.setStyleSheet(
+            "color: #A8C8B0; background: #14221A; "
+            "border: 1px solid #204A2A; border-radius: 4px; "
+            "padding: 6px 10px; font-size: 11px;"
+        )
+        self._update_mode_notice()
+        layout.addWidget(self._mode_notice_lbl)
 
         # author_fallback 안내 — 항상 표시. 분류 실패 시 작가명 기준으로 자동
         # 분류된다는 정책을 사용자에게 알린다. 라벨 자체는 표시 전용이며
@@ -2561,6 +2694,7 @@ class _Step7Preview(_StepPanel):
             )
             return
 
+        self._update_mode_notice()
         self._btn_preview.setEnabled(False)
         self._btn_preview.setText("생성 중…")
         self._batch_preview = None
@@ -2647,6 +2781,7 @@ class _Step7Preview(_StepPanel):
         가 자동 호출돼 안내가 사라진다.
         """
         self._preview_dirty_reason = reason or "분류 기준이 변경되었습니다."
+        self._update_mode_notice()
         if hasattr(self, "_stale_notice_lbl"):
             self._stale_notice_lbl.setText(
                 f"⚠ {self._preview_dirty_reason} "
@@ -2665,6 +2800,28 @@ class _Step7Preview(_StepPanel):
     def is_preview_dirty(self) -> bool:
         """외부 (테스트 / 다른 패널) 에서 dirty 여부 조회용."""
         return self._preview_dirty_reason is not None
+
+    def _update_mode_notice(self) -> None:
+        """현재 분류 모드에 맞춰 _mode_notice_lbl 텍스트를 갱신한다.
+
+        Step 5 에서 분류 기준을 바꾸거나 preview 가 재생성될 때 호출한다.
+        표시 전용 — classification 로직 변경 없음.
+        """
+        if not hasattr(self, "_mode_notice_lbl"):
+            return
+        cfg = self._config()
+        level = cfg.get("classification", {}).get("classification_level", "series_character")
+        if level == "series_only":
+            text = (
+                "현재 분류 모드: 시리즈 폴더만 — "
+                "캐릭터 태그는 시리즈 추론에만 사용되며, 캐릭터별 하위 폴더는 생성되지 않습니다."
+            )
+        else:
+            text = (
+                "현재 분류 모드: 시리즈 + 캐릭터 — "
+                "시리즈 아래에 캐릭터별 하위 폴더가 생성됩니다."
+            )
+        self._mode_notice_lbl.setText(text)
 
     def _show_preview_summary(self, result: dict) -> None:
         from core.workflow_summary import compute_preview_risk_level
