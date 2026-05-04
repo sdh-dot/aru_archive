@@ -17,6 +17,7 @@ import logging
 import os
 import sqlite3
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
@@ -36,6 +37,47 @@ logger = logging.getLogger(__name__)
 
 
 _TRUTHY_ENV = {"1", "true", "yes", "on"}
+
+# Statuses that indicate a file was previously registered (has existing metadata).
+# When these are the previous status, XMP write uses clear-first to overwrite stale fields.
+_EXISTING_REGISTRATION_STATUSES: frozenset[str] = frozenset({
+    "full", "json_only", "xmp_write_failed", "metadata_write_failed",
+    "out_of_sync", "source_unavailable", "needs_reindex",
+    "file_write_failed", "db_update_failed",
+})
+
+
+@dataclass
+class PixivFetchStoreResult:
+    file_id: str
+    group_id: Optional[str]
+    fetched: bool
+    db_saved: bool
+    previous_status: Optional[str]
+    resulting_status: Optional[str]
+    error: Optional[str]
+    write_candidate: bool
+
+
+@dataclass
+class MetadataWriteResult:
+    file_id: str
+    group_id: Optional[str]
+    attempted: bool
+    json_written: bool
+    xmp_xp_written: bool
+    clear_first: bool
+    previous_status: Optional[str]
+    resulting_status: Optional[str]
+    error: Optional[str]
+
+
+def _get_previous_status(conn: sqlite3.Connection, group_id: str) -> Optional[str]:
+    row = conn.execute(
+        "SELECT metadata_sync_status FROM artwork_groups WHERE group_id = ?",
+        (group_id,),
+    ).fetchone()
+    return row["metadata_sync_status"] if row else None
 
 
 def _is_timing_enabled(config: Optional[dict] = None) -> bool:
@@ -118,6 +160,7 @@ def enrich_file_from_pixiv(
     group_id    = row["group_id"]
     page_index  = row["page_index"] or 0
     _file_basename = Path(file_path).name
+    previous_status = _get_previous_status(conn, group_id)
 
     if not Path(file_path).exists():
         _set_file_missing(conn, file_id)
@@ -140,15 +183,21 @@ def enrich_file_from_pixiv(
     try:
         raw = adapter.fetch_metadata(artwork_id)
     except PixivRestrictedError as exc:
-        _set_sync_status(conn, group_id, "metadata_write_failed")
+        # 기존 full 상태는 보호 — fetch 실패로 정상 상태를 downgrade하지 않는다.
+        if previous_status != "full":
+            _set_sync_status(conn, group_id, "metadata_write_failed")
+        resulting = None if previous_status == "full" else "metadata_write_failed"
         _mark("pixiv_fetch")
-        return _finish("restricted", "metadata_write_failed", str(exc))
+        return _finish("restricted", resulting, str(exc))
     except PixivNotFoundError as exc:
         # HTTP 404 — Pixiv 작품이 영구적으로 조회 불가 (삭제/비공개).
         # source_unavailable로 표시해 metadata_missing 큐에서 영구 제외.
-        _set_sync_status(conn, group_id, "source_unavailable")
+        # 단, 기존 full 상태는 보호한다.
+        if previous_status != "full":
+            _set_sync_status(conn, group_id, "source_unavailable")
+        resulting = None if previous_status == "full" else "source_unavailable"
         _mark("pixiv_fetch")
-        return _finish("not_found_at_source", "source_unavailable", str(exc))
+        return _finish("not_found_at_source", resulting, str(exc))
     except PixivNetworkError as exc:
         _mark("pixiv_fetch")
         return _finish("network_error", None, str(exc))
@@ -189,9 +238,13 @@ def enrich_file_from_pixiv(
     _mark("write_aru")
 
     # 5-b. XMP 기록 시도 (ExifTool이 설정된 경우)
+    _clear_first = previous_status in _EXISTING_REGISTRATION_STATUSES
     if exiftool_path and sync_status == "json_only":
         try:
-            ok = write_xmp_metadata_with_exiftool(file_path, meta.to_dict(), exiftool_path)
+            ok = write_xmp_metadata_with_exiftool(
+                file_path, meta.to_dict(), exiftool_path,
+                clear_windows_xp_fields_before_write=_clear_first,
+            )
             if ok:
                 sync_status = "full"
         except XmpWriteError as exc:
