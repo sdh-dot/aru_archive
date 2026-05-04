@@ -158,6 +158,7 @@ def _migrate_artwork_groups(conn: sqlite3.Connection) -> None:
     _add_column_if_missing(conn, "artwork_groups", cols, "tags_json", "TEXT")
     _add_column_if_missing(conn, "artwork_groups", cols, "character_tags_json", "TEXT")
     _add_column_if_missing(conn, "artwork_groups", cols, "series_tags_json", "TEXT")
+    _add_column_if_missing(conn, "artwork_groups", cols, "raw_tags_json", "TEXT")
     _add_column_if_missing(conn, "artwork_groups", cols, "downloaded_at", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "artwork_groups", cols, "indexed_at", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "artwork_groups", cols, "updated_at", "TEXT")
