@@ -1572,38 +1572,14 @@ class _Step4EnrichModern(_StepPanel):
         title.setStyleSheet("font-size:14px; font-weight:bold; color:#F3C7D3;")
         outer.addWidget(title)
 
-        grid = QGridLayout()
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(10)
-        grid.setVerticalSpacing(10)
-
         self._btn_pixiv_card = self._make_action_button(
-            PIXIV_META_LABEL,
-            "Pixiv API를 통해 작품 정보를 일괄적으로 조회하여 입력합니다.",
+            "메타데이터 가져오기",
+            "Pixiv 정보를 조회하고 DB 및 XMP/Explorer 메타데이터를 등록합니다.",
             accent=False,
         )
         self._btn_pixiv_card.clicked.connect(self.on_pixiv_enrich_clicked)
-        grid.addWidget(self._btn_pixiv_card, 0, 0)
+        outer.addWidget(self._btn_pixiv_card)
 
-        self._btn_xmp_card = self._make_action_button(
-            "XMP 데이터 입력",
-            "XMP / JSON 측면파일을 읽어 메타데이터를 일괄 입력합니다.",
-            accent=False,
-        )
-        self._btn_xmp_card.clicked.connect(self.on_xmp_enrich_clicked)
-        grid.addWidget(self._btn_xmp_card, 0, 1)
-
-        self._btn_bulk_card = self._make_action_button(
-            "일괄 입력 (모두 적용)",
-            "Pixiv + XMP 데이터를 순차적으로 일괄 입력합니다.",
-            accent=True,
-        )
-        self._btn_bulk_card.clicked.connect(self.on_bulk_enrich_clicked)
-        grid.addWidget(self._btn_bulk_card, 1, 0, 1, 2)
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 1)
-
-        outer.addLayout(grid)
         return wrapper
 
     def create_warning_box(self) -> QWidget:
@@ -1995,8 +1971,6 @@ class _Step4EnrichModern(_StepPanel):
 
     def _set_actions_enabled(self, enabled: bool) -> None:
         self._btn_pixiv_card.setEnabled(enabled)
-        self._btn_xmp_card.setEnabled(enabled)
-        self._btn_bulk_card.setEnabled(enabled)
 
 
 def _apply_level_to_cfg(level: str, cls_cfg: dict) -> None:
@@ -2004,13 +1978,20 @@ def _apply_level_to_cfg(level: str, cls_cfg: dict) -> None:
 
     series_only:       시리즈 폴더만 (_uncategorized 포함)
     series_character:  기존 동작 유지 (default)
-    tag:               미구현 — series_character로 fallback
+    author_only:       작가명 기준 분류 (series/character 무시)
+    per_tag:           미구현 — series_character로 fallback
     """
     if level == "series_only":
         cls_cfg["enable_series_character"] = False
         cls_cfg["enable_series_uncategorized"] = True
         cls_cfg["enable_character_without_series"] = False
-    # series_character / tag / 기타: 기본값 유지 — config.json의 사용자 설정 보존
+    elif level == "author_only":
+        cls_cfg["enable_series_character"] = False
+        cls_cfg["enable_series_uncategorized"] = False
+        cls_cfg["enable_character_without_series"] = False
+        cls_cfg["author_only_mode"] = True
+        cls_cfg["fallback_by_author"] = False
+    # series_character / per_tag / 기타: 기본값 유지 — config.json의 사용자 설정 보존
 
 
 class _Step5ClassifyLevel(_StepPanel):
@@ -2059,17 +2040,24 @@ class _Step5ClassifyLevel(_StepPanel):
         self._radio_group.addButton(self._radio_series_char, 0)
         layout.addWidget(self._radio_series_char)
 
-        self._radio_series_only = QRadioButton("시리즈 폴더만 (_uncategorized 포함)")
+        self._radio_series_only = QRadioButton("시리즈 폴더만 (_미분류 포함)")
         self._radio_series_only.setToolTip(
-            "BySeries/{series}/_uncategorized/ 형태로만 분류"
+            "BySeries/{series}/ 형태로만 분류 — 캐릭터 하위 폴더 없음"
         )
         self._radio_group.addButton(self._radio_series_only, 1)
         layout.addWidget(self._radio_series_only)
 
+        self._radio_author_only = QRadioButton("작가명 기준 분류")
+        self._radio_author_only.setToolTip(
+            "ByAuthor/{artist}/ 형태로 분류 — 시리즈/캐릭터 태그 무시"
+        )
+        self._radio_group.addButton(self._radio_author_only, 2)
+        layout.addWidget(self._radio_author_only)
+
         self._radio_tag = QRadioButton("개별 태그별 (추후 지원 예정)")
         self._radio_tag.setEnabled(False)
         self._radio_tag.setToolTip("아직 구현되지 않았습니다.")
-        self._radio_group.addButton(self._radio_tag, 2)
+        self._radio_group.addButton(self._radio_tag, 3)
         layout.addWidget(self._radio_tag)
 
         # config에서 현재 값 읽어 적용
@@ -2078,6 +2066,7 @@ class _Step5ClassifyLevel(_StepPanel):
         # 변경 시 config + 영구 저장
         self._radio_series_char.toggled.connect(self._on_level_changed)
         self._radio_series_only.toggled.connect(self._on_level_changed)
+        self._radio_author_only.toggled.connect(self._on_level_changed)
 
         layout.addStretch()
 
@@ -2095,12 +2084,16 @@ class _Step5ClassifyLevel(_StepPanel):
         level = cls_cfg.get("classification_level", "series_character")
         if level == "series_only":
             self._radio_series_only.setChecked(True)
+        elif level == "author_only":
+            self._radio_author_only.setChecked(True)
         else:
             self._radio_series_char.setChecked(True)
 
     def _on_level_changed(self) -> None:
         if self._radio_series_only.isChecked():
             level = "series_only"
+        elif self._radio_author_only.isChecked():
+            level = "author_only"
         else:
             level = "series_character"
         cfg = self._config()
@@ -2338,6 +2331,8 @@ def _is_preview_item_manual_override(item: dict) -> bool:
 # preview=execute 매칭은 rule code 기반이므로 영향 없음.
 _RULE_DISPLAY: dict[str, str] = {
     "author_fallback":      "작가명 분류",
+    "author_only":          "작가명 분류",
+    "author_unidentified":  "작가 미식별",
     "series_character":     "캐릭터 분류",
     # series_uncategorized: series는 식별됐으나 character 정보 없어 uncategorized 배치.
     # rule_type 자체는 변경하지 않는다.
@@ -2461,8 +2456,8 @@ class _Step7Preview(_StepPanel):
         # 분류된다는 정책을 사용자에게 알린다. 라벨 자체는 표시 전용이며
         # classification 로직에는 영향 없음.
         self._author_fallback_notice_lbl = QLabel(
-            "원본 태그가 부족하거나 시리즈/캐릭터를 식별하지 못한 경우 "
-            "작가명 기준으로 분류됩니다. 필요한 항목은 미리보기에서 수동으로 수정하세요.\n"
+            "시리즈/캐릭터를 식별하지 못한 항목은 시리즈 미분류 폴더로 이동합니다. "
+            "작가명 기준 분류를 원하면 Step 5에서 '작가명 기준 분류'를 선택하세요.\n"
             "여러 캐릭터가 감지된 이미지는 대상 경로별로 여러 줄 표시될 수 있습니다."
         )
         self._author_fallback_notice_lbl.setObjectName("step7AuthorFallbackNotice")
@@ -2548,7 +2543,10 @@ class _Step7Preview(_StepPanel):
         )
         hdr = self._preview_table.horizontalHeader()
         hdr.setStretchLastSection(False)
-        hdr.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        hdr.setSectionResizeMode(5, QHeaderView.ResizeMode.Interactive)
+        self._preview_table.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         self._preview_table.setColumnWidth(0, 130)
         self._preview_table.setColumnWidth(1, 160)
         self._preview_table.setColumnWidth(2, 70)
@@ -2817,10 +2815,17 @@ class _Step7Preview(_StepPanel):
                 "현재 분류 모드: 시리즈 폴더만 — "
                 "캐릭터 태그는 시리즈 추론에만 사용되며, 캐릭터별 하위 폴더는 생성되지 않습니다."
             )
+        elif level == "author_only":
+            text = (
+                "현재 분류 모드: 작가명 기준 — "
+                "시리즈/캐릭터 태그를 무시하고 작가명 폴더에 분류합니다. "
+                "작가명이 없으면 미분류 폴더로 이동합니다."
+            )
         else:
             text = (
                 "현재 분류 모드: 시리즈 + 캐릭터 — "
-                "시리즈 아래에 캐릭터별 하위 폴더가 생성됩니다."
+                "시리즈 아래에 캐릭터별 하위 폴더가 생성됩니다. "
+                "시리즈/캐릭터를 식별하지 못한 항목은 미분류 폴더로 이동합니다."
             )
         self._mode_notice_lbl.setText(text)
 
@@ -3730,8 +3735,8 @@ class WorkflowWizardView(QDialog):
         self._selected_group_ids_provider = selected_group_ids_provider
 
         self.setWindowTitle("🧭 Aru Archive 작업 마법사")
-        self.setMinimumSize(800, 600)
-        self.resize(920, 680)
+        self.setMinimumSize(760, 560)
+        self.resize(840, 620)
 
         self._build_ui()
         self._go_to_step(0)
@@ -3773,9 +3778,10 @@ class WorkflowWizardView(QDialog):
             # 이번 PR 은 번호/라벨만 정리. 화살표 위치 유지.
             if idx < len(_STEPS) - 1:
                 arrow = QLabel("→")
-                arrow.setStyleSheet("color:#4A2030; font-size:10px;")
-                # hidden step 양쪽 화살표는 함께 숨겨 사용자가 끊긴 chevron 을 보지 않도록 한다.
-                if idx in _HIDDEN_STEP_INDICES or (idx + 1) in _HIDDEN_STEP_INDICES:
+                arrow.setStyleSheet("color:#8F5070; font-size:10px;")
+                # hidden step 자체에서 나오는 화살표만 숨긴다.
+                # hidden step 이전 visible step 의 화살표는 표시해 끊기지 않게 한다.
+                if idx in _HIDDEN_STEP_INDICES:
                     arrow.setVisible(False)
                 hbox.addWidget(arrow)
 
