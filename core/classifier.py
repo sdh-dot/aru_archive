@@ -623,15 +623,19 @@ def build_classify_preview(
                 _result = _cls_fn(_source_tags, conn=conn)
                 _existing_series = _parse_json_list(group_dict_for_build.get("series_tags_json"))
                 _existing_chars  = _parse_json_list(group_dict_for_build.get("character_tags_json"))
-                # Merge: canonical-normalised tags first, then existing DB tags.
-                # Preserves tags already in DB that the classifier may not
-                # recognise (e.g. characters only in tag_localizations).
                 _new_series = _result.get("series_tags", [])
                 _new_chars  = _result.get("character_tags", [])
+                # Series: use canonical-normalised result (resolves aliases like
+                # ブルーアーカイブ → Blue Archive). Fall back to existing only
+                # when classifier found nothing from the merged source.
                 group_dict_for_build["series_tags_json"] = json.dumps(
-                    list(dict.fromkeys([*_new_series, *_existing_series])),
+                    _new_series if _new_series else _existing_series,
                     ensure_ascii=False,
                 )
+                # Characters: union of new + existing.  The classifier may not
+                # recognise tags that are only in tag_localizations (not in
+                # tag_aliases), so we preserve existing chars even when the
+                # classifier returns an empty list.
                 group_dict_for_build["character_tags_json"] = json.dumps(
                     list(dict.fromkeys([*_new_chars, *_existing_chars])),
                     ensure_ascii=False,
@@ -689,15 +693,21 @@ def build_classify_preview(
     # 이미 재분류 결과가 반영되어 있으므로 DB 원본 group 대신 이를 사용한다.
     series_tags_list = _parse_json_list(group_dict_for_build.get("series_tags_json"))
     char_tags_list   = _parse_json_list(group_dict_for_build.get("character_tags_json"))
-    raw_tags_list    = _source_tags  # merged source
+    raw_tags_list    = _source_tags  # merged source (used for candidate_source display)
+    # For inferred_series_evidence: use only raw/unclassified input (raw_tags_json +
+    # tags_json), NOT series_tags_json/character_tags_json — otherwise the series is
+    # always directly matched and the inferred_from_character signal is lost.
+    _raw_input_tags = []
+    for _f in ("raw_tags_json", "tags_json"):
+        _raw_input_tags.extend(_parse_json_list(group_dict_for_build.get(_f)))
     classification_info: dict | None = None
 
     # character alias로부터 역추론된 series evidence 검출
     inferred_series_evidence: list[dict] = []
-    if series_tags_list and raw_tags_list:
+    if series_tags_list and _raw_input_tags:
         try:
             from core.tag_classifier import classify_pixiv_tags
-            reclassify_ev = classify_pixiv_tags(raw_tags_list, conn=conn)
+            reclassify_ev = classify_pixiv_tags(_raw_input_tags, conn=conn)
             for ev in reclassify_ev.get("evidence", {}).get("series", []):
                 if ev.get("source") == "inferred_from_character":
                     inferred_series_evidence.append(ev)
