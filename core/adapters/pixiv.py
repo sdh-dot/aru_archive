@@ -214,6 +214,7 @@ class PixivAdapter(SourceSiteAdapter):
             tags=classified["tags"],
             series_tags=classified["series_tags"],
             character_tags=classified["character_tags"],
+            raw_tags=all_tags,
             is_ugoira=is_ugoira,
             downloaded_at=now,
             _provenance={

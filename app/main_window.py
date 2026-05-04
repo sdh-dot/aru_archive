@@ -546,6 +546,60 @@ class EnrichThread(QThread):
             conn.close()
 
 
+class _BatchEnrichThread(QThread):
+    """Pixiv 메타데이터 일괄 보강을 UI freeze 없이 실행한다."""
+
+    log_msg    = Signal(str)
+    batch_done = Signal(dict)   # {"succeeded": [group_id, ...], "failed": [group_id, ...]}
+
+    def __init__(
+        self,
+        group_ids: list,
+        db_path: str,
+        exiftool_path: Optional[str] = None,
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self._group_ids     = list(group_ids)
+        self._db_path       = db_path
+        self._exiftool_path = exiftool_path
+
+    def run(self) -> None:
+        from core.metadata_enricher import enrich_file_from_pixiv
+        conn = initialize_database(self._db_path)
+        succeeded: list = []
+        failed: list = []
+        try:
+            for gid in self._group_ids:
+                row = conn.execute(
+                    "SELECT file_id FROM artwork_files "
+                    "WHERE group_id = ? AND file_role = 'original' LIMIT 1",
+                    (gid,),
+                ).fetchone()
+                if not row:
+                    self.log_msg.emit(f"[WARN] 원본 파일 없음: {gid[:8]}…")
+                    failed.append(gid)
+                    continue
+                try:
+                    result = enrich_file_from_pixiv(
+                        conn, row["file_id"], exiftool_path=self._exiftool_path
+                    )
+                    if result.get("status") == "success":
+                        succeeded.append(gid)
+                        self.log_msg.emit(f"[INFO] {result.get('message', '')}")
+                    else:
+                        failed.append(gid)
+                        self.log_msg.emit(
+                            f"[WARN] 보강 실패 ({gid[:8]}…): {result.get('message', '')}"
+                        )
+                except Exception as exc:
+                    failed.append(gid)
+                    self.log_msg.emit(f"[ERROR] 보강 예외 ({gid[:8]}…): {exc}")
+        finally:
+            conn.close()
+        self.batch_done.emit({"succeeded": succeeded, "failed": failed})
+
+
 class ScanThread(QThread):
     """Configured inbox scan without UI freeze."""
 
@@ -2775,12 +2829,51 @@ class MainWindow(QMainWindow):
         self._on_read_meta(gid)
 
     def _on_pixiv_meta_selected(self) -> None:
-        """툴바에서 호출 — 현재 선택된 group의 Pixiv 메타데이터 가져오기."""
-        gid = self._gallery.get_selected_group_id()
-        if not gid:
+        """툴바에서 호출 — 선택된 group(들)의 Pixiv 메타데이터 가져오기."""
+        group_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
+        if not group_ids:
             self._log.append("[WARN] 선택된 파일 없음")
             return
-        self._on_pixiv_meta(gid)
+        if len(group_ids) == 1:
+            self._on_pixiv_meta(group_ids[0])
+            return
+        self._refresh_pixiv_for_groups(group_ids)
+
+    def _refresh_pixiv_for_groups(self, group_ids: list) -> None:
+        """여러 group에 대한 Pixiv 메타데이터 일괄 보강."""
+        if (
+            getattr(self, "_enrich_thread", None) and self._enrich_thread.isRunning()
+            or getattr(self, "_batch_enrich_thread", None) and self._batch_enrich_thread.isRunning()
+        ):
+            self._log.append("[WARN] 이미 보강 작업이 진행 중입니다")
+            return
+        self._log.append(f"[INFO] Pixiv 일괄 보강 시작 — {len(group_ids)}개")
+        thread = _BatchEnrichThread(
+            group_ids,
+            self._db_path(),
+            exiftool_path=self._exiftool_path(),
+            parent=self,
+        )
+        thread.log_msg.connect(self._log.append)
+        thread.batch_done.connect(
+            lambda res, gids=group_ids: self._on_batch_enrich_done(res, gids)
+        )
+        thread.start()
+        self._batch_enrich_thread = thread
+
+    def _on_batch_enrich_done(self, result: dict, group_ids: list) -> None:
+        succeeded = result.get("succeeded", [])
+        failed    = result.get("failed", [])
+        self._log.append(
+            f"[INFO] 일괄 보강 완료 — 성공 {len(succeeded)}개 / 실패 {len(failed)}개"
+        )
+        for gid in succeeded:
+            self._refresh_gallery_item(gid)
+        if succeeded:
+            current = self._gallery.get_selected_group_id()
+            if current in succeeded:
+                self._refresh_detail(current)
+            self._refresh_counts()
 
     def _on_open_file_location(self, group_id: str) -> None:
         """선택된 group의 original 파일이 있는 폴더를 파일 탐색기로 연다."""

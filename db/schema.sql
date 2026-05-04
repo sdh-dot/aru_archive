@@ -24,9 +24,10 @@ CREATE TABLE IF NOT EXISTS artwork_groups (
                           -- single_image | multi_page | ugoira
     total_pages           INTEGER NOT NULL DEFAULT 1,
     cover_file_id         TEXT,                      -- artwork_files.file_id (lazy, FK 없음)
-    tags_json             TEXT,                      -- JSON array
+    tags_json             TEXT,                      -- JSON array (classified)
     character_tags_json   TEXT,
     series_tags_json      TEXT,
+    raw_tags_json         TEXT,                      -- JSON array (original Pixiv tags before classification)
     downloaded_at         TEXT NOT NULL,             -- ISO 8601
     indexed_at            TEXT NOT NULL,
     updated_at            TEXT,
