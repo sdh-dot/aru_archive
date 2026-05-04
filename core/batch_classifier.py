@@ -256,6 +256,7 @@ def execute_classify_batch(
     total_copied:  int = 0
     total_skipped: int = 0
     total_failed:  int = 0
+    first_error:   str = ""
     group_results: list[dict] = []
 
     for preview in previews:
@@ -279,13 +280,16 @@ def execute_classify_batch(
                 progress_fn(len(group_results), n_groups, preview["group_id"], "ok")
         except Exception as exc:
             total_failed += 1
+            err_str = str(exc)
+            if not first_error:
+                first_error = err_str
             group_results.append({
                 "group_id": preview["group_id"],
                 "status":   "error",
-                "error":    str(exc),
+                "error":    err_str,
             })
             if progress_fn:
-                progress_fn(len(group_results), n_groups, preview["group_id"], "error")
+                progress_fn(len(group_results), n_groups, preview["group_id"], "error", err_str)
 
     # undo_entries.undo_result_json에 요약 기록
     import json as _json
@@ -310,6 +314,11 @@ def execute_classify_batch(
     else:
         overall_status = "completed"
 
+    error_msg = (
+        f"{total_failed}개 그룹 실패: {first_error}"
+        if total_failed > 0 and first_error
+        else None
+    )
     return {
         "success":        overall_status != "failed",
         "status":         overall_status,
@@ -318,5 +327,12 @@ def execute_classify_batch(
         "copied":         total_copied,
         "skipped":        total_skipped,
         "failed_groups":  total_failed,
+        "first_error":    first_error or None,
+        "error":          error_msg,
+        "errors":         [
+            {"group_id": r["group_id"], "error": r["error"]}
+            for r in group_results
+            if r.get("status") == "error"
+        ],
         "group_results":  group_results,
     }
