@@ -17,7 +17,6 @@ import logging
 import os
 import sqlite3
 import time
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
@@ -45,31 +44,6 @@ _EXISTING_REGISTRATION_STATUSES: frozenset[str] = frozenset({
     "out_of_sync", "source_unavailable", "needs_reindex",
     "file_write_failed", "db_update_failed",
 })
-
-
-@dataclass
-class PixivFetchStoreResult:
-    file_id: str
-    group_id: Optional[str]
-    fetched: bool
-    db_saved: bool
-    previous_status: Optional[str]
-    resulting_status: Optional[str]
-    error: Optional[str]
-    write_candidate: bool
-
-
-@dataclass
-class MetadataWriteResult:
-    file_id: str
-    group_id: Optional[str]
-    attempted: bool
-    json_written: bool
-    xmp_xp_written: bool
-    clear_first: bool
-    previous_status: Optional[str]
-    resulting_status: Optional[str]
-    error: Optional[str]
 
 
 def _get_previous_status(conn: sqlite3.Connection, group_id: str) -> Optional[str]:
