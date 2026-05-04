@@ -2340,7 +2340,10 @@ def _is_preview_item_manual_override(item: dict) -> bool:
 _RULE_DISPLAY: dict[str, str] = {
     "author_fallback":      "작가명 분류",
     "series_character":     "캐릭터 분류",
-    "series_uncategorized": "시리즈 미식별",
+    # series_uncategorized: series는 식별됐으나 character 정보 없어 _uncategorized 배치.
+    # "시리즈 미식별"은 series_unidentified(실제 시리즈 탐지 실패)와 혼동을 유발하므로
+    # "캐릭터 미분류"로 변경한다. rule_type 자체는 변경하지 않는다.
+    "series_uncategorized": "캐릭터 미분류",
     "manual_override":      "수동 분류",
     "series":               "시리즈 분류",
     "character":            "캐릭터 단독 분류",
@@ -2438,6 +2441,20 @@ class _Step7Preview(_StepPanel):
         )
         self._stale_notice_lbl.setVisible(False)
         layout.addWidget(self._stale_notice_lbl)
+
+        # 현재 분류 모드 안내 — series_character / series_only 에 따라 텍스트가
+        # 달라진다. preview 생성 시 _update_mode_notice() 로 갱신된다.
+        # 표시 전용이며 classification 로직에는 영향 없음.
+        self._mode_notice_lbl = QLabel("")
+        self._mode_notice_lbl.setObjectName("step7ModeNotice")
+        self._mode_notice_lbl.setWordWrap(True)
+        self._mode_notice_lbl.setStyleSheet(
+            "color: #A8C8B0; background: #14221A; "
+            "border: 1px solid #204A2A; border-radius: 4px; "
+            "padding: 6px 10px; font-size: 11px;"
+        )
+        self._update_mode_notice()
+        layout.addWidget(self._mode_notice_lbl)
 
         # author_fallback 안내 — 항상 표시. 분류 실패 시 작가명 기준으로 자동
         # 분류된다는 정책을 사용자에게 알린다. 라벨 자체는 표시 전용이며
@@ -2677,6 +2694,7 @@ class _Step7Preview(_StepPanel):
             )
             return
 
+        self._update_mode_notice()
         self._btn_preview.setEnabled(False)
         self._btn_preview.setText("생성 중…")
         self._batch_preview = None
@@ -2763,6 +2781,7 @@ class _Step7Preview(_StepPanel):
         가 자동 호출돼 안내가 사라진다.
         """
         self._preview_dirty_reason = reason or "분류 기준이 변경되었습니다."
+        self._update_mode_notice()
         if hasattr(self, "_stale_notice_lbl"):
             self._stale_notice_lbl.setText(
                 f"⚠ {self._preview_dirty_reason} "
@@ -2781,6 +2800,28 @@ class _Step7Preview(_StepPanel):
     def is_preview_dirty(self) -> bool:
         """외부 (테스트 / 다른 패널) 에서 dirty 여부 조회용."""
         return self._preview_dirty_reason is not None
+
+    def _update_mode_notice(self) -> None:
+        """현재 분류 모드에 맞춰 _mode_notice_lbl 텍스트를 갱신한다.
+
+        Step 5 에서 분류 기준을 바꾸거나 preview 가 재생성될 때 호출한다.
+        표시 전용 — classification 로직 변경 없음.
+        """
+        if not hasattr(self, "_mode_notice_lbl"):
+            return
+        cfg = self._config()
+        level = cfg.get("classification", {}).get("classification_level", "series_character")
+        if level == "series_only":
+            text = (
+                "현재 분류 모드: 시리즈 폴더만 — "
+                "캐릭터 태그는 시리즈 추론에만 사용되며, 캐릭터별 하위 폴더는 생성되지 않습니다."
+            )
+        else:
+            text = (
+                "현재 분류 모드: 시리즈 + 캐릭터 — "
+                "시리즈 아래에 캐릭터별 하위 폴더가 생성됩니다."
+            )
+        self._mode_notice_lbl.setText(text)
 
     def _show_preview_summary(self, result: dict) -> None:
         from core.workflow_summary import compute_preview_risk_level
