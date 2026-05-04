@@ -337,7 +337,8 @@ class TestClassifiedOutputLocalization:
         preview = build_classify_preview(db, gid, cfg)
         assert preview is not None
         dests = [d["dest_path"] for d in preview["destinations"]]
-        assert any("作者" in p for p in dests), f"일본어 라벨 없음: {dests}"
+        # series/character 없음 → series_unidentified_fallback → シリーズ/未分類
+        assert any("シリーズ" in p for p in dests), f"일본어 라벨 없음: {dests}"
 
     def test_default_canonical_keeps_english_labels(
         self, db: sqlite3.Connection, tmp_path: Path

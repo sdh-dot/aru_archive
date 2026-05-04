@@ -3,7 +3,7 @@ _Step7Preview 미리보기 그리드 컬럼 테스트.
 
 1. 컬럼이 7개(파일/제목/분류대상/분류규칙/사유·경고/분류 경로/상태)
 2. 상단 kv_table(_tbl)이 없어야 한다
-3. 분류 경로(col 5) 컬럼이 Stretch 모드
+3. 분류 경로(col 5) 컬럼이 Interactive 모드 (horizontal scroll 지원)
 4. will_copy=True → "분류됨", False → "제외"
 5. artwork_title이 제목 컬럼에 표시된다
 6. 행마다 toolTip이 설정된다
@@ -97,7 +97,7 @@ class TestStep7ColumnStructure:
     def test_last_column_stretch_mode(self, step7):
         hdr = step7._preview_table.horizontalHeader()
         mode = hdr.sectionResizeMode(5)
-        assert mode == QHeaderView.ResizeMode.Stretch
+        assert mode == QHeaderView.ResizeMode.Interactive
 
     def test_no_kv_table_attribute(self, step7):
         """상단 kv_table(_tbl)이 제거됐어야 한다."""
