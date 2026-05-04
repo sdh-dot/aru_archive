@@ -2835,7 +2835,10 @@ class _Step7Preview(_StepPanel):
 
         total   = result.get("total_groups", 0)
         copies  = result.get("estimated_copies", 0)
-        fbcount = result.get("author_fallback_count", 0) + result.get("series_uncategorized_count", 0)
+        fbcount = (
+            (result.get("series_unidentified_count") or result.get("author_fallback_count", 0))
+            + result.get("series_uncategorized_count", 0)
+        )
         self._s_total.setText(f"대상 작품: {total}")
         self._s_copies.setText(f"예상 복사본: {copies}")
         self._s_bytes.setText(f"예상 용량: {_fmt_size(result.get('estimated_bytes', 0))}")
@@ -2861,7 +2864,9 @@ class _Step7Preview(_StepPanel):
         return {
             "total_groups":          result.get("total_groups", 0),
             "excluded_count":        result.get("excluded_groups", 0),
-            "author_fallback_count": result.get("author_fallback_count", 0),
+            "series_unidentified_count": (
+                result.get("series_unidentified_count") or result.get("author_fallback_count", 0)
+            ),
             "conflict_count":        conflict_count,
             "destination_count":     destination_count,
         }
@@ -2949,8 +2954,8 @@ class _Step7Preview(_StepPanel):
             ci = preview.get("classification_info") or {}
             reason = ci.get("classification_reason", "")
             ci_warn = (
-                "series_uncategorized" if reason == "series_detected_but_character_missing"
-                else "author_fallback"  if reason == "series_and_character_missing"
+                "series_uncategorized"       if reason == "series_detected_but_character_missing"
+                else "series_unidentified_fallback" if reason == "series_and_character_missing"
                 else ""
             )
             inference_reasons = preview.get("inference_reasons") or []

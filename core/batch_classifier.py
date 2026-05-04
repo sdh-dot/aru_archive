@@ -112,7 +112,7 @@ def build_classify_batch_preview(
         "previews": [...],
         "warnings": [...],
         "series_uncategorized_count": N,
-        "author_fallback_count": N,
+        "series_unidentified_count": N,
         "candidate_count": N,
       }
     """
@@ -130,7 +130,7 @@ def build_classify_batch_preview(
     warnings: list[str] = []
     fallback_canonicals: set[str] = set()
     series_uncategorized_count: int = 0
-    author_fallback_count: int = 0
+    series_unidentified_count: int = 0
     candidate_count: int = 0
 
     for gid in group_ids:
@@ -159,7 +159,7 @@ def build_classify_batch_preview(
                 if reason == "series_detected_but_character_missing":
                     series_uncategorized_count += 1
                 elif reason == "series_and_character_missing":
-                    author_fallback_count += 1
+                    series_unidentified_count += 1
                 candidates = generate_classification_failure_candidates(conn, gid, ci)
                 candidate_count += len(candidates)
 
@@ -180,9 +180,9 @@ def build_classify_batch_preview(
         warnings.append(
             f"{series_uncategorized_count}개 작품: 시리즈 감지됨, 캐릭터 미분류 (series_uncategorized)"
         )
-    if author_fallback_count:
+    if series_unidentified_count:
         warnings.append(
-            f"{author_fallback_count}개 작품: 시리즈/캐릭터 모두 미분류 (author_fallback)"
+            f"{series_unidentified_count}개 작품: 시리즈/캐릭터 모두 미분류 (series_unidentified)"
         )
 
     # developer: 분류 실패 export (기본값 OFF)
@@ -204,9 +204,9 @@ def build_classify_batch_preview(
         "estimated_bytes":            estimated_bytes,
         "previews":                   previews,
         "warnings":                   warnings,
-        "series_uncategorized_count": series_uncategorized_count,
-        "author_fallback_count":      author_fallback_count,
-        "candidate_count":            candidate_count,
+        "series_uncategorized_count":   series_uncategorized_count,
+        "series_unidentified_count":    series_unidentified_count,
+        "candidate_count":              candidate_count,
         "dev_log_msg":                dev_log_msg,
     }
 

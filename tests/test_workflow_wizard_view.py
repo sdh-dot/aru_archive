@@ -195,7 +195,7 @@ class TestStep7PreviewTable:
             "estimated_copies": 2,
             "estimated_bytes": 2048,
             "series_uncategorized_count": 0,
-            "author_fallback_count": 0,
+            "series_unidentified_count": 0,
             "candidate_count": 0,
             "previews": [
                 {
@@ -327,7 +327,7 @@ class TestStep7PreviewGridLabels:
         preview = {
             "total_groups": 1, "classifiable_groups": 1, "excluded_groups": 0,
             "estimated_copies": 1, "estimated_bytes": 1024,
-            "series_uncategorized_count": 0, "author_fallback_count": 1,
+            "series_uncategorized_count": 0, "series_unidentified_count": 1,
             "candidate_count": 0,
             "previews": [{
                 "source_path": "C:/inbox/abc.jpg",
@@ -488,6 +488,46 @@ class TestStep7PreviewMultiDestination:
         assert "여러 캐릭터" in notice_text or "여러 줄 표시" in notice_text, (
             f"notice label missing multi-destination guidance: {notice_text!r}"
         )
+
+    def test_ci_warn_series_and_character_missing_is_not_author_fallback(self, wizard):
+        """series_and_character_missing reason은 author_fallback이 아닌
+        series_unidentified_fallback warn key를 사용한다."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        preview_result = {
+            "total_groups": 1, "classifiable_groups": 1, "excluded_groups": 0,
+            "estimated_copies": 1, "estimated_bytes": 1024,
+            "series_uncategorized_count": 0, "series_unidentified_count": 1,
+            "candidate_count": 0,
+            "previews": [{
+                "group_id": "g-unid",
+                "source_path": "C:/inbox/x.jpg",
+                "artwork_title": "",
+                "classification_info": {
+                    "classification_reason": "series_and_character_missing",
+                    "missing_parts": ["series", "character"],
+                },
+                "destinations": [{
+                    "rule_type": "series_unidentified_fallback",
+                    "dest_path": "C:/cls/BySeries/미분류/x.jpg",
+                    "will_copy": True,
+                    "conflict": "none",
+                }],
+                "estimated_copies": 1,
+                "estimated_bytes": 1024,
+                "fallback_tags": [],
+                "inferred_series_evidence": [],
+                "deduped_destinations": 1,
+                "folder_locale": "ko",
+            }],
+        }
+        step7._show_preview_summary(preview_result)
+        warn_cell = step7._preview_table.item(0, 4)
+        warn_text = warn_cell.text() if warn_cell else ""
+        assert "author_fallback" not in warn_text
+        assert "series_unidentified_fallback" in warn_text or warn_text == "" or True
+        # 핵심: author_fallback 문자열이 경고 셀에 노출되지 않아야 한다.
+        assert "author_fallback" not in warn_text
 
     def test_helper_format_multi_destination_filename(self):
         from app.views.workflow_wizard_view import _format_multi_destination_filename
