@@ -157,8 +157,8 @@ class TestInferredSeriesInPreview:
         assert preview is not None
         assert preview["classification_info"] is None
 
-    def test_author_fallback_when_no_series_no_char(self, db, tmp_path):
-        """series/character 모두 없으면 author_fallback으로 간다."""
+    def test_series_unidentified_when_no_series_no_char(self, db, tmp_path):
+        """series/character 모두 없으면 series_unidentified_fallback으로 간다 (Req 6)."""
         gid = _insert_group(
             db,
             series_tags=[],
@@ -173,4 +173,5 @@ class TestInferredSeriesInPreview:
         assert preview is not None
 
         rule_types = [d["rule_type"] for d in preview["destinations"]]
-        assert "author_fallback" in rule_types
+        assert "series_unidentified_fallback" in rule_types
+        assert "author_fallback" not in rule_types

@@ -266,9 +266,10 @@ class TestBuildClassifyPreview:
 
         assert build_classify_preview(db, gid, _config(tmp_path)) is not None
 
-    def test_by_author_path(
+    def test_by_series_unidentified_path(
         self, db: sqlite3.Connection, tmp_path: Path
     ) -> None:
+        """시리즈/캐릭터 미식별 시 series root / 미분류 폴더로 간다 (Req 6)."""
         gid  = str(uuid.uuid4())
         img  = _make_file(tmp_path / "file.jpg")
         _insert_group(db, gid, artist_name="伊落マリー")
@@ -276,11 +277,15 @@ class TestBuildClassifyPreview:
 
         preview = build_classify_preview(db, gid, _config(tmp_path))
         assert preview is not None
-        by_author = [d for d in preview["destinations"] if d["rule_type"] == "author_fallback"]
-        assert len(by_author) == 1
-        assert "Author" in by_author[0]["dest_path"]
-        assert "伊落マリー" in by_author[0]["dest_path"]
-        assert by_author[0]["dest_path"].endswith("file.jpg")
+        unidentified = [d for d in preview["destinations"]
+                        if d["rule_type"] == "series_unidentified_fallback"]
+        assert len(unidentified) == 1
+        assert "Series" in unidentified[0]["dest_path"]
+        assert "Uncategorized" in unidentified[0]["dest_path"]
+        assert unidentified[0]["dest_path"].endswith("file.jpg")
+        # author_fallback 은 series/character 모드에서 더 이상 생성되지 않는다.
+        assert not any(d["rule_type"] == "author_fallback"
+                       for d in preview["destinations"])
 
     def test_by_series_path(
         self, db: sqlite3.Connection, tmp_path: Path
@@ -353,9 +358,10 @@ class TestBuildClassifyPreview:
         cfg["classified_dir"] = ""
         assert build_classify_preview(db, gid, cfg) is None
 
-    def test_missing_artist_uses_unknown(
+    def test_unidentified_goes_to_series_uncategorized(
         self, db: sqlite3.Connection, tmp_path: Path
     ) -> None:
+        """artist 있어도 시리즈/캐릭터 없으면 series_unidentified_fallback으로 간다."""
         gid = str(uuid.uuid4())
         img = _make_file(tmp_path / "file.jpg")
         _insert_group(db, gid, artist_name="")
@@ -363,9 +369,11 @@ class TestBuildClassifyPreview:
 
         preview = build_classify_preview(db, gid, _config(tmp_path))
         assert preview is not None
-        by_author = [d for d in preview["destinations"] if d["rule_type"] == "author_fallback"]
-        assert len(by_author) == 1
-        assert "_unknown_artist" in by_author[0]["dest_path"]
+        unidentified = [d for d in preview["destinations"]
+                        if d["rule_type"] == "series_unidentified_fallback"]
+        assert len(unidentified) == 1
+        assert "Series" in unidentified[0]["dest_path"]
+        assert "Uncategorized" in unidentified[0]["dest_path"]
 
     def test_estimated_bytes(
         self, db: sqlite3.Connection, tmp_path: Path

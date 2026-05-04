@@ -385,8 +385,8 @@ class TestAuthorFallbackPrevention:
         rule_types = [d["rule_type"] for d in preview["destinations"]]
         assert "author_fallback" not in rule_types
 
-    def test_author_fallback_when_no_series_at_all(self, db, tmp_path):
-        """series/character alias 가 전혀 없으면 author_fallback 이 정상이다."""
+    def test_series_unidentified_fallback_when_no_series_at_all(self, db, tmp_path):
+        """series/character alias 가 전혀 없으면 series_unidentified_fallback 으로 간다 (Req 6)."""
         gid = str(uuid.uuid4())
         _insert_group(
             db, group_id=gid,
@@ -402,7 +402,8 @@ class TestAuthorFallbackPrevention:
         preview = build_classify_preview(db, gid, _series_char_cfg(classified))
         assert preview is not None
         rule_types = [d["rule_type"] for d in preview["destinations"]]
-        assert "author_fallback" in rule_types
+        assert "series_unidentified_fallback" in rule_types
+        assert "author_fallback" not in rule_types
 
 
 # ---------------------------------------------------------------------------
@@ -433,7 +434,7 @@ class TestLegacyRowFallback:
         assert "series_character" in rule_types
 
     def test_legacy_row_only_tags_json_no_series(self, db, tmp_path):
-        """raw_tags_json 없고 series_tags_json 도 비어 있으면 author_fallback."""
+        """raw_tags_json 없고 series_tags_json 도 비어 있으면 series_unidentified_fallback (Req 6)."""
         gid = str(uuid.uuid4())
         _insert_group(
             db, group_id=gid,
@@ -449,7 +450,8 @@ class TestLegacyRowFallback:
         preview = build_classify_preview(db, gid, _series_char_cfg(classified))
         assert preview is not None
         rule_types = [d["rule_type"] for d in preview["destinations"]]
-        assert "author_fallback" in rule_types
+        assert "series_unidentified_fallback" in rule_types
+        assert "author_fallback" not in rule_types
 
 
 # ---------------------------------------------------------------------------
