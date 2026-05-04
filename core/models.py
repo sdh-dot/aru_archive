@@ -41,6 +41,7 @@ class AruMetadata:
     tags: list[str] = field(default_factory=list)
     character_tags: list[str] = field(default_factory=list)
     series_tags: list[str] = field(default_factory=list)
+    raw_tags: list[str] = field(default_factory=list)  # original Pixiv tags before classification; DB-only, not in UserComment JSON
     downloaded_at: str = ""
     is_ugoira: bool = False
     ugoira_frames: Optional[list[str]] = None
