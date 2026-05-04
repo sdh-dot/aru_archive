@@ -8,39 +8,55 @@
 
 언어 정책:
 - ``ko`` / ``ja`` / ``en`` 만 정식 지원.
-- ``canonical`` 또는 빈 문자열은 영어 (``en``) 와 동일하게 ``ByXxx`` 라벨을 반환.
+- ``canonical`` 또는 빈 문자열은 영어 (``en``) 와 동일하게 라벨을 반환.
 - 그 외 알 수 없는 값은 영어로 안전 fallback — 예외를 던지지 않는다.
 
 기존 정책:
-- 이미 생성된 ``ByXxx`` 폴더는 자동으로 rename 되지 않는다.
+- 이미 생성된 폴더는 자동으로 rename 되지 않는다.
 - 새 preview / 새 destination 생성에서만 선택 언어가 적용된다.
+
+PR #125 변경:
+- category folder label 단순화: "시리즈 기준" → "시리즈", "캐릭터 기준" → "캐릭터",
+  "작가 기준" → "작가", 영어 "BySeries" → "Series" 등.
+- UNCATEGORIZED_FOLDER_LABELS + resolve_uncategorized_folder() 추가:
+  `_uncategorized` 내부 폴더명이 사용자 폴더명으로 직접 노출되지 않도록 한다.
 """
 from __future__ import annotations
 
 from typing import Mapping
 
 # category key → locale → folder name (실제 파일시스템 컴포넌트로 사용됨)
+# 내부 key (by_author / by_series / by_character / by_tag) 는 변경하지 않는다.
 CATEGORY_FOLDER_LABELS: Mapping[str, Mapping[str, str]] = {
     "by_author": {
-        "ko": "작가 기준",
-        "ja": "作者別",
-        "en": "ByAuthor",
+        "ko": "작가",
+        "ja": "作者",
+        "en": "Author",
     },
     "by_series": {
-        "ko": "시리즈 기준",
-        "ja": "シリーズ別",
-        "en": "BySeries",
+        "ko": "시리즈",
+        "ja": "シリーズ",
+        "en": "Series",
     },
     "by_character": {
-        "ko": "캐릭터 기준",
-        "ja": "キャラクター別",
-        "en": "ByCharacter",
+        "ko": "캐릭터",
+        "ja": "キャラクター",
+        "en": "Character",
     },
     "by_tag": {
-        "ko": "태그 기준",
-        "ja": "タグ別",
-        "en": "ByTag",
+        "ko": "태그",
+        "ja": "タグ",
+        "en": "Tag",
     },
+}
+
+# `_uncategorized` 내부 폴더명 대신 사용자에게 보일 localized label.
+# series_only 모드에서 series 미식별 시, 또는 series_character Tier 2 에서
+# character 없이 series만 있을 때 사용된다.
+UNCATEGORIZED_FOLDER_LABELS: Mapping[str, str] = {
+    "ko": "미분류",
+    "ja": "未分類",
+    "en": "Uncategorized",
 }
 
 # Aru Archive 가 정식 지원하는 폴더명 언어 코드.
@@ -84,6 +100,23 @@ def resolve_category_folder(category_key: str, lang: str | None) -> str:
     if labels is None:
         return category_key
     return labels.get(_normalize_lang(lang), labels[_FALLBACK_LANG])
+
+
+def resolve_uncategorized_folder(lang: str | None) -> str:
+    """localized uncategorized folder label 을 반환한다.
+
+    `_uncategorized` 가 사용자 폴더명으로 직접 노출되지 않도록 한다.
+
+    Args:
+        lang: ``ko`` / ``ja`` / ``en`` / ``canonical`` / None.
+
+    Returns:
+        - ko → "미분류"
+        - ja → "未分類"
+        - en / canonical / 기타 → "Uncategorized"
+    """
+    normalized = _normalize_lang(lang)
+    return UNCATEGORIZED_FOLDER_LABELS.get(normalized, UNCATEGORIZED_FOLDER_LABELS[_FALLBACK_LANG])
 
 
 def resolve_folder_name_language(config: dict | None) -> str:
