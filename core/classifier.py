@@ -37,6 +37,27 @@ def _parse_json_list(raw: str | None) -> list[str]:
     except Exception:
         return []
 
+
+def collect_classification_source_tags(row) -> list[str]:
+    """raw_tags_json / tags_json / series_tags_json / character_tags_json 를 병합한
+    classification source 태그 리스트를 반환한다.
+
+    - 순서: raw_tags_json → tags_json → series_tags_json → character_tags_json
+    - 중복 제거 (순서 보존)
+    - invalid JSON / NULL / 빈 값 안전 무시
+    - alias 제거 없음, canonical 강제 치환 없음
+    - row 는 dict 또는 sqlite3.Row 모두 허용
+    """
+    seen: dict[str, None] = {}
+    for field in ("raw_tags_json", "tags_json", "series_tags_json", "character_tags_json"):
+        try:
+            val = row[field]
+        except (KeyError, IndexError, TypeError):
+            val = None
+        for tag in _parse_json_list(val):
+            seen.setdefault(tag, None)
+    return list(seen)
+
 # ---------------------------------------------------------------------------
 # 상수
 # ---------------------------------------------------------------------------
@@ -543,8 +564,18 @@ def build_classify_preview(
     series_only_review: dict | None = None
     series_only_rule: str = ""
     group_dict_for_build = dict(group)
+
+    # PR #128: raw_tags_json / tags_json / series_tags_json / character_tags_json 를
+    # 병합한 classification source.  저장 구조 변경 없이 preview / classifier input
+    # 에서만 사용한다.
+    _source_tags = collect_classification_source_tags(group_dict_for_build)
+
     if _series_only_mode:
-        raw_tags_for_resolver = _parse_json_list(group_dict_for_build.get("tags_json"))
+        # series-only: merged source を _resolve_series_only_inputs() に渡す.
+        # group_dict_for_build["series_tags_json"] は上書きしない — resolver が
+        # explicit vs inferred series の distinction を内部で保持するため.
+        # db_series augmentation は元の DB 값을 사용 (上書き前).
+        raw_tags_for_resolver = _source_tags  # PR #128: merged source 사용
         explicit_series, parent_series_map = _resolve_series_only_inputs(
             raw_tags_for_resolver, conn
         )
@@ -581,6 +612,23 @@ def build_classify_preview(
             # series_unidentified (완전 미식별) 는 _build_destinations 내 fallback 에 위임.
             if resolver.get("reason") != SERIES_ONLY_REASON_UNIDENTIFIED:
                 _build_series_only_mode = False
+
+    else:
+        # PR #128: non-series-only 모드 — merged source 기반으로 재분류해
+        # _build_destinations 에 전달할 series/character 를 갱신한다.
+        # series-only 모드는 resolver 가 내부에서 처리하므로 이 블록 제외.
+        if _source_tags:
+            try:
+                from core.tag_classifier import classify_pixiv_tags as _cls_fn
+                _merged = _cls_fn(_source_tags, conn=conn)
+                group_dict_for_build["series_tags_json"] = json.dumps(
+                    _merged.get("series_tags", []), ensure_ascii=False
+                )
+                group_dict_for_build["character_tags_json"] = json.dumps(
+                    _merged.get("character_tags", []), ensure_ascii=False
+                )
+            except Exception:
+                pass  # DB 값 유지 — 분류 실패해도 preview 흐름이 끊기지 않도록
 
     dests = _build_destinations(
         group_dict_for_build, source, classified_dir, cfg, conn=conn,
@@ -628,10 +676,11 @@ def build_classify_preview(
     fallback_tags = list(_fb_set)
 
     # 분류 실패 원인 분석 및 inferred series evidence 검출
-    group_dict = dict(group)
-    series_tags_list = _parse_json_list(group_dict.get("series_tags_json"))
-    char_tags_list   = _parse_json_list(group_dict.get("character_tags_json"))
-    raw_tags_list    = _parse_json_list(group_dict.get("tags_json"))
+    # PR #128: merged source 기반으로 series/char 판정 — group_dict_for_build 에
+    # 이미 재분류 결과가 반영되어 있으므로 DB 원본 group 대신 이를 사용한다.
+    series_tags_list = _parse_json_list(group_dict_for_build.get("series_tags_json"))
+    char_tags_list   = _parse_json_list(group_dict_for_build.get("character_tags_json"))
+    raw_tags_list    = _source_tags  # merged source
     classification_info: dict | None = None
 
     # character alias로부터 역추론된 series evidence 검출

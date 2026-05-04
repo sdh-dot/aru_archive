@@ -46,18 +46,19 @@ def retag_groups_from_existing_tags(
         total += 1
         try:
             row = conn.execute(
-                "SELECT tags_json FROM artwork_groups WHERE group_id = ?",
+                "SELECT raw_tags_json, tags_json, series_tags_json, character_tags_json "
+                "FROM artwork_groups WHERE group_id = ?",
                 (group_id,),
             ).fetchone()
             if not row:
                 errors.append(f"{group_id[:8]}: not_found")
                 continue
 
-            raw_tags: list[str] = []
-            try:
-                raw_tags = json.loads(row["tags_json"] or "[]")
-            except Exception:
-                pass
+            # PR #128: raw_tags_json + tags_json + series_tags_json +
+            # character_tags_json 병합 source 로 재분류한다. raw_tags_json 이
+            # 없는 legacy row 는 기존 tags_json 동작을 그대로 유지한다.
+            from core.classifier import collect_classification_source_tags
+            raw_tags: list[str] = collect_classification_source_tags(row)
 
             result = classify_pixiv_tags(raw_tags, conn=conn)
 
