@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from core.folder_localization import resolve_category_folder
 from core.path_utils import sanitize_path_component
 from core.tag_localizer import resolve_display_name_with_info
 
@@ -137,12 +138,22 @@ def apply_override_to_preview_item(
     base = Path(classified_dir)
     new_dests: list[dict] = []
 
+    # PR #122: 카테고리 폴더 (BySeries / ByCharacter) 도 folder_name_language /
+    # folder_locale 에 따라 로컬라이즈된다. config 가 별도로 전달되면 거기에서
+    # folder_name_language 를 우선 읽고, 없으면 override 의 folder_locale 사용.
+    cat_lang = (
+        ((config or {}).get("folder_name_language") or "").strip()
+        or locale
+    )
+    by_series_label    = resolve_category_folder("by_series",    cat_lang)
+    by_character_label = resolve_category_folder("by_character", cat_lang)
+
     if series and character:
         s_display, s_fb = _display(series, "series")
         c_display, c_fb = _display(character, "character", series)
         folder = (
             base
-            / "BySeries"
+            / by_series_label
             / sanitize_path_component(s_display)
             / sanitize_path_component(c_display)
         )
@@ -163,7 +174,7 @@ def apply_override_to_preview_item(
         s_display, s_fb = _display(series, "series")
         folder = (
             base
-            / "BySeries"
+            / by_series_label
             / sanitize_path_component(s_display)
             / "_uncategorized"
         )
@@ -180,7 +191,7 @@ def apply_override_to_preview_item(
         })
     elif character:
         c_display, c_fb = _display(character, "character")
-        folder = base / "ByCharacter" / sanitize_path_component(c_display)
+        folder = base / by_character_label / sanitize_path_component(c_display)
         new_dests.append({
             "rule_type":           "manual_override",
             "dest_path":           str(folder / filename),
@@ -201,16 +212,27 @@ def apply_override_to_preview_item(
 
 
 def _extract_classified_dir(preview_item: dict, config: Optional[dict]) -> str:
-    """config 또는 기존 destinations에서 classified_dir를 추론한다."""
+    """config 또는 기존 destinations에서 classified_dir를 추론한다.
+
+    PR #122: 카테고리 폴더가 ko / ja / en 으로 로컬라이즈될 수 있으므로
+    ``CATEGORY_FOLDER_LABELS`` 의 모든 locale 라벨을 marker 후보로 사용한다.
+    """
     if config:
-        return config.get("classified_dir", "")
+        # PR #122: output_dir 가 설정돼 있으면 그것을 우선 (사용자 친화적 alias).
+        return config.get("output_dir") or config.get("classified_dir", "")
+
+    from core.folder_localization import CATEGORY_FOLDER_LABELS
+    markers: set[str] = set()
+    for labels in CATEGORY_FOLDER_LABELS.values():
+        for label in labels.values():
+            markers.add(f"/{label}/")
 
     for dest in preview_item.get("destinations", []):
         p = dest.get("dest_path", "")
         if not p:
             continue
         p_norm = p.replace("\\", "/")
-        for marker in ("/BySeries/", "/ByAuthor/", "/ByCharacter/", "/ByTag/"):
+        for marker in markers:
             idx = p_norm.find(marker)
             if idx >= 0:
                 return p[:idx]

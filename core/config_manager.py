@@ -15,12 +15,35 @@ log = logging.getLogger(__name__)
 
 _APP_DATA_SUBDIRS = [".thumbcache", ".runtime", "logs"]
 
+# PR #122: app_data_dir 내부 표준 하위 폴더. ensure_app_data_dirs 가 보장한다.
+# managed/ 는 앱이 관리하는 파일들의 보관 위치 — output_dir 와는 다른 개념.
+APP_DATA_STANDARD_SUBDIRS: tuple[str, ...] = (".runtime", "logs", "thumbcache", "managed")
+
+# PR #122: 관리 폴더 (app_data_dir) 의 기본 위치. 사용자가 일반 설정에서 임의로
+# 바꿀 수 있는 폴더가 아니다 — 앱 내부 데이터 (DB, 로그, 썸네일 캐시, 런타임
+# 파일) 보관용. config 에서 override 는 가능하지만 wizard UI 는 읽기 전용으로
+# 표시한다.
+def default_app_data_dir() -> Path:
+    """Path.home() / 'AruArchive' 를 안전하게 반환한다."""
+    return Path.home() / "AruArchive"
+
+
 _DEFAULTS: dict[str, Any] = {
     "schema_version": "1.0",
     "data_dir": "",
     "inbox_dir": "",
     "classified_dir": "",
     "managed_dir": "",
+    # PR #122: 사용자 폴더 설정 명확화 — input_dir / output_dir 는 inbox_dir /
+    # classified_dir 의 PR #122 신규 alias. 기존 inbox_dir / classified_dir 는
+    # 여전히 정식 키로 유지되며, 두 alias 는 서로 동기화된다.
+    "input_dir":   "",
+    "output_dir":  "",
+    "app_data_dir": "",
+    # PR #122: 전역 UI 언어. 분류 폴더명 언어 (folder_name_language) 와 별도.
+    # legacy ui_language 는 호환성 유지용. 새 코드는 app_language 를 사용한다.
+    "app_language":         "ko",
+    "folder_name_language": "ko",
     "classify_mode": "save_only",
     "undo_retention_days": 7,
     "exiftool_path": None,
@@ -222,6 +245,91 @@ def ensure_app_directories(cfg: dict) -> list[str]:
             created.append(str(p))
             log.info("Created directory: %s", p)
     return created
+
+
+def resolve_app_data_dir(cfg: dict | None = None) -> Path:
+    """관리 폴더 (app_data_dir) 의 실제 경로를 반환한다 (PR #122).
+
+    우선순위:
+    1. ``cfg["app_data_dir"]`` 명시 값 (빈 문자열 제외)
+    2. 기본값 ``Path.home() / "AruArchive"``
+
+    cfg 가 None 이거나 키가 없으면 기본값 그대로 반환. 경로는
+    ``resolve(strict=False)`` 로 정규화되며, 존재 여부 검사는 caller 책임.
+    """
+    raw = ((cfg or {}).get("app_data_dir") or "").strip() if cfg else ""
+    if raw:
+        return Path(raw).expanduser().resolve(strict=False)
+    return default_app_data_dir().resolve(strict=False)
+
+
+def ensure_app_data_dirs(app_data_dir: str | Path | None = None) -> list[str]:
+    """관리 폴더 내부 표준 하위 디렉터리를 생성한다 (PR #122).
+
+    생성 대상: ``.runtime`` / ``logs`` / ``thumbcache`` / ``managed``.
+    이미 존재하면 건너뛴다. 생성 실패 시 OSError 메시지를 로그에 남기고
+    예외를 caller 로 전파 — 조용히 무시하지 않는다.
+
+    Args:
+        app_data_dir: ``Path`` / 문자열 / None. None 이면
+                      ``default_app_data_dir()`` (``Path.home() / 'AruArchive'``)
+                      을 사용한다.
+
+    Returns:
+        실제로 새로 생성된 폴더의 절대 경로 문자열 list.
+
+    Raises:
+        OSError: ``app_data_dir`` 자체 또는 표준 하위 폴더 생성에 실패했을 때.
+                 metadata pipeline 과 무관하므로 여기서 예외를 던져도 분류
+                 status 의미는 영향 없음.
+    """
+    base: Path
+    if app_data_dir is None:
+        base = default_app_data_dir()
+    else:
+        base = Path(app_data_dir).expanduser()
+    base = base.resolve(strict=False)
+    base.mkdir(parents=True, exist_ok=True)
+
+    created: list[str] = []
+    for sub in APP_DATA_STANDARD_SUBDIRS:
+        p = base / sub
+        if not p.exists():
+            p.mkdir(parents=True, exist_ok=True)
+            created.append(str(p))
+            log.info("Created app_data_dir subfolder: %s", p)
+    return created
+
+
+def sync_io_dir_aliases(cfg: dict) -> dict:
+    """input_dir / inbox_dir 와 output_dir / classified_dir 를 동기화한다 (PR #122).
+
+    PR #122 는 사용자 친화적인 ``input_dir`` / ``output_dir`` 키를 도입했지만,
+    기존 코드 / 테스트 / DB / 마이그레이션은 여전히 ``inbox_dir`` /
+    ``classified_dir`` 를 읽는다. 두 키는 서로 alias 로 동작해야 한다.
+
+    동기화 정책 (이번 호출 한 번만 적용 — 이후 변경은 wizard / 설정 UI 가 직접
+    두 키 모두를 갱신해야 한다):
+    - 양쪽 모두 비어 있으면 변경 없음.
+    - 한쪽만 채워져 있으면 다른 쪽으로 복사.
+    - 양쪽 다 채워져 있으면 ``inbox_dir`` / ``classified_dir`` 가 우선
+      (기존 사용자 설정 보존).
+    """
+    inbox    = (cfg.get("inbox_dir") or "").strip()
+    in_alias = (cfg.get("input_dir") or "").strip()
+    if inbox and not in_alias:
+        cfg["input_dir"] = inbox
+    elif in_alias and not inbox:
+        cfg["inbox_dir"] = in_alias
+
+    classified = (cfg.get("classified_dir") or "").strip()
+    out_alias  = (cfg.get("output_dir")     or "").strip()
+    if classified and not out_alias:
+        cfg["output_dir"] = classified
+    elif out_alias and not classified:
+        cfg["classified_dir"] = out_alias
+
+    return cfg
 
 
 def ensure_workspace_directories(cfg: dict) -> list[str]:
