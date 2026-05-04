@@ -106,6 +106,15 @@ def is_series_only_mode(cfg: dict) -> bool:
     )
 
 
+def is_author_only_mode(cfg: dict) -> bool:
+    """cfg 가 author-only mode signature 인지 검사한다.
+
+    Wizard Step 5 의 ``classification_level == 'author_only'`` 가 적용되면
+    `_apply_level_to_cfg` 가 author_only_mode=True 를 세팅한다.
+    """
+    return bool(cfg.get("author_only_mode"))
+
+
 def resolve_series_only_destination(
     explicit_series: list[str],
     parent_series_map: dict[str, str],
@@ -316,6 +325,7 @@ def _cls_cfg(config: dict) -> dict:
         "folder_name_language":            folder_name_lang or c.get("folder_locale", "canonical"),
         # 일괄 분류
         "batch_existing_copy_policy":      c.get("batch_existing_copy_policy", "keep_existing"),
+        "author_only_mode":                c.get("author_only_mode", False),
     }
 
 
@@ -444,21 +454,30 @@ def _build_destinations(
             } if use_locale else {}
             _add("character", base / by_character_label / c, extra)
 
-    # series_only 미식별 fallback (PR #125): series / character 모두 없고
-    # Tier 에서 destination 이 생성되지 않았을 때 by_series root 아래
-    # localized uncategorized 폴더로 배치한다.
-    # author_fallback / enable_by_author 보다 먼저 체크해 Tier 기반 목적지가
-    # 없을 때만 활성화한다.
-    if series_only_mode and not has_series and not dests:
+    # ---------------------------------------------------------------------------
+    # 미식별 fallback 및 author-only 목적지
+    # ---------------------------------------------------------------------------
+    is_author_only = cfg.get("author_only_mode", False)
+
+    if is_author_only:
+        # Author-only mode: 시리즈/캐릭터 태그 무관하게 항상 author 폴더로 분류.
+        artist = (group_row.get("artist_name") or "").strip()
+        if artist:
+            _add("author_only", base / by_author_label / sanitize_path_component(artist, "_unknown_artist"))
+        else:
+            _add("author_unidentified", base / by_author_label / uncategorized_label)
+    elif series_only_mode and not has_series and not dests:
+        # series_only mode 미식별 (UNIDENTIFIED): series root / uncategorized 배치.
+        # (PR #125 기존 동작 유지)
+        _add("series_unidentified_fallback", base / by_series_label / uncategorized_label)
+    elif not series_only_mode and not dests and cfg.get("fallback_by_author", True):
+        # series_character mode 미식별: series root / uncategorized 배치.
+        # author_fallback 정책 제거 — 명시적 author_only 모드에서만 author 폴더 사용.
+        # series_only CONFLICT/AMBIGUOUS 케이스는 fallback_by_author=False 로 게이트됨.
         _add("series_unidentified_fallback", base / by_series_label / uncategorized_label)
 
-    # Author fallback: 시리즈/캐릭터 모두 없을 때만
-    if not has_series and not has_char and cfg["fallback_by_author"]:
-        artist = (group_row.get("artist_name") or "").strip()
-        _add("author_fallback", base / by_author_label / sanitize_path_component(artist, "_unknown_artist"))
-
-    # Always-on author: 시리즈/캐릭터 유무와 무관하게 항상 추가
-    if cfg["enable_by_author"]:
+    # Always-on author: 시리즈/캐릭터 유무와 무관하게 항상 추가 (enable_by_author=True 시)
+    if cfg["enable_by_author"] and not is_author_only:
         artist = (group_row.get("artist_name") or "").strip()
         _add("author", base / by_author_label / sanitize_path_component(artist, "_unknown_artist"))
 
