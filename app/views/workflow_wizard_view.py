@@ -2340,10 +2340,12 @@ def _is_preview_item_manual_override(item: dict) -> bool:
 _RULE_DISPLAY: dict[str, str] = {
     "author_fallback":      "작가명 분류",
     "series_character":     "캐릭터 분류",
-    # series_uncategorized: series는 식별됐으나 character 정보 없어 _uncategorized 배치.
-    # "시리즈 미식별"은 series_unidentified(실제 시리즈 탐지 실패)와 혼동을 유발하므로
-    # "캐릭터 미분류"로 변경한다. rule_type 자체는 변경하지 않는다.
+    # series_uncategorized: series는 식별됐으나 character 정보 없어 uncategorized 배치.
+    # rule_type 자체는 변경하지 않는다.
     "series_uncategorized": "캐릭터 미분류",
+    # series_unidentified_fallback: series_only 모드에서 series를 식별하지 못해
+    # by_series root 아래 localized uncategorized 폴더로 배치된 케이스 (PR #125).
+    "series_unidentified_fallback": "시리즈 미분류",
     "manual_override":      "수동 분류",
     "series":               "시리즈 분류",
     "character":            "캐릭터 단독 분류",
