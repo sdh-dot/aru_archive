@@ -392,3 +392,87 @@ class TestPixivMetaSelectionPolicy:
         mw._on_pixiv_meta.assert_not_called()
         mw._refresh_pixiv_for_groups.assert_not_called()
         mw._log.append.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# Test 19-20: _BatchEnrichThread 내부 동작
+# ---------------------------------------------------------------------------
+
+def _setup_batch_db(tmp_path) -> str:
+    """gid-A(원본 있음), gid-B(원본 없음), gid-C(원본 있음) 3개 group이 있는 DB를 만든다."""
+    from db.database import initialize_database
+    db_path = str(tmp_path / "batch_test.db")
+    conn = initialize_database(db_path)
+    now = datetime.now(timezone.utc).isoformat()
+    for i, gid in enumerate(["gid-A", "gid-B", "gid-C"]):
+        conn.execute(
+            "INSERT INTO artwork_groups "
+            "(group_id, artwork_id, downloaded_at, indexed_at) VALUES (?, ?, ?, ?)",
+            (gid, f"art{i+1}", now, now),
+        )
+        if gid != "gid-B":
+            conn.execute(
+                "INSERT INTO artwork_files "
+                "(file_id, group_id, file_role, file_path, file_format, created_at) "
+                "VALUES (?, ?, 'original', ?, 'jpg', ?)",
+                (f"fid-{gid}", gid, f"/fake/{gid}.jpg", now),
+            )
+    conn.commit()
+    conn.close()
+    return db_path
+
+
+class TestBatchEnrichThread:
+    """_BatchEnrichThread 내부 동작 단위 테스트 (QThread.run() 직접 호출)."""
+
+    def test_19_continue_after_partial_failure(self, tmp_path) -> None:
+        """일부 group enrich 실패해도 나머지 처리를 계속한다.
+
+        gid-A: enrich 반환 status != success → failed
+        gid-B: 원본 파일 없음 → failed (enrich 미호출)
+        gid-C: enrich 성공 → succeeded
+        """
+        from unittest.mock import MagicMock, patch
+        from app.main_window import _BatchEnrichThread
+
+        db_path = _setup_batch_db(tmp_path)
+        thread = _BatchEnrichThread(["gid-A", "gid-B", "gid-C"], db_path)
+        thread.log_msg = MagicMock()
+        thread.log_msg.emit = MagicMock()
+
+        captured: dict = {}
+        thread.batch_done = MagicMock()
+        thread.batch_done.emit = lambda r: captured.update(r)
+
+        with patch("core.metadata_enricher.enrich_file_from_pixiv") as mock_enrich:
+            mock_enrich.side_effect = [
+                {"status": "network_error", "sync_status": None, "message": "timeout"},
+                {"status": "success",       "sync_status": "json_only", "message": "ok"},
+            ]
+            thread.run()
+
+        assert captured.get("succeeded") == ["gid-C"]
+        assert set(captured.get("failed", [])) == {"gid-A", "gid-B"}
+        assert mock_enrich.call_count == 2  # gid-B는 파일 없으므로 미호출
+
+    def test_20_no_original_file_lands_in_failed(self, tmp_path) -> None:
+        """원본 파일 없는 group은 failed에 포함되고 이후 group 처리는 계속된다."""
+        from unittest.mock import MagicMock, patch
+        from app.main_window import _BatchEnrichThread
+
+        db_path = _setup_batch_db(tmp_path)
+        thread = _BatchEnrichThread(["gid-B", "gid-C"], db_path)
+        thread.log_msg = MagicMock()
+        thread.log_msg.emit = MagicMock()
+
+        captured: dict = {}
+        thread.batch_done = MagicMock()
+        thread.batch_done.emit = lambda r: captured.update(r)
+
+        with patch("core.metadata_enricher.enrich_file_from_pixiv") as mock_enrich:
+            mock_enrich.return_value = {"status": "success", "sync_status": "json_only", "message": "ok"}
+            thread.run()
+
+        assert captured.get("succeeded") == ["gid-C"]
+        assert captured.get("failed") == ["gid-B"]
+        assert mock_enrich.call_count == 1  # gid-B는 파일 없음 → enrich 미호출
