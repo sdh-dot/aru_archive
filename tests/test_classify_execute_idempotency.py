@@ -162,7 +162,7 @@ class TestExecuteIdempotency:
         preview = build_classify_preview(db, gid, cfg)
         assert preview is not None
 
-        r1 = execute_classify_preview(db, preview, cfg)
+        execute_classify_preview(db, preview, cfg)
         execute_classify_preview(db, preview, cfg)
 
         dest_path = Path(preview["destinations"][0]["dest_path"])
@@ -450,3 +450,287 @@ class TestBatchIdempotency:
         assert "error"   in gr
         assert gr["status"]  == "skipped"
         assert gr["error"]   is None
+
+
+# ---------------------------------------------------------------------------
+# file_role 필터: original/managed row는 classified_copy로 오인하지 않는다
+# ---------------------------------------------------------------------------
+
+class TestFileRoleFilter:
+    def test_source_original_and_managed_rows_do_not_interfere(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """같은 그룹에 original/managed rows가 있어도 classified_copy check에 영향 없다.
+
+        execute_classify_preview의 DB 중복 체크가 file_role='classified_copy'만
+        확인하므로, 같은 그룹 내 다른 role row들은 skip 판정에 관여하지 않는다.
+        """
+        from core.classifier import build_classify_preview, execute_classify_preview
+
+        gid = str(uuid.uuid4())
+        _insert_group(db, group_id=gid, series=["Blue Archive"], character=["陸八魔アル"])
+
+        # original 파일
+        orig = tmp_path / "inbox" / "orig.jpg"
+        orig.parent.mkdir(parents=True, exist_ok=True)
+        content = b"\xff\xd8\xff\xe0" * 256
+        orig.write_bytes(content)
+        fid_orig = str(uuid.uuid4())
+        db.execute(
+            "INSERT INTO artwork_files "
+            "(file_id, group_id, page_index, file_role, file_path,"
+            " file_format, file_size, metadata_embedded, file_status, created_at) "
+            "VALUES (?, ?, 0, 'original', ?, 'jpg', ?, 0, 'present', ?)",
+            (fid_orig, gid, str(orig), len(content), _now()),
+        )
+        # managed 파일 (select_classify_target이 우선 선택)
+        managed = tmp_path / "inbox" / "managed.png"
+        managed.write_bytes(content)
+        fid_mgd = str(uuid.uuid4())
+        db.execute(
+            "INSERT INTO artwork_files "
+            "(file_id, group_id, page_index, file_role, file_path,"
+            " file_format, file_size, metadata_embedded, file_status, created_at) "
+            "VALUES (?, ?, 0, 'managed', ?, 'png', ?, 0, 'present', ?)",
+            (fid_mgd, gid, str(managed), len(content), _now()),
+        )
+        db.commit()
+
+        cfg = _base_config(tmp_path / "Classified")
+        preview = build_classify_preview(db, gid, cfg)
+        assert preview is not None
+
+        # original/managed rows가 있어도 classified_copy check에 영향 없이 정상 copy
+        r = execute_classify_preview(db, preview, cfg)
+        assert r["error"] is None
+        assert r["copied"] == 1
+        assert r["skipped"] == 0
+
+        # classified_copy는 1개만 생성됨
+        cnt = db.execute(
+            "SELECT COUNT(*) AS c FROM artwork_files WHERE group_id = ? AND file_role = 'classified_copy'",
+            (gid,),
+        ).fetchone()["c"]
+        assert cnt == 1
+
+
+# ---------------------------------------------------------------------------
+# Stale classified_copy row (DB row 있음, 물리 파일 없음)
+# ---------------------------------------------------------------------------
+
+class TestStaleClassifiedRow:
+    def test_stale_same_group_row_file_missing_triggers_copy(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """DB classified_copy row 있고 물리 파일 없으면 skip하지 않고 copy한다."""
+        from core.classifier import build_classify_preview, execute_classify_preview
+
+        gid = str(uuid.uuid4())
+        _insert_group(db, group_id=gid, series=["Blue Archive"], character=["陸八魔アル"])
+        src = tmp_path / "inbox" / "img.jpg"
+        _insert_source_file(db, gid, src)
+        cfg = _base_config(tmp_path / "Classified")
+
+        preview = build_classify_preview(db, gid, cfg)
+        assert preview is not None
+
+        # 1차 실행 — 파일 복사됨
+        r1 = execute_classify_preview(db, preview, cfg)
+        assert r1["copied"] == 1
+
+        # 물리 파일 삭제 (stale row 시뮬레이션)
+        dest_path = Path(preview["destinations"][0]["dest_path"])
+        dest_path.unlink()
+        assert not dest_path.exists()
+
+        # 2차 실행 — stale row 있지만 파일 없으므로 copy해야 함
+        r2 = execute_classify_preview(db, preview, cfg)
+        assert r2["error"] is None
+        assert r2["copied"] == 1
+        assert r2["skipped"] == 0
+        assert dest_path.exists()
+
+    def test_stale_same_group_row_is_updated_not_inserted(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """stale row 재실행 후 classified_copy는 1개만 존재한다 (INSERT 아닌 UPDATE)."""
+        from core.classifier import build_classify_preview, execute_classify_preview
+
+        gid = str(uuid.uuid4())
+        _insert_group(db, group_id=gid, series=["Blue Archive"], character=["陸八魔アル"])
+        src = tmp_path / "inbox" / "img.jpg"
+        _insert_source_file(db, gid, src)
+        cfg = _base_config(tmp_path / "Classified")
+
+        preview = build_classify_preview(db, gid, cfg)
+        assert preview is not None
+
+        execute_classify_preview(db, preview, cfg)
+
+        # 물리 파일 삭제
+        dest_path = Path(preview["destinations"][0]["dest_path"])
+        dest_path.unlink()
+
+        execute_classify_preview(db, preview, cfg)
+
+        cnt = db.execute(
+            "SELECT COUNT(*) AS c FROM artwork_files WHERE group_id = ? AND file_role = 'classified_copy'",
+            (gid,),
+        ).fetchone()["c"]
+        assert cnt == 1
+
+    def test_stale_different_group_row_no_file_path_available(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """다른 그룹의 stale classified_copy row + 물리 파일 없음 → ValueError 아닌 copy."""
+        from core.classifier import build_classify_preview, execute_classify_preview
+
+        classified = tmp_path / "Classified"
+        cfg = _base_config(classified)
+
+        gid_a = str(uuid.uuid4())
+        _insert_group(db, group_id=gid_a, series=["Blue Archive"], character=["陸八魔アル"])
+        src_a = tmp_path / "inbox" / "img_a.jpg"
+        _insert_source_file(db, gid_a, src_a)
+
+        preview_a = build_classify_preview(db, gid_a, cfg)
+        assert preview_a is not None
+        intended_dest = Path(preview_a["destinations"][0]["dest_path"])
+
+        # 다른 그룹 B의 stale classified_copy row를 dest path에 심는다 (물리 파일 없음)
+        gid_b = str(uuid.uuid4())
+        db.execute(
+            "INSERT INTO artwork_groups "
+            "(group_id, source_site, artwork_id, artwork_title, artist_name,"
+            " downloaded_at, indexed_at, metadata_sync_status,"
+            " tags_json, series_tags_json, character_tags_json) "
+            "VALUES (?, 'pixiv', 'stale_b', 'stale', 'stale', ?, ?, 'full', '[]', '[]', '[]')",
+            (gid_b, _now(), _now()),
+        )
+        db.execute(
+            "INSERT INTO artwork_files "
+            "(file_id, group_id, page_index, file_role, file_path,"
+            " file_format, file_hash, file_size, metadata_embedded, file_status, created_at) "
+            "VALUES (?, ?, 0, 'classified_copy', ?, 'jpg', 'deadbeef', 1024, 0, 'present', ?)",
+            (str(uuid.uuid4()), gid_b, str(intended_dest), _now()),
+        )
+        db.commit()
+
+        assert not intended_dest.exists()  # 물리 파일 없음 확인
+
+        # 그룹 A 실행 → ValueError가 아닌 copied=1
+        r = execute_classify_preview(db, preview_a, cfg)
+        assert r["error"] is None
+        assert r["copied"] == 1
+        assert r["skipped"] == 0
+        assert intended_dest.exists()
+
+        # dest path의 classified_copy는 그룹 A의 것이어야 함
+        row = db.execute(
+            "SELECT group_id FROM artwork_files WHERE file_path = ? AND file_role = 'classified_copy'",
+            (str(intended_dest),),
+        ).fetchone()
+        assert row["group_id"] == gid_a
+
+
+# ---------------------------------------------------------------------------
+# Batch: output 폴더 삭제 후 재실행 (metadata source with missing classified output)
+# ---------------------------------------------------------------------------
+
+class TestBatchMissingOutput:
+    def test_metadata_source_first_run_copied(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """metadata_embedded=1인 source를 가진 그룹 초회 실행 → copied=1, error 없음."""
+        from core.classifier import build_classify_preview, execute_classify_preview
+
+        gid = str(uuid.uuid4())
+        _insert_group(db, group_id=gid, series=["Blue Archive"], character=["陸八魔アル"])
+        src = tmp_path / "inbox" / "img.jpg"
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(b"\xff\xd8\xff\xe0" * 256)
+        fid = str(uuid.uuid4())
+        db.execute(
+            "INSERT INTO artwork_files "
+            "(file_id, group_id, page_index, file_role, file_path,"
+            " file_format, file_size, metadata_embedded, file_status, created_at) "
+            "VALUES (?, ?, 0, 'original', ?, 'jpg', ?, 1, 'present', ?)",
+            (fid, gid, str(src), src.stat().st_size, _now()),
+        )
+        db.commit()
+
+        preview = build_classify_preview(db, gid, _base_config(tmp_path / "Classified"))
+        assert preview is not None
+
+        r = execute_classify_preview(db, preview, _base_config(tmp_path / "Classified"))
+        assert r["error"] is None
+        assert r["copied"] == 1
+        assert r["skipped"] == 0
+
+    def test_batch_after_output_deleted_recopied(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """output 파일 삭제 후 batch 재실행 → copied=3, skipped=0."""
+        from core.batch_classifier import build_classify_batch_preview, execute_classify_batch
+
+        classified = tmp_path / "Classified"
+        cfg = _base_config(classified)
+
+        gids = []
+        for i in range(3):
+            gid = str(uuid.uuid4())
+            _insert_group(db, group_id=gid, series=["Blue Archive"], character=["陸八魔アル"])
+            src = tmp_path / "inbox" / f"img{i}.jpg"
+            _insert_source_file(db, gid, src, b"\xff\xd8\xff\xe0" * (i + 1) * 64)
+            gids.append(gid)
+
+        batch = build_classify_batch_preview(db, gids, cfg)
+
+        r1 = execute_classify_batch(db, batch, cfg)
+        assert r1["copied"] == 3
+
+        # output 폴더 전체 삭제
+        import shutil
+        shutil.rmtree(str(classified))
+
+        # 재실행 — stale row 있지만 파일 없으므로 copy해야 함
+        r2 = execute_classify_batch(db, batch, cfg)
+        assert r2["success"] is True
+        assert r2["copied"] == 3
+        assert r2["skipped"] == 0
+        assert r2["failed_groups"] == 0
+
+    def test_batch_after_output_deleted_second_rerun_skipped(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """output 삭제 후 재복사, 그 다음 실행은 skipped=3, status='completed'."""
+        from core.batch_classifier import build_classify_batch_preview, execute_classify_batch
+
+        classified = tmp_path / "Classified"
+        cfg = _base_config(classified)
+
+        gids = []
+        for i in range(3):
+            gid = str(uuid.uuid4())
+            _insert_group(db, group_id=gid, series=["Blue Archive"], character=["陸八魔アル"])
+            src = tmp_path / "inbox" / f"img{i}.jpg"
+            _insert_source_file(db, gid, src, b"\xff\xd8\xff\xe0" * (i + 1) * 64)
+            gids.append(gid)
+
+        batch = build_classify_batch_preview(db, gids, cfg)
+
+        execute_classify_batch(db, batch, cfg)           # 1차: copied=3
+
+        import shutil
+        shutil.rmtree(str(classified))
+
+        execute_classify_batch(db, batch, cfg)           # 2차: stale → copied=3
+
+        # 3차: 파일도 있고 DB row도 있음 → skipped
+        r3 = execute_classify_batch(db, batch, cfg)
+        assert r3["success"] is True
+        assert r3["status"] == "completed"
+        assert r3["copied"] == 0
+        assert r3["skipped"] == 3
+        assert r3["failed_groups"] == 0
+        assert r3["error"] is None
