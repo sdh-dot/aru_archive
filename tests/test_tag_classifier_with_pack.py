@@ -383,10 +383,14 @@ class TestBlueArchiveFullExpansionStructure:
     """Static pack-shape invariants for the expansion."""
 
     def test_pack_version_bumped(self, pack_data) -> None:
-        assert pack_data["version"] == "1.3.0"
+        # PR #121 bumps to 1.4.0 with NPC + group additions.
+        assert pack_data["version"] >= "1.4.0"
 
     def test_pack_total_character_count_at_least_88(self, pack_data) -> None:
-        """10 builtin + 78 expansion (P1 Hina/Ako/Nagisa already counted)."""
+        """10 builtin + 78 expansion (P1 Hina/Ako/Nagisa already counted).
+
+        PR #121 adds 扇喜アオイ (NPC) — total grows but the >=88 invariant holds.
+        """
         assert len(pack_data["characters"]) >= 88
 
     def test_every_character_has_blue_archive_parent_series(self, pack_data) -> None:

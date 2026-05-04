@@ -138,14 +138,21 @@ def expand_tag_match_candidates(raw_tag: str) -> list[dict]:
     return candidates
 
 
-def load_db_aliases(conn) -> tuple[dict[str, str], dict[str, list[dict]]]:
-    """DB tag_aliases (enabled=1)에서 시리즈/캐릭터 alias를 로드한다.
+def load_db_aliases(
+    conn,
+) -> tuple[dict[str, str], dict[str, list[dict]], dict[str, list[dict]]]:
+    """DB tag_aliases (enabled=1)에서 시리즈/캐릭터/그룹 alias를 로드한다.
 
-    char 결과는 alias → list[{canonical, series}] 형태로 반환한다.
+    char / group 결과는 alias → list[{canonical, series}] 형태로 반환한다.
     같은 alias에 여러 canonical이 있으면(parent_series가 다름) ambiguous 처리 대상이다.
+
+    PR #121: groups (tag_type='group') 도 함께 로드해 character 와 동일한 형식으로
+    반환한다. tag_type 이 'group' 인 row 가 없는 기존 DB 에서도 호환된다 — 빈 dict
+    반환.
     """
     series: dict[str, str] = {}
     chars: dict[str, list[dict]] = {}
+    groups: dict[str, list[dict]] = {}
     try:
         rows = conn.execute(
             "SELECT alias, canonical, tag_type, parent_series "
@@ -160,9 +167,15 @@ def load_db_aliases(conn) -> tuple[dict[str, str], dict[str, list[dict]]]:
                     "series":    row["parent_series"] or "",
                 }
                 chars.setdefault(row["alias"], []).append(entry)
+            elif row["tag_type"] == "group":
+                entry = {
+                    "canonical": row["canonical"],
+                    "series":    row["parent_series"] or "",
+                }
+                groups.setdefault(row["alias"], []).append(entry)
     except Exception:
         pass
-    return series, chars
+    return series, chars, groups
 
 
 def _build_normalized_lookup(exact: dict) -> dict[str, str]:
@@ -182,13 +195,16 @@ def _build_normalized_lookup(exact: dict) -> dict[str, str]:
 
 def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
     """
-    Pixiv 태그 목록을 general / series / character로 분류한다.
+    Pixiv 태그 목록을 general / series / character / group 으로 분류한다.
 
-    2-pass 매칭:
-      Pass 1 — series direct/normalized 매칭 (character와 독립적으로 수행)
+    3-pass 매칭:
+      Pass 1 — series direct/normalized 매칭 (character/group 과 독립적으로 수행)
       Pass 2 — character direct/normalized 매칭
                · parent_series → series_tags 자동 보강
                · ambiguous alias 처리 (series context 기반 disambiguation)
+      Pass 3 — group direct/normalized 매칭 (PR #121)
+               · parent_series → series_tags 자동 보강 (character 와 동일 정책)
+               · ambiguous alias 처리
 
     conn: sqlite3.Connection (None이면 built-in aliases만 사용)
 
@@ -197,9 +213,11 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
             "tags":           [...],   # 일반 태그 (original order, deduped)
             "series_tags":    [...],   # canonical series (sorted)
             "character_tags": [...],   # canonical character (sorted)
+            "group_tags":     [...],   # canonical group (sorted) — PR #121
             "evidence": {
                 "series":     [...],   # inferred series evidence entries
                 "characters": [...],   # character match evidence entries
+                "groups":     [...],   # group match evidence entries — PR #121
             },
             "ambiguous": [...],        # ambiguous alias entries (자동 확정 금지)
         }
@@ -208,7 +226,7 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
 
     # --- alias 로드 ---
     if conn is not None:
-        db_series, db_char_groups = load_db_aliases(conn)
+        db_series, db_char_groups, db_group_groups = load_db_aliases(conn)
         series_aliases: dict[str, str] = dict(SERIES_ALIASES)
         series_aliases.update(db_series)
         # built-in CHARACTER_ALIASES를 list 포맷으로 변환 후 DB와 병합
@@ -223,12 +241,15 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
                 for e in entries:
                     if e["canonical"] not in existing_canonicals:
                         char_alias_groups[alias].append(e)
+        group_alias_groups: dict[str, list[dict]] = dict(db_group_groups)
     else:
         series_aliases = dict(SERIES_ALIASES)
         char_alias_groups = {alias: [info] for alias, info in CHARACTER_ALIASES.items()}
+        group_alias_groups = {}
 
     norm_series = _build_normalized_lookup(series_aliases)
     norm_chars  = _build_normalized_lookup(char_alias_groups)
+    norm_groups = _build_normalized_lookup(group_alias_groups)
 
     # ===== Pass 1: Series matching (character와 독립적으로 선행 수행) =====
     series_set: set[str] = set()
@@ -395,8 +416,109 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
                     ],
                 })
 
-    # 일반 태그 (series / character로 분류되지 않은 것, original order 유지 + dedup)
-    all_classified = series_classified | char_classified
+    # ===== Pass 3: Group matching (PR #121) =====
+    # character 와 동일한 정책: parent_series 가 있으면 series_set 보강.
+    # ambiguous group alias 는 자동 확정 금지. group 매칭은 character 매칭과
+    # 독립적으로 동작 — 같은 raw tag 가 character 와 group 양쪽에 매칭되면
+    # 둘 다 등록한다 (실제로는 alias 중첩이 없도록 tag pack 정책으로 관리).
+    group_set: set[str] = set()
+    group_classified: set[str] = set()
+    evidence_groups: list[dict] = []
+
+    for tag in raw_tags:
+        if tag in series_classified:
+            continue  # 이미 series 로 분류된 태그는 group 매칭 대상 아님
+
+        entries: list[dict] | None = None
+        match_type    = ""
+        inner_variant = ""
+
+        if tag in group_alias_groups:
+            entries    = group_alias_groups[tag]
+            match_type = "exact"
+        else:
+            nk = normalize_tag_key(tag)
+            if nk and nk in norm_groups:
+                entries    = group_alias_groups[norm_groups[nk]]
+                match_type = "normalized"
+
+        if entries is None:
+            base, inner_variant = _parse_parenthetical(tag)
+            if base != tag and base:
+                if base in group_alias_groups:
+                    entries    = group_alias_groups[base]
+                    match_type = "variant_stripped"
+                else:
+                    nk_base = normalize_tag_key(base)
+                    if nk_base and nk_base in norm_groups:
+                        entries    = group_alias_groups[norm_groups[nk_base]]
+                        match_type = "variant_stripped"
+
+        if entries is None:
+            continue
+
+        if len(entries) == 1:
+            info         = entries[0]
+            canonical    = info["canonical"]
+            group_series = info.get("series", "")
+
+            group_set.add(canonical)
+            group_classified.add(tag)
+
+            if group_series:
+                if group_series not in direct_series:
+                    evidence_series.append({
+                        "canonical":         group_series,
+                        "source":            "inferred_from_group",
+                        "matched_group":     canonical,
+                        "matched_raw_tag":   tag,
+                    })
+                series_set.add(group_series)
+
+            ev: dict = {
+                "canonical":       canonical,
+                "source":          "tag_aliases",
+                "matched_raw_tag": tag,
+                "parent_series":   group_series,
+                "match_type":      match_type,
+            }
+            if inner_variant:
+                ev["variant"] = inner_variant
+            evidence_groups.append(ev)
+        else:
+            matching = [e for e in entries if e.get("series") in direct_series]
+            if len(matching) == 1:
+                info         = matching[0]
+                canonical    = info["canonical"]
+                group_series = info.get("series", "")
+                group_set.add(canonical)
+                group_classified.add(tag)
+                ev = {
+                    "canonical":               canonical,
+                    "source":                  "tag_aliases",
+                    "matched_raw_tag":         tag,
+                    "parent_series":           group_series,
+                    "match_type":              match_type,
+                    "disambiguated_by_series": True,
+                }
+                if inner_variant:
+                    ev["variant"] = inner_variant
+                evidence_groups.append(ev)
+            else:
+                ambiguous_tags.append({
+                    "raw_tag": tag,
+                    "reason":  "ambiguous_group_alias",
+                    "candidates": [
+                        {
+                            "canonical":     e["canonical"],
+                            "parent_series": e.get("series", ""),
+                        }
+                        for e in entries
+                    ],
+                })
+
+    # 일반 태그 (series / character / group 으로 분류되지 않은 것, original order 유지 + dedup)
+    all_classified = series_classified | char_classified | group_classified
     seen: set[str] = set()
     general: list[str] = []
     for tag in raw_tags:
@@ -408,9 +530,11 @@ def classify_pixiv_tags(raw_tags: list[str], conn=None) -> dict:
         "tags":           general,
         "series_tags":    sorted(series_set),
         "character_tags": sorted(character_set),
+        "group_tags":     sorted(group_set),
         "evidence": {
             "series":     evidence_series,
             "characters": evidence_chars,
+            "groups":     evidence_groups,
         },
         "ambiguous": ambiguous_tags,
     }

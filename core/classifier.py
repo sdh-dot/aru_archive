@@ -179,11 +179,12 @@ def _resolve_series_only_inputs(
     raw_tags: list[str],
     conn: Optional[sqlite3.Connection],
 ) -> tuple[list[str], dict[str, str]]:
-    """raw_tags 로부터 explicit series 와 character.parent_series 매핑을 만든다.
+    """raw_tags 로부터 explicit series 와 character/group.parent_series 매핑을 만든다.
 
     `core.tag_classifier.classify_pixiv_tags` 의 evidence 를 사용해
     direct/normalized/popularity-suffix 매칭으로 식별된 series 만 explicit 로
-    분리하고, character evidence 의 parent_series 를 역추론용 매핑으로 모은다.
+    분리하고, character / group evidence 의 parent_series 를 역추론용 매핑으로
+    모은다 (PR #121).
 
     classify_pixiv_tags 호출이 실패해도 빈 결과를 반환 — preview 흐름이
     끊기지 않도록 한다.
@@ -198,7 +199,8 @@ def _resolve_series_only_inputs(
 
     inferred: set[str] = set()
     for ev in result.get("evidence", {}).get("series", []):
-        if ev.get("source") == "inferred_from_character" and ev.get("canonical"):
+        source = ev.get("source")
+        if source in ("inferred_from_character", "inferred_from_group") and ev.get("canonical"):
             inferred.add(ev["canonical"])
 
     all_series = list(result.get("series_tags") or [])
@@ -209,6 +211,14 @@ def _resolve_series_only_inputs(
         canonical = ev.get("canonical")
         parent    = ev.get("parent_series") or ""
         if canonical and parent:
+            parent_series_map.setdefault(canonical, parent)
+    for ev in result.get("evidence", {}).get("groups", []):
+        canonical = ev.get("canonical")
+        parent    = ev.get("parent_series") or ""
+        if canonical and parent:
+            # group 의 canonical 이 character 와 같은 이름일 가능성은 매우 낮지만
+            # setdefault 로 기존 character 매핑을 우선한다 — 두 값이 같은 series 를
+            # 가리키므로 결과는 동일.
             parent_series_map.setdefault(canonical, parent)
 
     return explicit_series, parent_series_map

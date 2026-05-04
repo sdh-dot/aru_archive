@@ -132,11 +132,16 @@ class TestSeedTagPack:
         # 두 번째 시드는 0개 삽입 (INSERT OR IGNORE)
         assert r2["series_aliases"] == 0
         assert r2["character_aliases"] == 0
+        assert r2.get("group_aliases", 0) == 0
         assert r2["localizations"] == 0
 
-        # DB 총 개수는 첫 번째와 동일
+        # DB 총 개수는 첫 번째와 동일 — series + character + group (PR #121)
         total = conn.execute("SELECT COUNT(*) FROM tag_aliases").fetchone()[0]
-        assert total == r1["series_aliases"] + r1["character_aliases"]
+        assert total == (
+            r1["series_aliases"]
+            + r1["character_aliases"]
+            + r1.get("group_aliases", 0)
+        )
 
     def test_seed_builtin_packs(self, conn) -> None:
         from core.tag_pack_loader import seed_builtin_tag_packs

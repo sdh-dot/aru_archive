@@ -333,8 +333,10 @@ def generate_alias_candidates_from_failed_tags(
 
     confirmed_aliases = _load_confirmed_aliases(conn)
 
-    # series alias 룩업 (시리즈 힌트 추출용)
-    db_series, _ = load_db_aliases(conn)
+    # series alias 룩업 (시리즈 힌트 추출용). PR #121: load_db_aliases 가
+    # (series, characters, groups) 3-tuple 을 반환하므로 character/group 항목은
+    # 무시하고 series 만 사용한다.
+    db_series, _, _ = load_db_aliases(conn)
     all_series_aliases: dict[str, str] = dict(SERIES_ALIASES)
     all_series_aliases.update(db_series)
 
