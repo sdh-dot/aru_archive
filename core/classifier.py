@@ -308,6 +308,8 @@ def _build_destinations(
     classified_dir: str,
     cfg: dict,
     conn: Optional[sqlite3.Connection] = None,
+    *,
+    series_only_mode: bool = False,
 ) -> list[dict]:
     """
     그룹·파일 정보를 바탕으로 복사 목적지 목록을 만든다.
@@ -315,8 +317,13 @@ def _build_destinations(
     각 항목: {rule_type, dest_path, conflict, will_copy}
     localization 활성 시 series_canonical, series_display, character_canonical,
     character_display, locale, used_fallback 추가.
+
+    series_only_mode=True 인 경우 (PR #125):
+    - Tier 2 에서 ``/_uncategorized`` 하위 폴더를 붙이지 않고 series 폴더 직접 사용.
+    - series / character 모두 없을 때 by_series root 아래 localized uncategorized
+      폴더로 배치 (rule_type="series_unidentified_fallback").
     """
-    from core.folder_localization import resolve_category_folder
+    from core.folder_localization import resolve_category_folder, resolve_uncategorized_folder
 
     filename  = Path(source_file["file_path"]).name
     base      = Path(classified_dir)
@@ -337,6 +344,8 @@ def _build_destinations(
     by_character_label = resolve_category_folder("by_character", cat_lang)
     by_author_label    = resolve_category_folder("by_author",    cat_lang)
     by_tag_label       = resolve_category_folder("by_tag",       cat_lang)
+    # PR #125: `_uncategorized` 내부 폴더명 대신 localized label 사용.
+    uncategorized_label = resolve_uncategorized_folder(cat_lang)
 
     def _display(canonical: str, tag_type: str, parent_series: str = "") -> tuple[str, bool]:
         if not use_locale:
@@ -383,7 +392,11 @@ def _build_destinations(
                 } if use_locale else {}
                 _add("series_character", base / by_series_label / s / c, extra)
 
-    # Tier 2: BySeries/{series}/_uncategorized — 시리즈만 있을 때
+    # Tier 2: BySeries/{series} または BySeries/{series}/{uncategorized}
+    # series_only_mode=True (PR #125): character folder / _uncategorized 없이
+    #   series 폴더 바로 아래에 파일을 배치한다.
+    # series_only_mode=False (기존 series_character 모드):
+    #   시리즈만 있을 때 localized uncategorized 하위 폴더에 배치한다.
     elif has_series and cfg["enable_series_uncategorized"]:
         for series in series_tags:
             s_display, s_fb = _display(series, "series")
@@ -393,7 +406,10 @@ def _build_destinations(
                 "locale": locale if use_locale else "canonical",
                 "used_fallback": s_fb,
             } if use_locale else {}
-            _add("series_uncategorized", base / by_series_label / s / "_uncategorized", extra)
+            if series_only_mode:
+                _add("series_uncategorized", base / by_series_label / s, extra)
+            else:
+                _add("series_uncategorized", base / by_series_label / s / uncategorized_label, extra)
 
     # Tier 3: ByCharacter/{char} — 캐릭터만 있을 때
     elif has_char and cfg["enable_character_without_series"]:
@@ -406,6 +422,14 @@ def _build_destinations(
                 "used_fallback": c_fb,
             } if use_locale else {}
             _add("character", base / by_character_label / c, extra)
+
+    # series_only 미식별 fallback (PR #125): series / character 모두 없고
+    # Tier 에서 destination 이 생성되지 않았을 때 by_series root 아래
+    # localized uncategorized 폴더로 배치한다.
+    # author_fallback / enable_by_author 보다 먼저 체크해 Tier 기반 목적지가
+    # 없을 때만 활성화한다.
+    if series_only_mode and not has_series and not dests:
+        _add("series_unidentified_fallback", base / by_series_label / uncategorized_label)
 
     # Author fallback: 시리즈/캐릭터 모두 없을 때만
     if not has_series and not has_char and cfg["fallback_by_author"]:
@@ -509,12 +533,17 @@ def build_classify_preview(
 
     # series-only mode 전용 destination resolver — explicit series 와
     # character.parent_series 의 관계로 destination / needs_review 를 결정한다.
-    # 결과는 _build_destinations 의 series_tags_json virtual override 로 반영해
-    # 기존 Tier 2 (series_uncategorized) 경로를 그대로 사용한다.
+    # PR #125: series_only 모드에서 _uncategorized 재사용을 중단하고 순수 시리즈
+    # 폴더로 배치한다. series_only_mode 플래그를 _build_destinations 에 전달해
+    # Tier 2 경로에서 하위 폴더를 붙이지 않도록 한다.
+    _series_only_mode = is_series_only_mode(cfg)
+    # needs_review 케이스에서는 series_unidentified_fallback 도 발동하지 않도록
+    # _build_destinations 에 전달하는 플래그를 별도 관리한다.
+    _build_series_only_mode = _series_only_mode
     series_only_review: dict | None = None
     series_only_rule: str = ""
     group_dict_for_build = dict(group)
-    if is_series_only_mode(cfg):
+    if _series_only_mode:
         raw_tags_for_resolver = _parse_json_list(group_dict_for_build.get("tags_json"))
         explicit_series, parent_series_map = _resolve_series_only_inputs(
             raw_tags_for_resolver, conn
@@ -544,14 +573,19 @@ def build_classify_preview(
             )
         else:
             series_only_review = resolver
-            # destination 을 생성하지 않는다 — needs_review.
             group_dict_for_build["series_tags_json"] = "[]"
             group_dict_for_build["character_tags_json"] = "[]"
-            # author fallback 도 발동하지 않도록 cfg 임시 복사.
             cfg = dict(cfg)
             cfg["fallback_by_author"] = False
+            # conflict/ambiguous 케이스에서는 series_unidentified_fallback 도 차단한다.
+            # series_unidentified (완전 미식별) 는 _build_destinations 내 fallback 에 위임.
+            if resolver.get("reason") != SERIES_ONLY_REASON_UNIDENTIFIED:
+                _build_series_only_mode = False
 
-    dests = _build_destinations(group_dict_for_build, source, classified_dir, cfg, conn=conn)
+    dests = _build_destinations(
+        group_dict_for_build, source, classified_dir, cfg, conn=conn,
+        series_only_mode=_build_series_only_mode,
+    )
 
     # series-only ready 케이스: 각 destination 에 resolver rule 메타를 부착해
     # UI 가 시리즈 태그 / 캐릭터 소속 / 복수 소속 를 구분할 수 있게 한다.

@@ -309,15 +309,16 @@ class TestStep7PreviewGridLabels:
     def test_format_preview_rule_helper_mapping(self):
         """_format_preview_rule helper 의 매핑 단위 검증."""
         from app.views.workflow_wizard_view import _format_preview_rule
-        assert _format_preview_rule("author_fallback")      == "작가명 분류"
-        assert _format_preview_rule("series_character")     == "캐릭터 분류"
-        assert _format_preview_rule("series_uncategorized") == "시리즈 미식별"
-        assert _format_preview_rule("manual_override")      == "수동 분류"
-        assert _format_preview_rule("series")               == "시리즈 분류"
-        assert _format_preview_rule("character")            == "캐릭터 단독 분류"
+        assert _format_preview_rule("author_fallback")           == "작가명 분류"
+        assert _format_preview_rule("series_character")          == "캐릭터 분류"
+        assert _format_preview_rule("series_uncategorized")      == "캐릭터 미분류"  # PR #124
+        assert _format_preview_rule("series_unidentified_fallback") == "시리즈 미분류"  # PR #125
+        assert _format_preview_rule("manual_override")           == "수동 분류"
+        assert _format_preview_rule("series")                    == "시리즈 분류"
+        assert _format_preview_rule("character")                 == "캐릭터 단독 분류"
         # 폴백
-        assert _format_preview_rule("")                     == "기타"
-        assert _format_preview_rule("unknown_future_rule")  == "기타"
+        assert _format_preview_rule("")                          == "기타"
+        assert _format_preview_rule("unknown_future_rule")       == "기타"
 
     def test_rule_cell_text_uses_korean_label_not_raw_code(self, wizard):
         """grid cell 의 규칙 컬럼은 한글 라벨, raw rule code 가 노출되지 않음."""

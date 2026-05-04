@@ -5,7 +5,7 @@
 - ``input_dir`` / ``output_dir`` 가 ``inbox_dir`` / ``classified_dir`` 와 동기화되며 서로 독립적으로 변경된다.
 - ``app_data_dir`` 기본값이 ``Path.home() / 'AruArchive'`` 이고, ``ensure_app_data_dirs`` 가 ``.runtime`` / ``logs`` / ``thumbcache`` / ``managed`` 를 생성한다.
 - ``CATEGORY_FOLDER_LABELS`` 와 ``resolve_category_folder`` 가 ko / ja / en 으로 라벨을 반환하고 알 수 없는 값은 영어로 fallback.
-- ``_build_destinations`` 가 ``folder_name_language`` 에 따라 카테고리 폴더 (``ByAuthor`` / ``BySeries`` / ``ByCharacter`` / ``ByTag``) 라벨을 로컬라이즈한다.
+- ``_build_destinations`` 가 ``folder_name_language`` 에 따라 카테고리 폴더 (``Author`` / ``Series`` / ``Character`` / ``Tag``) 라벨을 로컬라이즈한다.
 - 기존 ``ByXxx`` 폴더는 자동 rename 되지 않는다.
 - consistency report 가 로컬라이즈된 destination 에서도 정상 작동한다.
 """
@@ -166,21 +166,21 @@ class TestLanguageSettingsSeparation:
 
 class TestCategoryFolderResolver:
     def test_3_korean_by_series(self) -> None:
-        assert resolve_category_folder("by_series", "ko") == "시리즈 기준"
+        assert resolve_category_folder("by_series", "ko") == "시리즈"
 
     def test_4_japanese_by_author(self) -> None:
-        assert resolve_category_folder("by_author", "ja") == "作者別"
+        assert resolve_category_folder("by_author", "ja") == "作者"
 
     def test_5_english_by_character(self) -> None:
-        assert resolve_category_folder("by_character", "en") == "ByCharacter"
+        assert resolve_category_folder("by_character", "en") == "Character"
 
     def test_6_unknown_language_falls_back_to_english(self) -> None:
         # 알 수 없는 값 / canonical / 빈 문자열 / None → 영어 라벨로 fallback.
         # 예외를 던지지 않는다.
-        assert resolve_category_folder("by_series", "invalid") == "BySeries"
-        assert resolve_category_folder("by_series", "canonical") == "BySeries"
-        assert resolve_category_folder("by_series", "") == "BySeries"
-        assert resolve_category_folder("by_series", None) == "BySeries"
+        assert resolve_category_folder("by_series", "invalid") == "Series"
+        assert resolve_category_folder("by_series", "canonical") == "Series"
+        assert resolve_category_folder("by_series", "") == "Series"
+        assert resolve_category_folder("by_series", None) == "Series"
 
     def test_unknown_category_returns_key(self) -> None:
         # 알 수 없는 category_key 는 그 키 자체를 반환 — 안전 fallback.
@@ -291,7 +291,7 @@ class TestClassifiedOutputLocalization:
     def test_11_destination_uses_localized_category_folder(
         self, db: sqlite3.Connection, tmp_path: Path
     ) -> None:
-        """folder_name_language=ko + by_series → output_dir / 시리즈 기준 / ..."""
+        """folder_name_language=ko + by_series → output_dir / 시리즈 / ..."""
         gid = str(uuid.uuid4())
         img = tmp_path / "img.jpg"
         _insert_group(db, group_id=gid,
@@ -306,14 +306,18 @@ class TestClassifiedOutputLocalization:
         preview = build_classify_preview(db, gid, cfg)
         assert preview is not None
         dests = [d["dest_path"] for d in preview["destinations"]]
-        # 카테고리 폴더가 한국어 라벨로 생성됐는지 확인.
-        assert any("시리즈 기준" in p for p in dests), (
+        # 카테고리 폴더가 한국어 라벨 "시리즈"로 생성됐는지 확인.
+        assert any("시리즈" in p for p in dests), (
             f"기대 한국어 카테고리 라벨이 없음: {dests}"
+        )
+        # "시리즈 기준" 과 같은 기존 레이블이 사용되지 않는다.
+        assert not any("시리즈 기준" in p for p in dests), (
+            f"구 레이블 '시리즈 기준' 이 남아 있음: {dests}"
         )
         # output_dir 아래에 생성됨 (input_dir / app_data_dir 가 아님).
         out_str = str(out)
         for p in dests:
-            if "시리즈 기준" in p:
+            if "시리즈" in p:
                 assert p.startswith(out_str), (
                     f"destination 이 output_dir 밖에 생성됨: {p}"
                 )
@@ -333,13 +337,13 @@ class TestClassifiedOutputLocalization:
         preview = build_classify_preview(db, gid, cfg)
         assert preview is not None
         dests = [d["dest_path"] for d in preview["destinations"]]
-        assert any("作者別" in p for p in dests), f"일본어 라벨 없음: {dests}"
+        assert any("作者" in p for p in dests), f"일본어 라벨 없음: {dests}"
 
     def test_default_canonical_keeps_english_labels(
         self, db: sqlite3.Connection, tmp_path: Path
     ) -> None:
         """folder_name_language 미설정 (legacy folder_locale=canonical) 시
-        기존 BySeries / ByAuthor 라벨이 그대로 사용되는지."""
+        영어 라벨 "Series" 가 사용된다 (PR #125: "BySeries" → "Series")."""
         gid = str(uuid.uuid4())
         img = tmp_path / "img.jpg"
         _insert_group(db, group_id=gid, series=["Blue Archive"], tags=[])
@@ -347,11 +351,11 @@ class TestClassifiedOutputLocalization:
 
         out = tmp_path / "Classified"
         out.mkdir()
-        cfg = _classification_cfg(out)  # folder_name_language 미설정
+        cfg = _classification_cfg(out)  # folder_name_language 미설정 → en fallback
         preview = build_classify_preview(db, gid, cfg)
         assert preview is not None
         dests = [d["dest_path"] for d in preview["destinations"]]
-        assert any("BySeries" in p for p in dests), f"BySeries 가 사라짐: {dests}"
+        assert any("Series" in p for p in dests), f"영어 Series 라벨이 사라짐: {dests}"
 
 
 # ---------------------------------------------------------------------------
@@ -490,8 +494,12 @@ class TestConsistencyReportRegression:
         assert item.status in (
             "legacy_extra", "missing_expected", "legacy_and_missing"
         )
-        assert any("시리즈 기준" in p for p in item.missing_expected_paths), (
+        # PR #125: 한국어 category label "시리즈 기준" → "시리즈", "_uncategorized" → "미분류"
+        assert any("시리즈" in p for p in item.missing_expected_paths), (
             f"한국어 missing_expected 라벨 없음: {item.missing_expected_paths}"
+        )
+        assert not any("시리즈 기준" in p for p in item.missing_expected_paths), (
+            f"구 레이블 '시리즈 기준' 이 missing_expected 에 남아 있음: {item.missing_expected_paths}"
         )
         assert any("BySeries" in p for p in item.legacy_extra_paths), (
             f"기존 BySeries legacy_extra 가 식별되지 않음: {item.legacy_extra_paths}"

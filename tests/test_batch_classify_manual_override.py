@@ -109,7 +109,7 @@ def test_override_turns_author_fallback_into_series_character(conn, tmp_path):
     assert "manual_override" in dest_rule_types, f"got: {dest_rule_types}"
 
     dest_path = previews[0]["destinations"][0]["dest_path"]
-    assert "BySeries" in dest_path
+    assert "Series" in dest_path
     assert "Blue Archive" in dest_path
     assert "伊落マリー" in dest_path
 

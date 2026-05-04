@@ -1,14 +1,14 @@
 """series 분류 표시 및 series-only / series_character 경로 정책 integration 테스트
-(PR #124).
+(PR #124 + PR #125).
 
 검증 contract:
 - _RULE_DISPLAY["series_uncategorized"] 가 "캐릭터 미분류" 로 표시된다.
   "시리즈 미식별" 문자열은 series_uncategorized rule 에 더 이상 쓰이지 않는다.
-- series_only 모드에서 Blue Archive + 캐릭터 태그 → _uncategorized 경로 생성,
-  character 하위 폴더 미생성.
+- PR #125: series_only 모드에서 series 식별 시 series 폴더 직접 사용 (_uncategorized 없음).
+- PR #125: series_only 모드에서 series 미식별 시 series_unidentified_fallback 으로
+  localized uncategorized 폴더 배치.
 - series_character 모드(기본값)에서 Blue Archive + 캐릭터 태그 →
   캐릭터 하위 폴더 생성 (현재 정책상 정상 동작임을 테스트로 명시).
-- character-only (parent_series) + series_only → _uncategorized 경로 생성.
 - preview destinations == execute 가 실제 사용하는 batch_preview.destinations
   (preview≡execute 불변).
 - Step 7 _mode_notice_lbl 이 분류 모드에 따라 올바른 텍스트를 보인다.
@@ -243,9 +243,12 @@ class TestSeriesOnlyNoCharacterFolder:
         assert len(dests) >= 1, "destination 이 없음"
 
         dest_paths = [d["dest_path"] for d in dests]
-        # _uncategorized 경로가 있어야 한다.
-        assert any("_uncategorized" in p for p in dest_paths), (
-            f"_uncategorized 경로가 없음: {dest_paths}"
+        # PR #125: series 폴더 바로 아래 배치 — _uncategorized 하위 폴더 없음.
+        assert any("Blue Archive" in p for p in dest_paths), (
+            f"Blue Archive series 폴더가 없음: {dest_paths}"
+        )
+        assert not any("_uncategorized" in p for p in dest_paths), (
+            f"series_only 모드에서 _uncategorized 하위 폴더가 생성됨 (PR #125 금지): {dest_paths}"
         )
         # character 이름으로 된 하위 폴더가 없어야 한다.
         assert not any("陸八魔アル" in p for p in dest_paths), (
@@ -285,17 +288,20 @@ class TestSeriesOnlyNoCharacterFolder:
         dests = preview["destinations"]
         dest_paths = [d["dest_path"] for d in dests]
 
-        # 한국어 카테고리 폴더명 "시리즈 기준" 이 경로에 있어야 한다.
-        assert any("시리즈 기준" in p for p in dest_paths), (
-            f"시리즈 기준 폴더가 없음: {dest_paths}"
+        # PR #125: 한국어 카테고리 폴더명 "시리즈" ("시리즈 기준" → "시리즈").
+        assert any("시리즈" in p for p in dest_paths), (
+            f"시리즈 폴더가 없음: {dest_paths}"
+        )
+        assert not any("시리즈 기준" in p for p in dest_paths), (
+            f"구 레이블 '시리즈 기준'이 경로에 남아 있음: {dest_paths}"
         )
         # "블루 아카이브" series 경로 있어야 한다.
         assert any("블루 아카이브" in p for p in dest_paths), (
             f"블루 아카이브 폴더가 없음: {dest_paths}"
         )
-        # _uncategorized 있어야 한다.
-        assert any("_uncategorized" in p for p in dest_paths), (
-            f"_uncategorized 경로가 없음: {dest_paths}"
+        # PR #125: series_only 모드 — series 폴더 바로 아래 배치, _uncategorized 없음.
+        assert not any("_uncategorized" in p for p in dest_paths), (
+            f"series_only 모드에서 _uncategorized 하위 폴더가 생성됨: {dest_paths}"
         )
         # "리쿠하치마 아루" character 폴더가 없어야 한다.
         assert not any("리쿠하치마 아루" in p for p in dest_paths), (
@@ -374,11 +380,14 @@ class TestSeriesCharacterMode:
         dests = preview["destinations"]
         dest_paths = [d["dest_path"] for d in dests]
 
-        # 예상 경로: classified/시리즈 기준/블루 아카이브/리쿠하치마 아루/
-        expected_parts = ["시리즈 기준", "블루 아카이브", "리쿠하치마 아루"]
+        # 예상 경로: classified/시리즈/블루 아카이브/리쿠하치마 아루/ (PR #125: "시리즈 기준" → "시리즈")
+        expected_parts = ["시리즈", "블루 아카이브", "리쿠하치마 아루"]
         matching = [p for p in dest_paths if all(part in p for part in expected_parts)]
         assert matching, (
             f"예상 경로 구조 {expected_parts} 가 없음: {dest_paths}"
+        )
+        assert not any("시리즈 기준" in p for p in dest_paths), (
+            f"구 레이블 '시리즈 기준'이 경로에 남아 있음: {dest_paths}"
         )
 
 
@@ -415,18 +424,190 @@ class TestSeriesOnlyCharacterOnlyParentSeries:
         dests = preview["destinations"]
         dest_paths = [d["dest_path"] for d in dests]
 
-        # parent_series "Blue Archive" 로 infer 해 series 경로가 생겨야 한다.
+        # parent_series "Blue Archive" 로 infer 해 series 폴더가 생겨야 한다.
         assert any("Blue Archive" in p for p in dest_paths), (
             f"parent_series 추론이 안 됨: {dest_paths}"
         )
-        # _uncategorized 또는 series_uncategorized rule 있어야 한다.
-        assert any("_uncategorized" in p for p in dest_paths), (
-            f"_uncategorized 경로가 없음: {dest_paths}"
+        # PR #125: series_only 모드 — series 폴더 바로 아래 배치, _uncategorized 없음.
+        assert not any("_uncategorized" in p for p in dest_paths), (
+            f"series_only 모드에서 _uncategorized 하위 폴더가 생성됨: {dest_paths}"
         )
         # character 하위 폴더는 없어야 한다.
         assert not any("陸八魔アル" in p for p in dest_paths), (
             f"series_only 모드에서 character 폴더가 생성됨: {dest_paths}"
         )
+
+
+# ---------------------------------------------------------------------------
+# 테스트 5~12 — PR #125 series_only 경로 정책 신규 계약
+# ---------------------------------------------------------------------------
+
+class TestSeriesOnlyPathPolicy:
+    """PR #125: series_only 순수 시리즈 폴더 정책 + series_unidentified_fallback."""
+
+    def test_5_series_only_canonical_direct_series_folder(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """series_only + canonical + series 식별 → Series/Blue Archive (직접 배치)."""
+        from core.classifier import build_classify_preview
+
+        _seed_alias(db, "Blue Archive", "Blue Archive", "series")
+        _seed_alias(db, "陸八魔アル", "陸八魔アル", "character", "Blue Archive")
+
+        gid = str(uuid.uuid4())
+        _insert_group(db, group_id=gid, series=["Blue Archive"], character=["陸八魔アル"])
+        _insert_file(db, gid, tmp_path / "img5.jpg")
+
+        classified = tmp_path / "Classified"
+        classified.mkdir()
+        preview = build_classify_preview(db, gid, _series_only_cfg(classified))
+
+        assert preview is not None
+        dest_paths = [d["dest_path"] for d in preview["destinations"]]
+
+        assert any("Blue Archive" in p for p in dest_paths), (
+            f"Blue Archive series 폴더가 없음: {dest_paths}"
+        )
+        assert not any("_uncategorized" in p for p in dest_paths), (
+            f"series_only 에서 _uncategorized 하위 폴더 생성됨 (PR #125 금지): {dest_paths}"
+        )
+
+    def test_6_series_only_ko_direct_series_folder_no_uncategorized(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """series_only + ko + series 식별 → 시리즈/블루 아카이브 (미분류 없음)."""
+        from core.classifier import build_classify_preview
+
+        _seed_alias(db, "Blue Archive", "Blue Archive", "series")
+        _seed_alias(db, "陸八魔アル", "陸八魔アル", "character", "Blue Archive")
+        _seed_localization(db, "Blue Archive", "series", "ko", "블루 아카이브")
+
+        gid = str(uuid.uuid4())
+        _insert_group(db, group_id=gid, series=["Blue Archive"], character=["陸八魔アル"])
+        _insert_file(db, gid, tmp_path / "img6.jpg")
+
+        classified = tmp_path / "Classified"
+        classified.mkdir()
+        preview = build_classify_preview(db, gid, _series_only_cfg(classified, locale="ko"))
+
+        assert preview is not None
+        dest_paths = [d["dest_path"] for d in preview["destinations"]]
+
+        assert any("블루 아카이브" in p for p in dest_paths), (
+            f"블루 아카이브 폴더가 없음: {dest_paths}"
+        )
+        assert not any("미분류" in p for p in dest_paths), (
+            f"series 식별 시 미분류 폴더가 생성됨: {dest_paths}"
+        )
+        assert not any("_uncategorized" in p for p in dest_paths), (
+            f"_uncategorized 가 경로에 남아 있음: {dest_paths}"
+        )
+
+    def test_7_series_only_no_series_canonical_unidentified_fallback(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """series_only + canonical + series 없음 → Series/Uncategorized."""
+        from core.classifier import build_classify_preview
+
+        gid = str(uuid.uuid4())
+        _insert_group(db, group_id=gid, series=[], character=[], tags=[])
+        _insert_file(db, gid, tmp_path / "img7.jpg")
+
+        classified = tmp_path / "Classified"
+        classified.mkdir()
+        preview = build_classify_preview(db, gid, _series_only_cfg(classified))
+
+        assert preview is not None
+        dest_paths = [d["dest_path"] for d in preview["destinations"]]
+        rule_types = [d.get("rule_type") for d in preview["destinations"]]
+
+        assert "series_unidentified_fallback" in rule_types, (
+            f"series_unidentified_fallback rule_type 없음: {rule_types}"
+        )
+        assert any("Uncategorized" in p for p in dest_paths), (
+            f"series 미식별 시 'Uncategorized' 폴더가 없음: {dest_paths}"
+        )
+
+    def test_8_series_only_no_series_ko_unidentified_fallback(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """series_only + ko + series 없음 → 시리즈/미분류."""
+        from core.classifier import build_classify_preview
+
+        gid = str(uuid.uuid4())
+        _insert_group(db, group_id=gid, series=[], character=[], tags=[])
+        _insert_file(db, gid, tmp_path / "img8.jpg")
+
+        classified = tmp_path / "Classified"
+        classified.mkdir()
+        preview = build_classify_preview(db, gid, _series_only_cfg(classified, locale="ko"))
+
+        assert preview is not None
+        dest_paths = [d["dest_path"] for d in preview["destinations"]]
+
+        assert any("미분류" in p for p in dest_paths), (
+            f"ko locale series 미식별 시 '미분류' 폴더가 없음: {dest_paths}"
+        )
+        assert any("시리즈" in p for p in dest_paths), (
+            f"ko locale '시리즈' category 폴더가 없음: {dest_paths}"
+        )
+
+    def test_9_series_only_no_series_ja_unidentified_fallback(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """series_only + ja + series 없음 → シリーズ/未分類."""
+        from core.classifier import build_classify_preview
+
+        gid = str(uuid.uuid4())
+        _insert_group(db, group_id=gid, series=[], character=[], tags=[])
+        _insert_file(db, gid, tmp_path / "img9.jpg")
+
+        classified = tmp_path / "Classified"
+        classified.mkdir()
+        preview = build_classify_preview(db, gid, _series_only_cfg(classified, locale="ja"))
+
+        assert preview is not None
+        dest_paths = [d["dest_path"] for d in preview["destinations"]]
+
+        assert any("未分類" in p for p in dest_paths), (
+            f"ja locale series 미식별 시 '未分類' 폴더가 없음: {dest_paths}"
+        )
+        assert any("シリーズ" in p for p in dest_paths), (
+            f"ja locale 'シリーズ' category 폴더가 없음: {dest_paths}"
+        )
+
+    def test_10_series_only_no_series_rule_type_is_unidentified_fallback(
+        self, db: sqlite3.Connection, tmp_path: Path
+    ) -> None:
+        """series 미식별 fallback destination 의 rule_type == series_unidentified_fallback."""
+        from core.classifier import build_classify_preview
+
+        gid = str(uuid.uuid4())
+        _insert_group(db, group_id=gid, series=[], character=[], tags=[])
+        _insert_file(db, gid, tmp_path / "img10.jpg")
+
+        classified = tmp_path / "Classified"
+        classified.mkdir()
+        preview = build_classify_preview(db, gid, _series_only_cfg(classified))
+
+        assert preview is not None
+        rule_types = [d.get("rule_type") for d in preview["destinations"]]
+        assert "series_unidentified_fallback" in rule_types, (
+            f"series_unidentified_fallback rule_type 없음: {rule_types}"
+        )
+
+    def test_11_series_unidentified_fallback_display_label(self) -> None:
+        """_RULE_DISPLAY["series_unidentified_fallback"] == "시리즈 미분류"."""
+        from app.views.workflow_wizard_view import _RULE_DISPLAY
+        label = _RULE_DISPLAY.get("series_unidentified_fallback", "")
+        assert label == "시리즈 미분류", (
+            f"series_unidentified_fallback 표시명이 '시리즈 미분류'가 아님: {label!r}"
+        )
+
+    def test_12_format_series_unidentified_fallback(self) -> None:
+        """_format_preview_rule('series_unidentified_fallback') == '시리즈 미분류'."""
+        from app.views.workflow_wizard_view import _format_preview_rule
+        assert _format_preview_rule("series_unidentified_fallback") == "시리즈 미분류"
 
 
 # ---------------------------------------------------------------------------

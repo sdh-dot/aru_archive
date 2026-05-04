@@ -278,7 +278,7 @@ class TestBuildClassifyPreview:
         assert preview is not None
         by_author = [d for d in preview["destinations"] if d["rule_type"] == "author_fallback"]
         assert len(by_author) == 1
-        assert "ByAuthor" in by_author[0]["dest_path"]
+        assert "Author" in by_author[0]["dest_path"]
         assert "伊落マリー" in by_author[0]["dest_path"]
         assert by_author[0]["dest_path"].endswith("file.jpg")
 
@@ -294,9 +294,9 @@ class TestBuildClassifyPreview:
         assert preview is not None
         by_series = [d for d in preview["destinations"] if d["rule_type"] == "series_uncategorized"]
         assert len(by_series) == 1
-        assert "BySeries" in by_series[0]["dest_path"]
+        assert "Series" in by_series[0]["dest_path"]
         assert "ブルーアーカイブ" in by_series[0]["dest_path"]
-        assert "_uncategorized" in by_series[0]["dest_path"]
+        assert "Uncategorized" in by_series[0]["dest_path"]
 
     def test_by_character_path(
         self, db: sqlite3.Connection, tmp_path: Path
@@ -310,7 +310,7 @@ class TestBuildClassifyPreview:
         assert preview is not None
         by_char = [d for d in preview["destinations"] if d["rule_type"] == "character"]
         assert len(by_char) == 1
-        assert "ByCharacter" in by_char[0]["dest_path"]
+        assert "Character" in by_char[0]["dest_path"]
 
     def test_by_tag_disabled_by_default(
         self, db: sqlite3.Connection, tmp_path: Path
@@ -392,7 +392,7 @@ class TestBuildClassifyPreview:
         assert preview is not None
         sc = [d for d in preview["destinations"] if d["rule_type"] == "series_character"]
         assert len(sc) == 1
-        assert "BySeries" in sc[0]["dest_path"]
+        assert "Series" in sc[0]["dest_path"]
         assert "Blue Archive" in sc[0]["dest_path"]
         assert "伊落マリー" in sc[0]["dest_path"]
         assert sc[0]["dest_path"].endswith("file.jpg")
