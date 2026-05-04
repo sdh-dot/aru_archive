@@ -897,22 +897,59 @@ def execute_classify_preview(
             skipped += 1
             continue
 
-        dest_path, conflict = resolve_copy_destination(
-            Path(dest_info["dest_path"]), on_conflict
-        )
+        intended_dest = Path(dest_info["dest_path"])
 
-        if conflict == "skipped":
-            skipped += 1
-            continue
+        # --- DB 중복 체크: 같은 file_path의 artwork_files record 확인 ---
+        existing_db = conn.execute(
+            "SELECT file_id, group_id, source_file_id "
+            "FROM artwork_files WHERE file_path = ?",
+            (str(intended_dest),),
+        ).fetchone()
 
-        dest_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, str(dest_path))
+        if existing_db is not None:
+            same_group  = existing_db["group_id"]     == preview["group_id"]
+            same_source = existing_db["source_file_id"] == preview.get("source_file_id")
+            if same_group and same_source:
+                # 같은 source/group의 이미 존재하는 classified output → idempotent skip
+                skipped += 1
+                continue
+            else:
+                raise ValueError(
+                    f"destination already registered for another group: {intended_dest}"
+                )
 
-        file_size = dest_path.stat().st_size
-        mtime_iso = datetime.fromtimestamp(
-            dest_path.stat().st_mtime, tz=timezone.utc
-        ).isoformat()
-        file_hash = _sha256(str(dest_path))
+        # --- 물리적 파일 존재 처리 ---
+        need_copy = True
+        if intended_dest.exists():
+            # DB record는 없지만 물리 파일이 있음 (이전 run에서 DB 기록 실패 등)
+            src_hash_check = _sha256(source_path)
+            dest_hash_check = _sha256(str(intended_dest))
+            if src_hash_check == dest_hash_check:
+                # 동일 파일 → 복사 생략, DB record만 생성
+                need_copy = False
+                dest_path = intended_dest
+                file_size = intended_dest.stat().st_size
+                mtime_iso = datetime.fromtimestamp(
+                    intended_dest.stat().st_mtime, tz=timezone.utc
+                ).isoformat()
+                file_hash = dest_hash_check
+            else:
+                # 다른 내용의 파일 → on_conflict 정책 적용
+                dest_path, conflict = resolve_copy_destination(intended_dest, on_conflict)
+                if conflict == "skipped":
+                    skipped += 1
+                    continue
+        else:
+            dest_path = intended_dest
+
+        if need_copy:
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, str(dest_path))
+            file_size = dest_path.stat().st_size
+            mtime_iso = datetime.fromtimestamp(
+                dest_path.stat().st_mtime, tz=timezone.utc
+            ).isoformat()
+            file_hash = _sha256(str(dest_path))
 
         ext = dest_path.suffix.lower().lstrip(".")
         copy_file_id = str(uuid.uuid4())
@@ -933,25 +970,26 @@ def execute_classify_preview(
             ),
         )
 
-        conn.execute(
-            """INSERT INTO copy_records
-               (entry_id, src_file_id, dest_file_id, src_path, dest_path,
-                rule_id, dest_file_size, dest_mtime_at_copy,
-                dest_hash_at_copy, copied_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                entry_id,
-                preview["source_file_id"],
-                copy_file_id,
-                source_path,
-                str(dest_path),
-                dest_info.get("rule_type", "builtin"),
-                file_size,
-                mtime_iso,
-                file_hash,
-                now,
-            ),
-        )
+        if need_copy:
+            conn.execute(
+                """INSERT INTO copy_records
+                   (entry_id, src_file_id, dest_file_id, src_path, dest_path,
+                    rule_id, dest_file_size, dest_mtime_at_copy,
+                    dest_hash_at_copy, copied_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    entry_id,
+                    preview["source_file_id"],
+                    copy_file_id,
+                    source_path,
+                    str(dest_path),
+                    dest_info.get("rule_type", "builtin"),
+                    file_size,
+                    mtime_iso,
+                    file_hash,
+                    now,
+                ),
+            )
 
         copied += 1
         copy_log.append(str(dest_path))
@@ -966,10 +1004,20 @@ def execute_classify_preview(
     if _commit:
         conn.commit()
 
+    if skipped > 0 and copied == 0:
+        status = "skipped"
+        message = "already classified output exists"
+    else:
+        status = "ok"
+        message = ""
+
     return {
         "success":  True,
+        "status":   status,
         "copied":   copied,
         "skipped":  skipped,
+        "message":  message,
+        "error":    None,
         "entry_id": entry_id,
         "copy_log": copy_log,
         "group_id": preview["group_id"],

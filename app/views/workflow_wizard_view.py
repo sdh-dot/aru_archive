@@ -727,6 +727,7 @@ class _ExecuteThread(QThread):
                 label = {
                     "running": "처리 중",
                     "ok":      "완료",
+                    "skipped": "이미 분류됨",
                     "error":   "오류",
                 }.get(status, status)
                 self.progress.emit(done, total_groups, f"{label}: {group_id[:8]}…")

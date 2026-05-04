@@ -270,14 +270,17 @@ def execute_classify_batch(
             )
             total_copied  += result["copied"]
             total_skipped += result["skipped"]
+            grp_status = result.get("status", "ok")
             group_results.append({
                 "group_id": preview["group_id"],
-                "status":   "ok",
+                "status":   grp_status,
                 "copied":   result["copied"],
                 "skipped":  result["skipped"],
+                "message":  result.get("message", ""),
+                "error":    None,
             })
             if progress_fn:
-                progress_fn(len(group_results), n_groups, preview["group_id"], "ok")
+                progress_fn(len(group_results), n_groups, preview["group_id"], grp_status)
         except Exception as exc:
             total_failed += 1
             err_str = str(exc)
