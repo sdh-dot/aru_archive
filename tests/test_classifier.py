@@ -295,7 +295,8 @@ class TestBuildClassifyPreview:
         by_series = [d for d in preview["destinations"] if d["rule_type"] == "series_uncategorized"]
         assert len(by_series) == 1
         assert "Series" in by_series[0]["dest_path"]
-        assert "ブルーアーカイブ" in by_series[0]["dest_path"]
+        # PR #128: pre-classification normalises alias ブルーアーカイブ → canonical Blue Archive
+        assert "Blue Archive" in by_series[0]["dest_path"]
         assert "Uncategorized" in by_series[0]["dest_path"]
 
     def test_by_character_path(

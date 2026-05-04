@@ -64,8 +64,11 @@ def conn():
             UNIQUE(canonical, tag_type, parent_series, locale)
         );
         CREATE TABLE artwork_groups (
-            group_id   TEXT PRIMARY KEY,
-            tags_json  TEXT
+            group_id              TEXT PRIMARY KEY,
+            tags_json             TEXT,
+            raw_tags_json         TEXT,
+            series_tags_json      TEXT,
+            character_tags_json   TEXT
         );
         """
     )

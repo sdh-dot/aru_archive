@@ -86,12 +86,12 @@ class TestStep7ColumnStructure:
             step7._preview_table.horizontalHeaderItem(i).text()
             for i in range(7)
         ]
-        assert headers[0] == "파일"
+        assert headers[0] == "파일명"
         assert headers[1] == "제목"
         assert headers[2] == "분류대상"
-        assert headers[3] == "분류규칙"
+        assert headers[3] == "규칙"
         assert headers[4] == "사유·경고"
-        assert headers[5] == "분류 경로"
+        assert headers[5] == "경로"
         assert headers[6] == "상태"
 
     def test_last_column_stretch_mode(self, step7):
@@ -124,7 +124,7 @@ class TestStep7ColumnValues:
 
     def test_rule_type_in_column_3(self, step7):
         step7._populate_preview_table([_make_preview(rule_type="series_character")])
-        assert step7._preview_table.item(0, 3).text() == "series_character"
+        assert step7._preview_table.item(0, 3).text() == "캐릭터 분류"
 
     def test_row_tooltip_contains_path(self, step7):
         dest = "/classified/X/Y/art.jpg"

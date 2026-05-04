@@ -620,12 +620,21 @@ def build_classify_preview(
         if _source_tags:
             try:
                 from core.tag_classifier import classify_pixiv_tags as _cls_fn
-                _merged = _cls_fn(_source_tags, conn=conn)
+                _result = _cls_fn(_source_tags, conn=conn)
+                _existing_series = _parse_json_list(group_dict_for_build.get("series_tags_json"))
+                _existing_chars  = _parse_json_list(group_dict_for_build.get("character_tags_json"))
+                # Merge: canonical-normalised tags first, then existing DB tags.
+                # Preserves tags already in DB that the classifier may not
+                # recognise (e.g. characters only in tag_localizations).
+                _new_series = _result.get("series_tags", [])
+                _new_chars  = _result.get("character_tags", [])
                 group_dict_for_build["series_tags_json"] = json.dumps(
-                    _merged.get("series_tags", []), ensure_ascii=False
+                    list(dict.fromkeys([*_new_series, *_existing_series])),
+                    ensure_ascii=False,
                 )
                 group_dict_for_build["character_tags_json"] = json.dumps(
-                    _merged.get("character_tags", []), ensure_ascii=False
+                    list(dict.fromkeys([*_new_chars, *_existing_chars])),
+                    ensure_ascii=False,
                 )
             except Exception:
                 pass  # DB 값 유지 — 분류 실패해도 preview 흐름이 끊기지 않도록

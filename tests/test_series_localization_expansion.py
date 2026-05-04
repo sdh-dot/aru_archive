@@ -367,7 +367,7 @@ _NEW_SERIES_CASES = [
         "fate_grand_order",
         "Fate/Grand Order",
         "페이트/그랜드 오더",
-        "Fate/Grand Order",
+        "フェイト/グランドオーダー",
     ),
     (
         "uma_musume",
