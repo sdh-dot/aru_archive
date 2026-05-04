@@ -95,13 +95,14 @@ def _insert_file(
     group_id: str,
     *,
     file_role: str = "original",
+    file_path: str = "/dummy/file.jpg",
 ) -> str:
     file_id = str(uuid.uuid4())
     conn.execute(
         """INSERT INTO artwork_files
            (file_id, group_id, file_role, file_path, file_format, created_at)
-           VALUES (?, ?, ?, '/dummy/file.jpg', 'jpg', '2024-01-01T00:00:00+00:00')""",
-        (file_id, group_id, file_role),
+           VALUES (?, ?, ?, ?, 'jpg', '2024-01-01T00:00:00+00:00')""",
+        (file_id, group_id, file_role, file_path),
     )
     conn.commit()
     return file_id
@@ -112,10 +113,12 @@ def _insert_file(
 # ---------------------------------------------------------------------------
 
 class TestMissingOnlyMode:
-    def test_includes_metadata_missing(self):
+    def test_includes_metadata_missing(self, tmp_path):
         conn = _make_conn()
         gid = _insert_group(conn, sync_status="metadata_missing")
-        fid = _insert_file(conn, gid)
+        f = tmp_path / "file.jpg"
+        f.write_bytes(b"x")
+        fid = _insert_file(conn, gid, file_path=str(f))
         result = build_enrichment_queue(conn, mode="missing_only")
         assert fid in result
 
@@ -167,24 +170,30 @@ class TestMissingOnlyMode:
 # ---------------------------------------------------------------------------
 
 class TestAllPixivMode:
-    def test_includes_metadata_missing(self):
+    def test_includes_metadata_missing(self, tmp_path):
         conn = _make_conn()
         gid = _insert_group(conn, sync_status="metadata_missing")
-        fid = _insert_file(conn, gid)
+        f = tmp_path / "file.jpg"
+        f.write_bytes(b"x")
+        fid = _insert_file(conn, gid, file_path=str(f))
         result = build_enrichment_queue(conn, mode="all_pixiv")
         assert fid in result
 
-    def test_includes_metadata_write_failed(self):
+    def test_includes_metadata_write_failed(self, tmp_path):
         conn = _make_conn()
         gid = _insert_group(conn, sync_status="metadata_write_failed")
-        fid = _insert_file(conn, gid)
+        f = tmp_path / "file.jpg"
+        f.write_bytes(b"x")
+        fid = _insert_file(conn, gid, file_path=str(f))
         result = build_enrichment_queue(conn, mode="all_pixiv")
         assert fid in result
 
-    def test_includes_xmp_write_failed(self):
+    def test_includes_xmp_write_failed(self, tmp_path):
         conn = _make_conn()
         gid = _insert_group(conn, sync_status="xmp_write_failed")
-        fid = _insert_file(conn, gid)
+        f = tmp_path / "file.jpg"
+        f.write_bytes(b"x")
+        fid = _insert_file(conn, gid, file_path=str(f))
         result = build_enrichment_queue(conn, mode="all_pixiv")
         assert fid in result
 
@@ -275,10 +284,12 @@ class TestCommonFilters:
         result = build_enrichment_queue(conn, mode="missing_only")
         assert result == []
 
-    def test_returns_file_ids_not_group_ids(self):
+    def test_returns_file_ids_not_group_ids(self, tmp_path):
         conn = _make_conn()
         gid = _insert_group(conn, sync_status="metadata_missing")
-        fid = _insert_file(conn, gid)
+        f = tmp_path / "file.jpg"
+        f.write_bytes(b"x")
+        fid = _insert_file(conn, gid, file_path=str(f))
         result = build_enrichment_queue(conn, mode="missing_only")
         assert result == [fid]
         assert gid not in result
@@ -294,12 +305,14 @@ class TestModeValidation:
         with pytest.raises(ValueError, match="invalid enrichment mode"):
             build_enrichment_queue(conn, mode="unknown")  # type: ignore[arg-type]
 
-    def test_default_mode_is_missing_only(self):
+    def test_default_mode_is_missing_only(self, tmp_path):
         """기본 mode 인자가 missing_only와 동일하게 동작한다."""
         conn = _make_conn()
         # metadata_missing: 기본 모드에서 포함돼야 함
         gid_mm = _insert_group(conn, sync_status="metadata_missing")
-        fid_mm = _insert_file(conn, gid_mm)
+        f = tmp_path / "file.jpg"
+        f.write_bytes(b"x")
+        fid_mm = _insert_file(conn, gid_mm, file_path=str(f))
         # xmp_write_failed: 기본 모드에서 제외돼야 함
         gid_xf = _insert_group(conn, artwork_id="99999999", sync_status="xmp_write_failed")
         _insert_file(conn, gid_xf)
