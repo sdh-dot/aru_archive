@@ -68,9 +68,9 @@ def _log_phase(phase: str, elapsed_ms: float, **extra) -> None:
 # ---------------------------------------------------------------------------
 
 class PreviewThumbnailCache:
-    """160×160 QPixmap LRU 캐시."""
+    """200×200 QPixmap LRU 캐시."""
 
-    _THUMB_SIZE = 160
+    _THUMB_SIZE = 200
 
     def __init__(self, max_items: int = 200) -> None:
         from collections import OrderedDict
@@ -2420,7 +2420,7 @@ class _Step7Preview(_StepPanel):
         self._preview_dirty_reason: Optional[str] = None
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(8)
+        layout.setSpacing(6)
         layout.addWidget(_label("분류 미리보기", bold=True))
         layout.addWidget(_h_sep())
 
@@ -2552,6 +2552,7 @@ class _Step7Preview(_StepPanel):
         self._preview_table.setColumnWidth(2, 70)
         self._preview_table.setColumnWidth(3, 110)
         self._preview_table.setColumnWidth(4, 130)
+        self._preview_table.setColumnWidth(5, 260)
         self._preview_table.setColumnWidth(6, 90)
         # 분류대상 / 사유·경고 는 사용자에게 숨김. 데이터는 보존되어 tooltip 및
         # 내부 필터 / override 로직에서 그대로 사용된다.
@@ -2590,12 +2591,12 @@ class _Step7Preview(_StepPanel):
         thumb_frame = QFrame()
         thumb_frame.setFrameShape(QFrame.Shape.StyledPanel)
         # 우측 패널 최소폭을 키워 이미지/파일명/태그가 모두 표시되도록 한다.
-        thumb_frame.setMinimumWidth(220)
+        thumb_frame.setMinimumWidth(260)
         tf = QVBoxLayout(thumb_frame)
         tf.setContentsMargins(6, 6, 6, 6)
         tf.setSpacing(6)
         self._thumb_lbl = QLabel("썸네일")
-        self._thumb_lbl.setFixedSize(160, 160)
+        self._thumb_lbl.setFixedSize(200, 200)
         self._thumb_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._thumb_lbl.setStyleSheet("border: 1px solid #4A2030; background: #120A0E;")
         tf.addWidget(self._thumb_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
@@ -2628,7 +2629,7 @@ class _Step7Preview(_StepPanel):
         self._thumb_tags_scroll.setWidgetResizable(True)
         self._thumb_tags_scroll.setWidget(self._thumb_tags_lbl)
         # 최대 높이 제한 — 태그가 많아도 layout 이 망가지지 않도록 scroll 로 흡수.
-        self._thumb_tags_scroll.setMaximumHeight(160)
+        self._thumb_tags_scroll.setMaximumHeight(200)
         self._thumb_tags_scroll.setMinimumHeight(60)
         self._thumb_tags_scroll.setStyleSheet(
             "QScrollArea { border: 1px solid #4A2030; background: #1A0F14; }"
@@ -2637,7 +2638,7 @@ class _Step7Preview(_StepPanel):
 
         tf.addStretch()
         splitter.addWidget(thumb_frame)
-        splitter.setSizes([720, 280])
+        splitter.setSizes([840, 320])
 
         self._preview_thread: Optional[_PreviewThread] = None
 
@@ -3740,8 +3741,15 @@ class WorkflowWizardView(QDialog):
         self._selected_group_ids_provider = selected_group_ids_provider
 
         self.setWindowTitle("🧭 Aru Archive 작업 마법사")
-        self.setMinimumSize(760, 560)
-        self.resize(840, 620)
+        self.setMinimumSize(960, 640)
+        _screen = QApplication.primaryScreen()
+        if _screen:
+            _avail = _screen.availableGeometry()
+            _w = min(1120, max(960, int(_avail.width()  * 0.82)))
+            _h = min(760,  max(640, int(_avail.height() * 0.84)))
+            self.resize(_w, _h)
+        else:
+            self.resize(1120, 760)
 
         self._build_ui()
         self._go_to_step(0)

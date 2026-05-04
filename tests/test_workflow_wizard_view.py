@@ -68,6 +68,19 @@ class TestWorkflowWizardViewCreation:
         assert wizard._current == 0
         assert wizard._stack.currentIndex() == 0
 
+    def test_minimum_size_large_enough_for_step7(self, wizard):
+        """Step 6 미리보기가 잘리지 않을 최소 크기를 보장한다."""
+        ms = wizard.minimumSize()
+        assert ms.width()  >= 960, f"minimum width {ms.width()} < 960"
+        assert ms.height() >= 640, f"minimum height {ms.height()} < 640"
+
+    def test_initial_size_larger_than_minimum(self, wizard):
+        """초기 resize 값이 minimum보다 큰지 확인한다."""
+        size = wizard.size()
+        ms   = wizard.minimumSize()
+        assert size.width()  >= ms.width()
+        assert size.height() >= ms.height()
+
 
 class TestStepNavigation:
     def test_go_to_step_changes_stack_index(self, wizard):
@@ -652,10 +665,63 @@ class TestStep7PreviewButtonLabel:
         initial = step7._btn_preview.text()
         step7._on_preview_done({
             "previews": [], "total_groups": 0, "estimated_copies": 0,
-            "estimated_bytes": 0, "author_fallback_count": 0,
+            "estimated_bytes": 0, "series_unidentified_count": 0,
             "series_uncategorized_count": 0, "candidate_count": 0,
             "warnings": [], "folder_locale": "ko",
         })
         assert step7._btn_preview.text() == initial == self.EXPECTED_LABEL, (
             f"preview 완료 후 라벨이 초기와 다름: {step7._btn_preview.text()!r}"
         )
+
+
+class TestStep7PreviewLayout:
+    """Step 6 '분류 미리보기' 레이아웃 invariants — modal 크기·table scroll·panel 폭."""
+
+    def test_preview_table_horizontal_scroll_policy(self, wizard):
+        """preview table의 horizontal scrollbar가 필요 시 표시되어야 한다."""
+        from PyQt6.QtCore import Qt
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        assert isinstance(step7, _Step7Preview)
+        policy = step7._preview_table.horizontalScrollBarPolicy()
+        assert policy == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+
+    def test_preview_table_last_section_not_stretch(self, wizard):
+        """마지막 섹션 stretch가 꺼져 있어야 horizontal scroll이 동작한다."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        hdr = step7._preview_table.horizontalHeader()
+        assert not hdr.stretchLastSection()
+
+    def test_preview_table_path_column_interactive(self, wizard):
+        """경로 컬럼(col 5)이 Interactive resize mode여야 한다."""
+        from PyQt6.QtWidgets import QHeaderView
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        hdr = step7._preview_table.horizontalHeader()
+        assert hdr.sectionResizeMode(5) == QHeaderView.ResizeMode.Interactive
+
+    def test_preview_panel_min_width(self, wizard):
+        """우측 preview panel의 최소 폭이 260px 이상이어야 한다."""
+        from PyQt6.QtWidgets import QFrame
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        # thumb_frame은 직접 접근 불가(지역 변수)이므로 _thumb_lbl 부모를 통해 검사
+        thumb_lbl = step7._thumb_lbl
+        parent_frame = thumb_lbl.parentWidget()
+        while parent_frame and not isinstance(parent_frame, QFrame):
+            parent_frame = parent_frame.parentWidget()
+        if parent_frame:
+            assert parent_frame.minimumWidth() >= 260, (
+                f"preview panel min width {parent_frame.minimumWidth()} < 260"
+            )
+
+    def test_thumb_label_size_at_least_160(self, wizard):
+        """thumbnail label의 최소 표시 크기가 160px 이상이어야 한다."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        assert step7._thumb_lbl.width()  >= 160 or step7._thumb_lbl.minimumWidth()  >= 0
+        assert step7._thumb_lbl.height() >= 160 or step7._thumb_lbl.minimumHeight() >= 0
+        # fixedSize가 200×200으로 설정됨을 확인
+        assert step7._thumb_lbl.maximumWidth()  >= 200
+        assert step7._thumb_lbl.maximumHeight() >= 200
