@@ -299,6 +299,7 @@ def _update_group_from_meta(
             tags_json            = ?,
             series_tags_json     = ?,
             character_tags_json  = ?,
+            raw_tags_json        = ?,
             metadata_sync_status = ?,
             updated_at           = ?
         WHERE group_id = ?""",
@@ -310,6 +311,7 @@ def _update_group_from_meta(
             json.dumps(meta.tags, ensure_ascii=False),
             json.dumps(meta.series_tags, ensure_ascii=False),
             json.dumps(meta.character_tags, ensure_ascii=False),
+            json.dumps(meta.raw_tags, ensure_ascii=False) if meta.raw_tags else None,
             sync_status,
             now,
             group_id,
