@@ -723,14 +723,18 @@ class _ExecuteThread(QThread):
             total = len(self._batch_preview.get("previews", []))
             self.log_msg.emit(f"[INFO] 일괄 분류 실행 시작: {total}개 그룹")
 
-            def _progress(done: int, total_groups: int, group_id: str, status: str) -> None:
+            def _progress(done: int, total_groups: int, group_id: str, status: str, error: str = "") -> None:
                 label = {
                     "running": "처리 중",
                     "ok":      "완료",
                     "error":   "오류",
                 }.get(status, status)
                 self.progress.emit(done, total_groups, f"{label}: {group_id[:8]}…")
-                if status != "running":
+                if status == "error":
+                    self.log_msg.emit(
+                        f"[ERROR] 분류 실패: {group_id[:8]}… — {error}"
+                    )
+                elif status != "running":
                     self.log_msg.emit(
                         f"[INFO] 분류 진행: {done}/{total_groups} — {label} ({group_id[:8]}…)"
                     )
@@ -3546,9 +3550,16 @@ class _Step8Execute(_StepPanel):
                 )
             self._result_lbl.setText(base_msg)
         else:
-            self._result_lbl.setText(
-                f"❌ 실패: {result.get('error', '알 수 없는 오류')}"
+            _error_msg = (
+                result.get("error")
+                or result.get("first_error")
+                or next(
+                    (r.get("error") for r in result.get("group_results", []) if r.get("error")),
+                    None,
+                )
+                or "알 수 없는 오류"
             )
+            self._result_lbl.setText(f"❌ 실패: {_error_msg}")
         self._progress_lbl.setText("완료")
         self.refresh_main.emit()
 
@@ -3585,9 +3596,16 @@ class _Step8Execute(_StepPanel):
                 )
             self._result_lbl.setText(base_msg)
         else:
-            self._result_lbl.setText(
-                f"❌ 실패: {result.get('error', '알 수 없는 오류')}"
+            _error_msg = (
+                result.get("error")
+                or result.get("first_error")
+                or next(
+                    (r.get("error") for r in result.get("group_results", []) if r.get("error")),
+                    None,
+                )
+                or "알 수 없는 오류"
             )
+            self._result_lbl.setText(f"❌ 실패: {_error_msg}")
         self._progress_lbl.setText("완료")
         _log_phase("postprocess.start", 0.0, op="wizard.execute")
         _t_emit = time.perf_counter()
