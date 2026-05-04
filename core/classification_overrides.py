@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from core.folder_localization import resolve_category_folder
+from core.folder_localization import resolve_category_folder, resolve_uncategorized_folder
 from core.path_utils import sanitize_path_component
 from core.tag_localizer import resolve_display_name_with_info
 
@@ -147,6 +147,7 @@ def apply_override_to_preview_item(
     )
     by_series_label    = resolve_category_folder("by_series",    cat_lang)
     by_character_label = resolve_category_folder("by_character", cat_lang)
+    uncategorized_label = resolve_uncategorized_folder(cat_lang)
 
     if series and character:
         s_display, s_fb = _display(series, "series")
@@ -176,7 +177,7 @@ def apply_override_to_preview_item(
             base
             / by_series_label
             / sanitize_path_component(s_display)
-            / "_uncategorized"
+            / uncategorized_label
         )
         new_dests.append({
             "rule_type":        "manual_override",
