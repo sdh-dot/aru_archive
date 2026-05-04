@@ -297,3 +297,98 @@ class TestDetailViewTagsSection:
         assert "일반태그" in call_args
         assert "아리스" in call_args
         assert "블루 아카이브" in call_args
+
+
+# ---------------------------------------------------------------------------
+# Test 11-18: Pixiv 메타데이터 가져오기 선택 정책
+# ---------------------------------------------------------------------------
+
+def _make_main_window_mock(selected_ids: list, current_group_id=None):
+    """_on_pixiv_meta_selected / _on_pixiv_meta_from_detail 테스트용 minimal mock."""
+    from unittest.mock import MagicMock, patch
+    from app.main_window import MainWindow
+
+    mw = MagicMock(spec=MainWindow)
+    mw._gallery = MagicMock()
+    mw._gallery.get_selected_group_ids.return_value = list(selected_ids)
+    mw._gallery.get_selected_group_id.return_value = selected_ids[0] if selected_ids else None
+    mw._detail = MagicMock()
+    mw._detail._current_group_id = current_group_id
+    mw._log = MagicMock()
+    mw._on_pixiv_meta = MagicMock()
+    mw._refresh_pixiv_for_groups = MagicMock()
+    return mw
+
+
+class TestPixivMetaSelectionPolicy:
+    """_on_pixiv_meta_selected / _on_pixiv_meta_from_detail 선택 정책 검증."""
+
+    # ---- Top 메뉴 (_on_pixiv_meta_selected) ----
+
+    def test_11_top_menu_multi_select_calls_batch(self) -> None:
+        """Top 메뉴: gallery에 2개 이상 선택 → _refresh_pixiv_for_groups() 호출."""
+        from app.main_window import MainWindow
+        mw = _make_main_window_mock(["gid-A", "gid-B", "gid-C"])
+        MainWindow._on_pixiv_meta_selected(mw)
+        mw._refresh_pixiv_for_groups.assert_called_once_with(["gid-A", "gid-B", "gid-C"])
+        mw._on_pixiv_meta.assert_not_called()
+
+    def test_12_top_menu_single_select_calls_single(self) -> None:
+        """Top 메뉴: gallery에 1개 선택 → _on_pixiv_meta() 단건 호출."""
+        from app.main_window import MainWindow
+        mw = _make_main_window_mock(["gid-A"])
+        MainWindow._on_pixiv_meta_selected(mw)
+        mw._on_pixiv_meta.assert_called_once_with("gid-A")
+        mw._refresh_pixiv_for_groups.assert_not_called()
+
+    def test_13_top_menu_no_select_falls_back_to_current(self) -> None:
+        """Top 메뉴: gallery 선택 없음 + current group 있음 → current로 단건 호출."""
+        from app.main_window import MainWindow
+        mw = _make_main_window_mock([], current_group_id="current-gid")
+        MainWindow._on_pixiv_meta_selected(mw)
+        mw._on_pixiv_meta.assert_called_once_with("current-gid")
+        mw._refresh_pixiv_for_groups.assert_not_called()
+
+    def test_14_top_menu_no_select_no_current_warns(self) -> None:
+        """Top 메뉴: gallery 선택 없음 + current 없음 → 경고 로그, 처리 없음."""
+        from app.main_window import MainWindow
+        mw = _make_main_window_mock([], current_group_id=None)
+        MainWindow._on_pixiv_meta_selected(mw)
+        mw._on_pixiv_meta.assert_not_called()
+        mw._refresh_pixiv_for_groups.assert_not_called()
+        mw._log.append.assert_called()
+
+    # ---- Detail panel (_on_pixiv_meta_from_detail) ----
+
+    def test_15_detail_panel_multi_select_calls_batch(self) -> None:
+        """Detail panel: gallery에 2개 이상 선택 → _refresh_pixiv_for_groups() 호출."""
+        from app.main_window import MainWindow
+        mw = _make_main_window_mock(["gid-A", "gid-B"])
+        MainWindow._on_pixiv_meta_from_detail(mw, "current-gid")
+        mw._refresh_pixiv_for_groups.assert_called_once_with(["gid-A", "gid-B"])
+        mw._on_pixiv_meta.assert_not_called()
+
+    def test_16_detail_panel_single_select_calls_single(self) -> None:
+        """Detail panel: gallery 1개 선택 → _on_pixiv_meta() 단건 호출 (current 무시)."""
+        from app.main_window import MainWindow
+        mw = _make_main_window_mock(["gid-A"])
+        MainWindow._on_pixiv_meta_from_detail(mw, "current-gid")
+        mw._on_pixiv_meta.assert_called_once_with("gid-A")
+        mw._refresh_pixiv_for_groups.assert_not_called()
+
+    def test_17_detail_panel_no_select_uses_fallback(self) -> None:
+        """Detail panel: gallery 선택 없음 → fallback_group_id(current)로 단건 호출."""
+        from app.main_window import MainWindow
+        mw = _make_main_window_mock([], current_group_id=None)
+        MainWindow._on_pixiv_meta_from_detail(mw, "current-gid")
+        mw._on_pixiv_meta.assert_called_once_with("current-gid")
+        mw._refresh_pixiv_for_groups.assert_not_called()
+
+    def test_18_detail_panel_no_select_no_fallback_warns(self) -> None:
+        """Detail panel: gallery 선택 없음 + fallback 없음 → 경고 로그, 처리 없음."""
+        from app.main_window import MainWindow
+        mw = _make_main_window_mock([], current_group_id=None)
+        MainWindow._on_pixiv_meta_from_detail(mw, "")
+        mw._on_pixiv_meta.assert_not_called()
+        mw._refresh_pixiv_for_groups.assert_not_called()
+        mw._log.append.assert_called()

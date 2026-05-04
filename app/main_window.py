@@ -1089,7 +1089,7 @@ class MainWindow(QMainWindow):
 
         # 상세 패널
         self._detail.read_meta_requested  .connect(self._on_read_meta)
-        self._detail.pixiv_meta_requested .connect(self._on_pixiv_meta)
+        self._detail.pixiv_meta_requested .connect(self._on_pixiv_meta_from_detail)
         self._detail.xmp_retry_requested  .connect(self._on_xmp_retry)
         self._detail.explorer_meta_repair_requested.connect(self._on_explorer_meta_repair_selected)
         self._detail.regen_thumb_requested.connect(self._on_regen_thumb)
@@ -2831,6 +2831,23 @@ class MainWindow(QMainWindow):
     def _on_pixiv_meta_selected(self) -> None:
         """툴바에서 호출 — 선택된 group(들)의 Pixiv 메타데이터 가져오기."""
         group_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
+        if not group_ids:
+            current = getattr(self._detail, "_current_group_id", None)
+            if current:
+                group_ids = [current]
+            else:
+                self._log.append("[WARN] 선택된 파일 없음")
+                return
+        if len(group_ids) == 1:
+            self._on_pixiv_meta(group_ids[0])
+            return
+        self._refresh_pixiv_for_groups(group_ids)
+
+    def _on_pixiv_meta_from_detail(self, fallback_group_id: str) -> None:
+        """Detail panel 버튼 → gallery 선택 전체를 우선 처리, 없으면 현재 group으로 fallback."""
+        group_ids = list(dict.fromkeys(self._gallery.get_selected_group_ids()))
+        if not group_ids and fallback_group_id:
+            group_ids = [fallback_group_id]
         if not group_ids:
             self._log.append("[WARN] 선택된 파일 없음")
             return
