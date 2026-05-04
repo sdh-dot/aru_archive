@@ -899,23 +899,34 @@ def execute_classify_preview(
 
         intended_dest = Path(dest_info["dest_path"])
 
-        # --- DB 중복 체크: 같은 file_path의 artwork_files record 확인 ---
+        # --- DB 중복 체크: classified_copy record만 확인 ---
         existing_db = conn.execute(
             "SELECT file_id, group_id, source_file_id "
-            "FROM artwork_files WHERE file_path = ?",
+            "FROM artwork_files WHERE file_path = ? AND file_role = 'classified_copy'",
             (str(intended_dest),),
         ).fetchone()
 
+        stale_file_id: str | None = None  # same-group stale row → UPDATE 재사용
+
         if existing_db is not None:
-            same_group  = existing_db["group_id"]     == preview["group_id"]
+            same_group  = existing_db["group_id"]      == preview["group_id"]
             same_source = existing_db["source_file_id"] == preview.get("source_file_id")
             if same_group and same_source:
-                # 같은 source/group의 이미 존재하는 classified output → idempotent skip
-                skipped += 1
-                continue
+                if intended_dest.exists():
+                    # 같은 source/group, 물리 파일도 있음 → idempotent skip
+                    skipped += 1
+                    continue
+                # 물리 파일 없음 (stale row) → 복사 후 기존 row UPDATE
+                stale_file_id = existing_db["file_id"]
             else:
-                raise ValueError(
-                    f"destination already registered for another group: {intended_dest}"
+                if intended_dest.exists():
+                    raise ValueError(
+                        f"destination already registered for another group: {intended_dest}"
+                    )
+                # 다른 그룹의 stale row (물리 파일 없음) → 삭제 후 새 INSERT로 처리
+                conn.execute(
+                    "DELETE FROM artwork_files WHERE file_id = ?",
+                    (existing_db["file_id"],),
                 )
 
         # --- 물리적 파일 존재 처리 ---
@@ -952,23 +963,41 @@ def execute_classify_preview(
             file_hash = _sha256(str(dest_path))
 
         ext = dest_path.suffix.lower().lstrip(".")
-        copy_file_id = str(uuid.uuid4())
 
-        conn.execute(
-            """INSERT INTO artwork_files
-               (file_id, group_id, page_index, file_role, file_path,
-                file_format, file_hash, file_size, metadata_embedded,
-                file_status, created_at, source_file_id, classify_rule_id)
-               VALUES (?, ?, 0, 'classified_copy', ?, ?, ?, ?,
-                       ?, 'present', ?, ?, ?)""",
-            (
-                copy_file_id, preview["group_id"],
-                str(dest_path), ext, file_hash, file_size,
-                src_metadata_embedded,
-                now, preview["source_file_id"],
-                dest_info.get("rule_type", "builtin"),
-            ),
-        )
+        if stale_file_id is not None:
+            # 같은 group/source의 stale row를 새 복사 정보로 UPDATE (UNIQUE 충돌 없이 재사용)
+            copy_file_id = stale_file_id
+            conn.execute(
+                """UPDATE artwork_files
+                   SET file_format = ?, file_hash = ?, file_size = ?,
+                       metadata_embedded = ?, file_status = 'present',
+                       created_at = ?, source_file_id = ?, classify_rule_id = ?
+                   WHERE file_id = ?""",
+                (
+                    ext, file_hash, file_size,
+                    src_metadata_embedded,
+                    now, preview["source_file_id"],
+                    dest_info.get("rule_type", "builtin"),
+                    stale_file_id,
+                ),
+            )
+        else:
+            copy_file_id = str(uuid.uuid4())
+            conn.execute(
+                """INSERT INTO artwork_files
+                   (file_id, group_id, page_index, file_role, file_path,
+                    file_format, file_hash, file_size, metadata_embedded,
+                    file_status, created_at, source_file_id, classify_rule_id)
+                   VALUES (?, ?, 0, 'classified_copy', ?, ?, ?, ?,
+                           ?, 'present', ?, ?, ?)""",
+                (
+                    copy_file_id, preview["group_id"],
+                    str(dest_path), ext, file_hash, file_size,
+                    src_metadata_embedded,
+                    now, preview["source_file_id"],
+                    dest_info.get("rule_type", "builtin"),
+                ),
+            )
 
         if need_copy:
             conn.execute(
