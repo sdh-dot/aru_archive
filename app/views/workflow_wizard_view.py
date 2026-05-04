@@ -645,12 +645,14 @@ def _summarize_inference_for_preview(conn, raw_tags) -> list:
 def _augment_previews_with_inference_reasons(conn, previews) -> None:
     """preview 항목에 ``inference_reasons`` 필드를 in-place 로 주입한다.
 
-    각 preview 의 ``group_id`` 로 ``artwork_groups.tags_json`` 을 읽어
-    inference 를 수행한다. preview 의 destinations / classification_info 는
-    절대 수정하지 않는다. 호출 실패는 silent skip.
+    각 preview 의 ``group_id`` 로 raw_tags_json / tags_json / series_tags_json /
+    character_tags_json 을 병합한 source 를 읽어 inference 를 수행한다.
+    preview 의 destinations / classification_info 는 절대 수정하지 않는다.
+    호출 실패는 silent skip.
     """
     if not previews:
         return
+    from core.classifier import collect_classification_source_tags
     for preview in previews:
         if not isinstance(preview, dict):
             continue
@@ -663,15 +665,12 @@ def _augment_previews_with_inference_reasons(conn, previews) -> None:
         raw_tags: list = []
         try:
             row = conn.execute(
-                "SELECT tags_json FROM artwork_groups WHERE group_id = ?",
+                "SELECT raw_tags_json, tags_json, series_tags_json, character_tags_json "
+                "FROM artwork_groups WHERE group_id = ?",
                 (group_id,),
             ).fetchone()
             if row is not None:
-                raw_json = row["tags_json"] if hasattr(row, "keys") else row[0]
-                if raw_json:
-                    parsed = json.loads(raw_json)
-                    if isinstance(parsed, list):
-                        raw_tags = [str(t) for t in parsed if t]
+                raw_tags = collect_classification_source_tags(row)
         except Exception:
             raw_tags = []
         preview["inference_reasons"] = _summarize_inference_for_preview(conn, raw_tags)
