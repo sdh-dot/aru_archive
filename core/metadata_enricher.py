@@ -67,178 +67,122 @@ def _is_timing_enabled(config: Optional[dict] = None) -> bool:
     return False
 
 
-def enrich_file_from_pixiv(
+def fetch_and_store_pixiv_metadata(
     conn: sqlite3.Connection,
     file_id: str,
     adapter=None,
-    exiftool_path: Optional[str] = None,
 ) -> dict:
+    """Phase 1: Pixiv API 조회 + DB 저장. 파일 write 없음.
+
+    Returns:
+        {
+            "status":      "ok" | "error",
+            "phase":       "fetch_store",
+            "group_id":    str | None,
+            "file_id":     str,
+            "sync_status": str | None,   # "json_only" on ok
+            "message":     str,
+            "error":       None | str,   # "not_found" | "no_artwork_id" | "restricted" |
+                                         #  "not_found_at_source" | "network_error" | "parse_error"
+        }
     """
-    file_id 기준으로 Pixiv 메타데이터를 가져와 파일에 기록하고 DB를 갱신한다.
-
-    adapter: PixivAdapter 인스턴스 (None이면 기본 PixivAdapter 생성)
-
-    Returns dict:
-        status      : "success" | "not_found" | "no_artwork_id" | "network_error"
-                      | "restricted" | "parse_error" | "embed_failed"
-        sync_status : "json_only" | "metadata_write_failed" | None
-        message     : 사람이 읽을 수 있는 결과 설명
-    """
-    # ---- timing instrumentation (env/config 게이트, 비활성 시 모두 no-op) ----
-    _timing_on = _is_timing_enabled()
-    _t0 = time.perf_counter() if _timing_on else 0.0
-    _t_step = _t0
-    _timings: dict[str, float] = {}
-    _file_basename = file_id[:8]  # row 조회 후 실제 basename으로 갱신
-
-    def _mark(stage: str) -> None:
-        nonlocal _t_step
-        if _timing_on:
-            now = time.perf_counter()
-            _timings[stage] = now - _t_step
-            _t_step = now
-
-    def _finish(status: str, sync_status: Optional[str], message: str) -> dict:
-        result: dict = {"status": status, "sync_status": sync_status, "message": message}
-        if _timing_on:
-            _timings["total"] = time.perf_counter() - _t0
-            logger.info(
-                "enrich_timing file=%s status=%s "
-                "db_lookup=%.3fs parse=%.3fs fetch=%.3fs aru_meta=%.3fs "
-                "write_aru=%.3fs write_xmp=%.3fs db_update=%.3fs tag_post=%.3fs total=%.3fs",
-                _file_basename, status,
-                _timings.get("db_lookup", 0.0), _timings.get("parse_filename", 0.0),
-                _timings.get("pixiv_fetch", 0.0), _timings.get("to_aru_meta", 0.0),
-                _timings.get("write_aru", 0.0), _timings.get("write_xmp", 0.0),
-                _timings.get("db_update", 0.0), _timings.get("tag_observe_candidate", 0.0),
-                _timings["total"],
-            )
-            result["timings"] = dict(_timings)
-        return result
-
     if adapter is None:
         adapter = PixivAdapter()
 
-    # 1. DB에서 파일 정보 조회
+    # 1. DB 조회 (JOIN으로 artwork_id도 함께)
     row = conn.execute(
-        "SELECT file_path, file_format, group_id, page_index "
-        "FROM artwork_files WHERE file_id = ?",
+        "SELECT af.file_path, af.file_format, af.group_id, af.page_index, "
+        "ag.artwork_id, ag.metadata_sync_status "
+        "FROM artwork_files af "
+        "JOIN artwork_groups ag ON af.group_id = ag.group_id "
+        "WHERE af.file_id = ?",
         (file_id,),
     ).fetchone()
-    _mark("db_lookup")
-    if not row:
-        return _finish("not_found", None, f"file_id 없음: {file_id}")
 
-    file_path   = row["file_path"]
-    file_format = row["file_format"]
-    group_id    = row["group_id"]
-    page_index  = row["page_index"] or 0
-    _file_basename = Path(file_path).name
-    previous_status = _get_previous_status(conn, group_id)
+    if row is None:
+        return {
+            "status": "error", "phase": "fetch_store",
+            "group_id": None, "file_id": file_id,
+            "sync_status": None, "message": f"file_id 없음: {file_id}",
+            "error": "not_found",
+        }
 
-    if not Path(file_path).exists():
-        _set_file_missing(conn, file_id)
-        return _finish(
-            "missing_file", None,
-            f"file missing on disk: {_file_basename}",
-        )
+    group_id        = row["group_id"]
+    file_path       = row["file_path"]
+    page_index      = row["page_index"] or 0
+    previous_status = row["metadata_sync_status"]
+    file_basename   = Path(file_path).name
 
-    # 2. 파일명에서 artwork_id 추출
-    parsed = parse_pixiv_filename(file_path)
-    _mark("parse_filename")
-    if parsed is None:
-        return _finish(
-            "no_artwork_id", None,
-            f"파일명에서 artwork_id 추출 불가: {_file_basename}",
-        )
-    artwork_id = parsed.artwork_id
+    # 2. artwork_id 확보 (DB 우선 → 파일명 파싱 fallback)
+    artwork_id = row["artwork_id"] or ""
+    if not artwork_id:
+        parsed = parse_pixiv_filename(file_path)
+        if parsed is None:
+            return {
+                "status": "error", "phase": "fetch_store",
+                "group_id": group_id, "file_id": file_id,
+                "sync_status": previous_status,
+                "message": f"파일명에서 artwork_id 추출 불가: {file_basename}",
+                "error": "no_artwork_id",
+            }
+        artwork_id = parsed.artwork_id
 
-    # 3. Pixiv AJAX API fetch
+    # 3. Pixiv API fetch
     try:
         raw = adapter.fetch_metadata(artwork_id)
     except PixivRestrictedError as exc:
-        # 기존 full 상태는 보호 — fetch 실패로 정상 상태를 downgrade하지 않는다.
         if previous_status != "full":
             _set_sync_status(conn, group_id, "metadata_write_failed")
-        resulting = None if previous_status == "full" else "metadata_write_failed"
-        _mark("pixiv_fetch")
-        return _finish("restricted", resulting, str(exc))
+        sync_s = None if previous_status == "full" else "metadata_write_failed"
+        return {
+            "status": "error", "phase": "fetch_store",
+            "group_id": group_id, "file_id": file_id,
+            "sync_status": sync_s, "message": str(exc), "error": "restricted",
+        }
     except PixivNotFoundError as exc:
-        # HTTP 404 — Pixiv 작품이 영구적으로 조회 불가 (삭제/비공개).
-        # source_unavailable로 표시해 metadata_missing 큐에서 영구 제외.
-        # 단, 기존 full 상태는 보호한다.
         if previous_status != "full":
             _set_sync_status(conn, group_id, "source_unavailable")
-        resulting = None if previous_status == "full" else "source_unavailable"
-        _mark("pixiv_fetch")
-        return _finish("not_found_at_source", resulting, str(exc))
+        sync_s = None if previous_status == "full" else "source_unavailable"
+        return {
+            "status": "error", "phase": "fetch_store",
+            "group_id": group_id, "file_id": file_id,
+            "sync_status": sync_s, "message": str(exc), "error": "not_found_at_source",
+        }
     except PixivNetworkError as exc:
-        _mark("pixiv_fetch")
-        return _finish("network_error", None, str(exc))
+        return {
+            "status": "error", "phase": "fetch_store",
+            "group_id": group_id, "file_id": file_id,
+            "sync_status": previous_status, "message": str(exc), "error": "network_error",
+        }
     except (PixivParseError, PixivFetchError) as exc:
-        _mark("pixiv_fetch")
-        return _finish("parse_error", None, str(exc))
-    _mark("pixiv_fetch")
+        return {
+            "status": "error", "phase": "fetch_store",
+            "group_id": group_id, "file_id": file_id,
+            "sync_status": previous_status, "message": str(exc), "error": "parse_error",
+        }
 
     # 4. AruMetadata 변환
     try:
         meta = adapter.to_aru_metadata(
-            raw,
-            page_index=page_index,
-            original_filename=_file_basename,
-            conn=conn,
+            raw, page_index=page_index, original_filename=file_basename, conn=conn,
         )
     except Exception as exc:
         logger.error("AruMetadata 변환 실패: %s", exc)
-        _mark("to_aru_meta")
-        return _finish("parse_error", None, f"메타데이터 변환 오류: {exc}")
-    _mark("to_aru_meta")
+        return {
+            "status": "error", "phase": "fetch_store",
+            "group_id": group_id, "file_id": file_id,
+            "sync_status": previous_status,
+            "message": f"메타데이터 변환 오류: {exc}",
+            "error": "parse_error",
+        }
 
-    # 5. 파일에 메타데이터 쓰기 (AruArchive JSON)
-    try:
-        write_aru_metadata(file_path, meta.to_dict(), file_format)
-        sync_status: Optional[str] = "json_only"
-        # 중간 단계 로그 — 최종 sync_status는 5-b 이후에 결정된다.
-        logger.info("JSON 메타데이터 기록 완료: %s", _file_basename)
-    except Exception as exc:
-        logger.error("메타데이터 쓰기 실패: %s → %s", _file_basename, exc)
-        _set_sync_status(conn, group_id, "metadata_write_failed")
-        _set_file_embedded(conn, file_id, 0)
-        _mark("write_aru")
-        return _finish(
-            "embed_failed", "metadata_write_failed",
-            f"파일 메타데이터 쓰기 실패: {exc}",
-        )
-    _mark("write_aru")
-
-    # 5-b. XMP 기록 시도 (ExifTool이 설정된 경우)
-    _clear_first = previous_status in _EXISTING_REGISTRATION_STATUSES
-    if exiftool_path and sync_status == "json_only":
-        try:
-            ok = write_xmp_metadata_with_exiftool(
-                file_path, meta.to_dict(), exiftool_path,
-                clear_windows_xp_fields_before_write=_clear_first,
-            )
-            if ok:
-                sync_status = "full"
-        except XmpWriteError as exc:
-            logger.warning("XMP 기록 실패: %s → %s", _file_basename, exc)
-            sync_status = "xmp_write_failed"
-    _mark("write_xmp")
-
-    # 최종 sync_status 로그 — JSON 기록과 XMP 기록 시도가 모두 끝난 시점에서만
-    # 의미가 있다. 사용자가 "기록 완료 → json_only"를 보고 곧이어 전환되는
-    # full / xmp_write_failed를 놓치지 않도록 한 줄로 명확히 표시한다.
-    logger.info("메타데이터 기록 완료: %s → %s", _file_basename, sync_status)
-
-    # 6. DB 갱신
+    # 5. DB 저장 — sync_status = "json_only" (파일 write 없음)
     now = datetime.now(timezone.utc).isoformat()
-    _update_group_from_meta(conn, group_id, meta, sync_status, now)
-    _set_file_embedded(conn, file_id, 1)
+    _update_group_from_meta(conn, group_id, meta, "json_only", now)
     conn.commit()
-    _mark("db_update")
+    logger.info("Phase 1 완료 (DB 저장): %s → json_only", file_basename)
 
-    # 7. 태그 관측 기록 + 후보 생성 (실패해도 보강 결과에는 영향 없음)
+    # 6. 태그 관측 기록 (raw가 있는 Phase 1에서만 수행)
     try:
         from core.tag_observer import record_tag_observations
         from core.tag_candidate_generator import generate_tag_candidates_for_group
@@ -262,14 +206,304 @@ def enrich_file_from_pixiv(
         generate_tag_candidates_for_group(conn, group_id)
     except Exception as exc:
         logger.debug("태그 관측 기록 실패 (무시): %s", exc)
-    _mark("tag_observe_candidate")
 
-    return _finish(
-        "success", sync_status,
-        f"보강 완료: {meta.artwork_title or artwork_id}"
-        f" / {meta.artist_name or meta.artist_id}"
-        f" (sync={sync_status})",
+    return {
+        "status": "ok", "phase": "fetch_store",
+        "group_id": group_id, "file_id": file_id,
+        "sync_status": "json_only",
+        "message": f"Pixiv 조회·DB 저장 완료: {meta.artwork_title or artwork_id}",
+        "error": None,
+    }
+
+
+def write_stored_metadata_to_file(
+    conn: sqlite3.Connection,
+    file_id: str,
+    exiftool_path: Optional[str] = None,
+    *,
+    _override_previous_sync_status: Optional[str] = None,
+) -> dict:
+    """Phase 2: DB에 저장된 metadata를 파일(UserComment JSON/XMP/XP)에 기록한다.
+    Pixiv API 조회 없음.
+
+    Args:
+        _override_previous_sync_status: clear-first 판단에 사용할 "이전 상태"를 명시적으로
+            전달한다. Phase 1이 DB를 먼저 갱신한 후 Phase 2를 호출하는 wrapper에서, Phase 1
+            실행 전에 읽은 원래 sync_status를 전달해 XP clear-first 판단이 올바르게 동작하도록
+            한다. None이면 DB에서 읽은 현재 값을 사용한다.
+
+    Returns:
+        {
+            "status":      "ok" | "error" | "skipped",
+            "phase":       "metadata_write",
+            "group_id":    str | None,
+            "file_id":     str,
+            "sync_status": str | None,   # "full" | "json_only" | "xmp_write_failed" on ok
+            "message":     str,
+            "error":       None | str,
+        }
+    """
+    from core.models import AruMetadata
+
+    # 1. DB 조회 — 파일 + 그룹 메타데이터 전체
+    row = conn.execute(
+        """SELECT af.file_path, af.file_format, af.group_id, af.page_index,
+                  ag.artwork_id, ag.artwork_url, ag.artwork_title, ag.total_pages,
+                  ag.artist_id, ag.artist_name, ag.artist_url,
+                  ag.tags_json, ag.series_tags_json, ag.character_tags_json,
+                  ag.metadata_sync_status, ag.downloaded_at
+           FROM artwork_files af
+           JOIN artwork_groups ag ON af.group_id = ag.group_id
+           WHERE af.file_id = ?""",
+        (file_id,),
+    ).fetchone()
+
+    if row is None:
+        return {
+            "status": "error", "phase": "metadata_write",
+            "group_id": None, "file_id": file_id,
+            "sync_status": None, "message": f"file_id 없음: {file_id}",
+            "error": "not_found",
+        }
+
+    group_id        = row["group_id"]
+    file_path       = row["file_path"]
+    file_format     = row["file_format"]
+    page_index      = row["page_index"] or 0
+    previous_status = row["metadata_sync_status"]
+    file_basename   = Path(file_path).name
+
+    # _override_previous_sync_status: wrapper가 Phase 1 실행 전에 읽은 원래 상태를 전달.
+    # clear-first 판단은 "Phase 1 실행 전" 상태를 기준으로 해야 한다.
+    if _override_previous_sync_status is not None:
+        previous_status = _override_previous_sync_status
+
+    # 2. DB metadata 검증 (artwork_id가 있어야 write 가능)
+    if not row["artwork_id"]:
+        return {
+            "status": "skipped", "phase": "metadata_write",
+            "group_id": group_id, "file_id": file_id,
+            "sync_status": previous_status,
+            "message": "DB에 artwork_id 없음 — Phase 1 먼저 실행 필요",
+            "error": "metadata_missing",
+        }
+
+    # 3. 파일 존재 확인
+    if not Path(file_path).exists():
+        _set_file_missing(conn, file_id)
+        conn.commit()
+        return {
+            "status": "error", "phase": "metadata_write",
+            "group_id": group_id, "file_id": file_id,
+            "sync_status": previous_status,
+            "message": f"파일 없음: {file_basename}",
+            "error": "missing_file",
+        }
+
+    # 4. DB → AruMetadata 재구성 (Pixiv API 호출 없음)
+    meta = AruMetadata(
+        source_site="pixiv",
+        artwork_id=row["artwork_id"] or "",
+        artwork_url=row["artwork_url"] or "",
+        artwork_title=row["artwork_title"] or "",
+        page_index=page_index,
+        total_pages=row["total_pages"] or 1,
+        original_filename=file_basename,
+        artist_id=row["artist_id"] or "",
+        artist_name=row["artist_name"] or "",
+        artist_url=row["artist_url"] or "",
+        tags=json.loads(row["tags_json"] or "[]"),
+        character_tags=json.loads(row["character_tags_json"] or "[]"),
+        series_tags=json.loads(row["series_tags_json"] or "[]"),
+        downloaded_at=row["downloaded_at"] or "",
     )
+
+    # 5. clear-first 정책 — 기존 등록 상태에서 재기록 시 stale XP 필드 제거
+    _clear_first = previous_status in _EXISTING_REGISTRATION_STATUSES
+
+    # 6. UserComment JSON / iTXt write
+    try:
+        write_aru_metadata(file_path, meta.to_dict(), file_format)
+        sync_status: Optional[str] = "json_only"
+        logger.info("JSON 메타데이터 기록 완료: %s", file_basename)
+    except Exception as exc:
+        logger.error("메타데이터 쓰기 실패: %s → %s", file_basename, exc)
+        _set_sync_status(conn, group_id, "metadata_write_failed")
+        _set_file_embedded(conn, file_id, 0)
+        return {
+            "status": "error", "phase": "metadata_write",
+            "group_id": group_id, "file_id": file_id,
+            "sync_status": "metadata_write_failed",
+            "message": f"파일 메타데이터 쓰기 실패: {exc}",
+            "error": "embed_failed",
+        }
+
+    # 7. XMP/XP 기록 시도 (ExifTool 설정 시)
+    if exiftool_path and sync_status == "json_only":
+        try:
+            ok = write_xmp_metadata_with_exiftool(
+                file_path, meta.to_dict(), exiftool_path,
+                clear_windows_xp_fields_before_write=_clear_first,
+            )
+            if ok:
+                sync_status = "full"
+        except XmpWriteError as exc:
+            logger.warning("XMP 기록 실패: %s → %s", file_basename, exc)
+            sync_status = "xmp_write_failed"
+
+    logger.info("Phase 2 완료 (파일 기록): %s → %s", file_basename, sync_status)
+
+    # 8. DB 갱신 — 단일 트랜잭션
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        "UPDATE artwork_groups SET metadata_sync_status = ?, updated_at = ? WHERE group_id = ?",
+        (sync_status, now, group_id),
+    )
+    conn.execute(
+        "UPDATE artwork_files SET metadata_embedded = 1 WHERE file_id = ?",
+        (file_id,),
+    )
+    conn.commit()
+
+    return {
+        "status": "ok", "phase": "metadata_write",
+        "group_id": group_id, "file_id": file_id,
+        "sync_status": sync_status,
+        "message": (
+            f"메타데이터 기록 완료: {meta.artwork_title or row['artwork_id']}"
+            f" / {meta.artist_name or meta.artist_id}"
+            f" (sync={sync_status})"
+        ),
+        "error": None,
+    }
+
+
+def enrich_file_from_pixiv(
+    conn: sqlite3.Connection,
+    file_id: str,
+    adapter=None,
+    exiftool_path: Optional[str] = None,
+) -> dict:
+    """공개 호환 wrapper: Phase 1 + Phase 2를 순서대로 실행한다.
+
+    기존 caller API와 완전 호환.
+    신규 코드는 fetch_and_store_pixiv_metadata / write_stored_metadata_to_file을 직접 호출 권장.
+
+    Returns dict:
+        status      : "success" | "not_found" | "no_artwork_id" | "network_error"
+                      | "restricted" | "parse_error" | "embed_failed" | "missing_file"
+                      | "not_found_at_source"
+        sync_status : "json_only" | "full" | "xmp_write_failed" | "metadata_write_failed" | None
+        message     : 사람이 읽을 수 있는 결과 설명
+        timings     : dict (ARU_ENRICH_TIMING 활성 시에만)
+    """
+    _timing_on = _is_timing_enabled()
+    _t0 = time.perf_counter() if _timing_on else 0.0
+
+    # 기존 동작 호환: 파일명 파싱 pre-check + 원래 sync_status 선취.
+    #
+    # 두 가지 목적을 위해 Phase 1 실행 전에 DB를 한 번 읽는다:
+    # 1) 파일명 파싱 실패 시 기존과 동일하게 no_artwork_id 반환 (Phase 1은 DB artwork_id 우선이므로)
+    # 2) Phase 1이 DB를 json_only로 갱신하기 전의 원래 sync_status를 기억해,
+    #    Phase 2의 clear-first 판단이 "Phase 1 실행 전" 상태를 기준으로 하도록 한다.
+    _pre_row = conn.execute(
+        "SELECT af.file_path, ag.metadata_sync_status "
+        "FROM artwork_files af "
+        "JOIN artwork_groups ag ON af.group_id = ag.group_id "
+        "WHERE af.file_id = ?",
+        (file_id,),
+    ).fetchone()
+    _original_sync_status: Optional[str] = None
+    if _pre_row is not None:
+        _original_sync_status = _pre_row["metadata_sync_status"]
+        _parsed = parse_pixiv_filename(_pre_row["file_path"])
+        if _parsed is None:
+            result: dict = {
+                "status":      "no_artwork_id",
+                "sync_status": None,
+                "message":     f"파일명에서 artwork_id 추출 불가: {Path(_pre_row['file_path']).name}",
+            }
+            if _timing_on:
+                _t1_early = time.perf_counter()
+                result["timings"] = {
+                    "fetch_store":    _t1_early - _t0,
+                    "metadata_write": 0.0,
+                    "total":          _t1_early - _t0,
+                }
+            return result
+
+    # Phase 1: Pixiv 조회 + DB 저장
+    r1 = fetch_and_store_pixiv_metadata(conn, file_id, adapter=adapter)
+    _t1 = time.perf_counter() if _timing_on else 0.0
+
+    if r1["status"] != "ok":
+        # Phase 1 실패 → 기존 호환 status 코드로 매핑
+        # network_error는 기존 동작상 sync_status=None을 반환한다.
+        _error_to_status: dict[str, str] = {
+            "not_found":           "not_found",
+            "no_artwork_id":       "no_artwork_id",
+            "restricted":          "restricted",
+            "not_found_at_source": "not_found_at_source",
+            "network_error":       "network_error",
+            "parse_error":         "parse_error",
+        }
+        old_status = _error_to_status.get(r1.get("error") or "", r1.get("error") or "error")
+        # network_error / parse_error는 기존 동작상 sync_status=None
+        _err = r1.get("error") or ""
+        _sync = None if _err in ("network_error", "parse_error") else r1["sync_status"]
+        result = {
+            "status":      old_status,
+            "sync_status": _sync,
+            "message":     r1["message"],
+        }
+        if _timing_on:
+            result["timings"] = {
+                "fetch_store":    _t1 - _t0,
+                "metadata_write": 0.0,
+                "total":          _t1 - _t0,
+            }
+        return result
+
+    # Phase 2: 파일 메타데이터 기록
+    # _original_sync_status: Phase 1 실행 전 상태를 전달해 clear-first 판단을 올바르게 한다.
+    r2 = write_stored_metadata_to_file(
+        conn, file_id, exiftool_path=exiftool_path,
+        _override_previous_sync_status=_original_sync_status,
+    )
+    _t2 = time.perf_counter() if _timing_on else 0.0
+
+    if r2["status"] != "ok":
+        _error_to_status2: dict[str, str] = {
+            "embed_failed": "embed_failed",
+            "missing_file": "missing_file",
+            "not_found":    "not_found",
+        }
+        old_status2 = _error_to_status2.get(r2.get("error") or "", "embed_failed")
+        result = {
+            "status":      old_status2,
+            "sync_status": r2["sync_status"],
+            "message":     r2["message"],
+        }
+        if _timing_on:
+            result["timings"] = {
+                "fetch_store":    _t1 - _t0,
+                "metadata_write": _t2 - _t1,
+                "total":          _t2 - _t0,
+            }
+        return result
+
+    result = {
+        "status":      "success",
+        "sync_status": r2["sync_status"],
+        "message":     r2["message"],
+    }
+    if _timing_on:
+        result["timings"] = {
+            "fetch_store":    _t1 - _t0,
+            "metadata_write": _t2 - _t1,
+            "total":          _t2 - _t0,
+        }
+    return result
 
 
 # ---------------------------------------------------------------------------
