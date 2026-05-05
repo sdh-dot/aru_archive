@@ -80,8 +80,8 @@ class TestPreviewThumbnailCache:
         px = cache.load(str(img))
         assert px is not None
         assert not px.isNull()
-        assert px.width() <= 160
-        assert px.height() <= 160
+        assert px.width() <= 200
+        assert px.height() <= 200
 
     def test_missing_file_returns_none(self, qapp, tmp_path):
         from app.views.workflow_wizard_view import PreviewThumbnailCache

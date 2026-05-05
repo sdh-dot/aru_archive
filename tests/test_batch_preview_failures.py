@@ -247,9 +247,10 @@ class TestBatchPreviewFailureCounts:
             conn, [gid1, gid2], _config_with_dir(cls_dir)
         )
         assert result["series_uncategorized_count"] == 1
-        assert result["author_fallback_count"] == 0
+        assert result["series_unidentified_count"] == 0
 
-    def test_author_fallback_count(self, conn, tmp_path) -> None:
+    def test_series_unidentified_count(self, conn, tmp_path) -> None:
+        """시리즈/캐릭터 모두 없으면 series_unidentified_count가 증가한다."""
         from core.batch_classifier import build_classify_batch_preview
         cls_dir = str(tmp_path / "cls")
         gid1 = _insert_group(
@@ -259,7 +260,7 @@ class TestBatchPreviewFailureCounts:
         result = build_classify_batch_preview(
             conn, [gid1], _config_with_dir(cls_dir)
         )
-        assert result["author_fallback_count"] == 1
+        assert result["series_unidentified_count"] == 1
         assert result["series_uncategorized_count"] == 0
 
     def test_candidate_count_populated(self, conn, tmp_path) -> None:
@@ -286,6 +287,21 @@ class TestBatchPreviewFailureCounts:
         )
         warnings_text = " ".join(result["warnings"])
         assert "series_uncategorized" in warnings_text
+
+    def test_warnings_include_series_unidentified(self, conn, tmp_path) -> None:
+        """시리즈/캐릭터 모두 없으면 경고 문구에 author_fallback이 아닌 series_unidentified가 포함된다."""
+        from core.batch_classifier import build_classify_batch_preview
+        cls_dir = str(tmp_path / "cls")
+        gid = _insert_group(
+            conn, str(uuid.uuid4()), tmp_path,
+            series=[], char=[], tags=["謎タグ"],
+        )
+        result = build_classify_batch_preview(
+            conn, [gid], _config_with_dir(cls_dir)
+        )
+        warnings_text = " ".join(result["warnings"])
+        assert "series_unidentified" in warnings_text
+        assert "author_fallback" not in warnings_text
 
     def test_retag_option_runs_reclassifier(self, conn, tmp_path) -> None:
         """retag_before_batch_preview=True 이면 retag가 실행된다 (에러 없이)."""

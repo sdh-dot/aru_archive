@@ -43,6 +43,13 @@ ARU_KEYWORD = "AruArchive"
 _TRUTHY_ENV = {"1", "true", "yes", "on"}
 
 
+def _stats_inc(stats: Optional[dict], key: str, amount: int = 1) -> None:
+    """Best-effort in-memory counter for analysis-only instrumentation."""
+    if stats is None:
+        return
+    stats[key] = int(stats.get(key, 0) or 0) + amount
+
+
 def _is_exiftool_timing_enabled() -> bool:
     """ARU_ENRICH_TIMING 또는 ARU_ARCHIVE_DEV_MODE 환경변수가 truthy면 True. config는 미참조."""
     if os.environ.get("ARU_ENRICH_TIMING", "").strip().lower() in _TRUTHY_ENV:
@@ -162,6 +169,7 @@ def _write_windows_exif_fields_direct(
     metadata: dict,
     *,
     clear_before_write: bool = False,
+    _stats: Optional[dict] = None,
 ) -> None:
     """Write Explorer-facing XP fields directly to EXIF using UTF-16LE bytes.
 
@@ -221,6 +229,7 @@ def _write_windows_exif_fields_direct(
     try:
         exif_bytes = piexif.dump(exif_dict)
         piexif.insert(exif_bytes, file_path)
+        _stats_inc(_stats, "file_write_count")
     except Exception as exc:
         raise XmpWriteError(f"Windows EXIF XP field write failed: {exc}") from exc
 
@@ -231,6 +240,7 @@ def _write_windows_exif_fields_best_effort(
     exiftool_path: Optional[str],
     *,
     clear_before_write: bool = False,
+    _stats: Optional[dict] = None,
 ) -> str:
     """
     Prefer ExifTool for Explorer-facing XP fields and fall back to direct write.
@@ -255,22 +265,44 @@ def _write_windows_exif_fields_best_effort(
     XmpWriteError — primary / fallback / clear_first 모두 실패
     """
     if clear_before_write:
-        _write_windows_exif_fields_direct(
-            file_path, metadata, clear_before_write=True,
-        )
+        if _stats is None:
+            _write_windows_exif_fields_direct(
+                file_path, metadata, clear_before_write=True,
+            )
+        else:
+            _write_windows_exif_fields_direct(
+                file_path, metadata, clear_before_write=True, _stats=_stats,
+            )
         return "clear_first"
 
     if exiftool_path:
         try:
-            if write_windows_exif_fields(file_path, metadata, exiftool_path=exiftool_path):
+            if _stats is None:
+                ok = write_windows_exif_fields(
+                    file_path, metadata, exiftool_path=exiftool_path,
+                )
+            else:
+                ok = write_windows_exif_fields(
+                    file_path, metadata, exiftool_path=exiftool_path, _stats=_stats,
+                )
+            if ok:
                 return "primary"
         except XmpWriteError as exc:
             logger.warning("ExifTool XP field write failed, falling back to direct EXIF write: %s", exc)
-    _write_windows_exif_fields_direct(file_path, metadata)
+    if _stats is None:
+        _write_windows_exif_fields_direct(file_path, metadata)
+    else:
+        _write_windows_exif_fields_direct(file_path, metadata, _stats=_stats)
     return "fallback"
 
 
-def write_aru_metadata(file_path: str, metadata: dict, file_format: str) -> None:
+def write_aru_metadata(
+    file_path: str,
+    metadata: dict,
+    file_format: str,
+    *,
+    _stats: Optional[dict] = None,
+) -> None:
     """
     파일 형식에 따라 AruArchive JSON 메타데이터를 삽입한다.
 
@@ -281,20 +313,22 @@ def write_aru_metadata(file_path: str, metadata: dict, file_format: str) -> None
     """
     fmt = _resolve_effective_metadata_format(file_path, file_format)
     if fmt in ("jpg", "jpeg"):
-        _write_exif_user_comment(file_path, metadata)
+        _write_exif_user_comment(file_path, metadata, _stats=_stats)
     elif fmt == "png":
-        _write_png_itxt(file_path, metadata)
+        _write_png_itxt(file_path, metadata, _stats=_stats)
     elif fmt == "webp":
-        _write_exif_user_comment(file_path, metadata)
+        _write_exif_user_comment(file_path, metadata, _stats=_stats)
     elif fmt == "zip":
-        _write_zip_metadata(file_path, metadata)
+        _write_zip_metadata(file_path, metadata, _stats=_stats)
     elif fmt == "gif":
-        _write_sidecar(file_path, metadata)
+        _write_sidecar(file_path, metadata, _stats=_stats)
     else:
         raise ValueError(f"지원하지 않는 파일 형식: {file_format}")
 
 
-def _write_exif_user_comment(file_path: str, metadata: dict) -> None:
+def _write_exif_user_comment(
+    file_path: str, metadata: dict, *, _stats: Optional[dict] = None,
+) -> None:
     """
     JPEG / WebP EXIF UserComment (0x9286)에 AruArchive JSON 기록.
     prefix: UNICODE\\x00 (8 bytes) + UTF-16LE JSON.
@@ -315,15 +349,18 @@ def _write_exif_user_comment(file_path: str, metadata: dict) -> None:
     exif_dict.setdefault("Exif", {})[piexif.ExifIFD.UserComment] = user_comment
     exif_bytes = piexif.dump(exif_dict)
     piexif.insert(exif_bytes, file_path)
+    _stats_inc(_stats, "file_write_count")
 
 
-def _write_png_itxt(file_path: str, metadata: dict) -> None:
+def _write_png_itxt(file_path: str, metadata: dict, *, _stats: Optional[dict] = None) -> None:
     """PNG iTXt chunk (keyword=AruArchive)에 JSON 기록."""
     json_text = json.dumps(metadata, ensure_ascii=False)
-    _insert_png_itxt_chunk(file_path, ARU_KEYWORD, json_text)
+    _insert_png_itxt_chunk(file_path, ARU_KEYWORD, json_text, _stats=_stats)
 
 
-def _insert_png_itxt_chunk(file_path: str, keyword: str, text: str) -> None:
+def _insert_png_itxt_chunk(
+    file_path: str, keyword: str, text: str, *, _stats: Optional[dict] = None,
+) -> None:
     """
     PNG 파일에 iTXt chunk를 삽입/교체한다.
     기존 AruArchive iTXt chunk가 있으면 먼저 제거한다.
@@ -360,6 +397,7 @@ def _insert_png_itxt_chunk(file_path: str, keyword: str, text: str) -> None:
 
     with open(file_path, "wb") as f:
         f.write(result)
+    _stats_inc(_stats, "file_write_count")
 
 
 def _parse_png_chunks(data: bytes) -> list[tuple[bytes, bytes]]:
@@ -375,7 +413,7 @@ def _parse_png_chunks(data: bytes) -> list[tuple[bytes, bytes]]:
     return chunks
 
 
-def _write_zip_metadata(file_path: str, metadata: dict) -> None:
+def _write_zip_metadata(file_path: str, metadata: dict, *, _stats: Optional[dict] = None) -> None:
     """
     ZIP (ugoira) 파일에 comment(식별자)를 삽입하고,
     .aru.json sidecar 파일을 생성한다.
@@ -388,11 +426,12 @@ def _write_zip_metadata(file_path: str, metadata: dict) -> None:
 
     with zipfile.ZipFile(file_path, "a") as zf:
         zf.comment = comment
+    _stats_inc(_stats, "file_write_count")
 
-    _write_sidecar(file_path, metadata)
+    _write_sidecar(file_path, metadata, _stats=_stats)
 
 
-def _write_sidecar(file_path: str, metadata: dict) -> None:
+def _write_sidecar(file_path: str, metadata: dict, *, _stats: Optional[dict] = None) -> None:
     """
     {file_path}.aru.json sidecar 파일에 JSON 기록.
     static GIF와 ugoira ZIP에서 사용.
@@ -400,6 +439,7 @@ def _write_sidecar(file_path: str, metadata: dict) -> None:
     sidecar_path = Path(str(file_path) + ".aru.json")
     json_text = json.dumps(metadata, ensure_ascii=False, indent=2)
     sidecar_path.write_text(json_text, encoding="utf-8")
+    _stats_inc(_stats, "file_write_count")
 
 
 def _build_user_facing_summary(metadata: dict) -> str:
@@ -441,6 +481,8 @@ def write_windows_exif_fields(
     file_path: str,
     metadata: dict,
     exiftool_path: Optional[str] = None,
+    *,
+    _stats: Optional[dict] = None,
 ) -> bool:
     """
     Windows Explorer 호환 EXIF XP 필드를 ExifTool로 기록한다.
@@ -478,6 +520,7 @@ def write_windows_exif_fields(
     _timeout = False
     _success = False
     try:
+        _stats_inc(_stats, "exiftool_spawn_count")
         result = subprocess.run(args, capture_output=True, timeout=60, **no_window_kwargs())
         if result.returncode != 0:
             stderr = result.stderr.decode("utf-8", errors="replace")
@@ -487,6 +530,7 @@ def write_windows_exif_fields(
                 f"{stderr.strip() or stdout.strip()}"
             )
         logger.info("Windows EXIF XP 필드 기록 완료: %s", file_path)
+        _stats_inc(_stats, "file_write_count")
         _success = True
         return True
     except subprocess.TimeoutExpired:
@@ -503,6 +547,93 @@ def write_windows_exif_fields(
         )
 
 
+def _write_xmp_and_xp_single_pass(
+    file_path: str,
+    metadata: dict,
+    exiftool_path: str,
+    *,
+    include_xp_fields: bool,
+    clear_windows_xp_fields_before_write: bool,
+    _stats: Optional[dict] = None,
+) -> bool:
+    """Write XMP + XP in one ExifTool invocation to avoid duplicate rewrites."""
+    from core.exiftool import (
+        build_exiftool_xmp_args,
+        build_exiftool_xp_args,
+        validate_exiftool_path,
+    )
+
+    if not validate_exiftool_path(exiftool_path):
+        logger.warning("ExifTool 실행 불가: %s", exiftool_path)
+        return False
+
+    mismatch = detect_header_extension_mismatch(file_path)
+    if mismatch is not None:
+        path_fmt, actual_fmt = mismatch
+        logger.warning(
+            "XMP target header/extension mismatch: path=%s ext=%s actual=%s",
+            file_path, path_fmt, actual_fmt,
+        )
+        return False
+
+    summary = _build_user_facing_summary(metadata)
+    xmp_args = build_exiftool_xmp_args(
+        file_path,
+        metadata,
+        user_facing_summary=summary,
+        include_exif_description=True,
+    )
+
+    args = [exiftool_path] + xmp_args[:-2]
+    xp_mode = "excluded"
+    if include_xp_fields:
+        xp_args = build_exiftool_xp_args(
+            file_path,
+            metadata,
+            xp_subject=(metadata.get("artwork_title") or "").strip(),
+            xp_comment=summary,
+            clear_before_write=clear_windows_xp_fields_before_write,
+        )
+        args.extend(xp_args[:-2])
+        xp_mode = "clear_first" if clear_windows_xp_fields_before_write else "primary"
+    args.extend(["-overwrite_original", file_path])
+
+    _t0 = time.perf_counter()
+    _timeout = False
+    _success = False
+    try:
+        _stats_inc(_stats, "exiftool_spawn_count")
+        result = subprocess.run(args, capture_output=True, timeout=60, **no_window_kwargs())
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8", errors="replace")
+            stdout = result.stdout.decode("utf-8", errors="replace")
+            raise XmpWriteError(
+                f"ExifTool 실패 (returncode={result.returncode}): "
+                f"{stderr.strip() or stdout.strip()}"
+            )
+        _stats_inc(_stats, "file_write_count")
+        if not include_xp_fields:
+            logger.info("XMP 기록 완료: %s", file_path)
+        elif xp_mode == "clear_first":
+            logger.info("XMP+XP 기록 완료 (single-pass / XP clear-first 포함): %s", file_path)
+        else:
+            logger.info("XMP+XP 기록 완료 (single-pass): %s", file_path)
+        _success = True
+        return True
+    except subprocess.TimeoutExpired:
+        _timeout = True
+        raise XmpWriteError(f"ExifTool 타임아웃(60s): {file_path}")
+    except XmpWriteError:
+        raise
+    except Exception as exc:
+        raise XmpWriteError(f"ExifTool 실행 오류: {exc}") from exc
+    finally:
+        _log_exiftool_call(
+            file_path, time.perf_counter() - _t0, len(args),
+            timeout=_timeout, success=_success,
+        )
+
+
 def write_xmp_metadata_with_exiftool(
     file_path: str,
     metadata: dict,
@@ -510,6 +641,7 @@ def write_xmp_metadata_with_exiftool(
     include_xp_fields: bool = True,
     *,
     clear_windows_xp_fields_before_write: bool = False,
+    _stats: Optional[dict] = None,
 ) -> bool:
     """
     ExifTool을 사용하여 XMP 표준 필드를 기록한다.
@@ -533,7 +665,17 @@ def write_xmp_metadata_with_exiftool(
     if not exiftool_path:
         return False
 
+    return _write_xmp_and_xp_single_pass(
+        file_path,
+        metadata,
+        exiftool_path,
+        include_xp_fields=include_xp_fields,
+        clear_windows_xp_fields_before_write=clear_windows_xp_fields_before_write,
+        _stats=_stats,
+    )
+
     from core.exiftool import (
+        build_exiftool_xp_args,
         build_exiftool_xmp_args,
         validate_exiftool_path,
     )
@@ -565,11 +707,24 @@ def write_xmp_metadata_with_exiftool(
         include_exif_description=include_exif_description,
     )
 
-    args = [exiftool_path] + xmp_args
+    args = [exiftool_path] + xmp_args[:-2]
+    xp_mode = "excluded"
+    if effective_include_xp:
+        xp_args = build_exiftool_xp_args(
+            file_path,
+            metadata,
+            xp_subject=(metadata.get("artwork_title") or "").strip(),
+            xp_comment=summary,
+            clear_before_write=clear_windows_xp_fields_before_write,
+        )
+        args.extend(xp_args[:-2])
+        xp_mode = "clear_first" if clear_windows_xp_fields_before_write else "primary"
+    args.extend(["-overwrite_original", file_path])
     _t0 = time.perf_counter()
     _timeout = False
     _success = False
     try:
+        _stats_inc(_stats, "exiftool_spawn_count")
         result = subprocess.run(args, capture_output=True, timeout=60, **no_window_kwargs())
         if result.returncode != 0:
             stderr = result.stderr.decode("utf-8", errors="replace")
@@ -578,21 +733,13 @@ def write_xmp_metadata_with_exiftool(
                 f"ExifTool 실패 (returncode={result.returncode}): "
                 f"{stderr.strip() or stdout.strip()}"
             )
-        xp_path_used: Optional[str] = None
-        if effective_include_xp and Path(file_path).exists():
-            xp_path_used = _write_windows_exif_fields_best_effort(
-                file_path,
-                metadata,
-                exiftool_path,
-                clear_before_write=clear_windows_xp_fields_before_write,
-            )
+        _stats_inc(_stats, "file_write_count")
         if not effective_include_xp:
             logger.info("XMP 기록 완료: %s", file_path)
-        elif xp_path_used == "clear_first":
+        elif xp_mode == "clear_first":
             logger.info(
                 "XMP+XP 기록 완료 (XP는 clear-first 경로 사용): %s", file_path
             )
-        elif xp_path_used == "fallback":
             logger.info(
                 "XMP+XP 기록 완료 (XP는 fallback 경로 사용): %s", file_path
             )

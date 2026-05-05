@@ -112,7 +112,7 @@ def build_classify_batch_preview(
         "previews": [...],
         "warnings": [...],
         "series_uncategorized_count": N,
-        "author_fallback_count": N,
+        "series_unidentified_count": N,
         "candidate_count": N,
       }
     """
@@ -130,7 +130,7 @@ def build_classify_batch_preview(
     warnings: list[str] = []
     fallback_canonicals: set[str] = set()
     series_uncategorized_count: int = 0
-    author_fallback_count: int = 0
+    series_unidentified_count: int = 0
     candidate_count: int = 0
 
     for gid in group_ids:
@@ -159,7 +159,7 @@ def build_classify_batch_preview(
                 if reason == "series_detected_but_character_missing":
                     series_uncategorized_count += 1
                 elif reason == "series_and_character_missing":
-                    author_fallback_count += 1
+                    series_unidentified_count += 1
                 candidates = generate_classification_failure_candidates(conn, gid, ci)
                 candidate_count += len(candidates)
 
@@ -180,9 +180,9 @@ def build_classify_batch_preview(
         warnings.append(
             f"{series_uncategorized_count}개 작품: 시리즈 감지됨, 캐릭터 미분류 (series_uncategorized)"
         )
-    if author_fallback_count:
+    if series_unidentified_count:
         warnings.append(
-            f"{author_fallback_count}개 작품: 시리즈/캐릭터 모두 미분류 (author_fallback)"
+            f"{series_unidentified_count}개 작품: 시리즈/캐릭터 모두 미분류 (series_unidentified)"
         )
 
     # developer: 분류 실패 export (기본값 OFF)
@@ -204,9 +204,9 @@ def build_classify_batch_preview(
         "estimated_bytes":            estimated_bytes,
         "previews":                   previews,
         "warnings":                   warnings,
-        "series_uncategorized_count": series_uncategorized_count,
-        "author_fallback_count":      author_fallback_count,
-        "candidate_count":            candidate_count,
+        "series_uncategorized_count":   series_uncategorized_count,
+        "series_unidentified_count":    series_unidentified_count,
+        "candidate_count":              candidate_count,
         "dev_log_msg":                dev_log_msg,
     }
 
@@ -256,6 +256,7 @@ def execute_classify_batch(
     total_copied:  int = 0
     total_skipped: int = 0
     total_failed:  int = 0
+    first_error:   str = ""
     group_results: list[dict] = []
 
     for preview in previews:
@@ -269,23 +270,29 @@ def execute_classify_batch(
             )
             total_copied  += result["copied"]
             total_skipped += result["skipped"]
+            grp_status = result.get("status", "ok")
             group_results.append({
                 "group_id": preview["group_id"],
-                "status":   "ok",
+                "status":   grp_status,
                 "copied":   result["copied"],
                 "skipped":  result["skipped"],
+                "message":  result.get("message", ""),
+                "error":    None,
             })
             if progress_fn:
-                progress_fn(len(group_results), n_groups, preview["group_id"], "ok")
+                progress_fn(len(group_results), n_groups, preview["group_id"], grp_status)
         except Exception as exc:
             total_failed += 1
+            err_str = str(exc)
+            if not first_error:
+                first_error = err_str
             group_results.append({
                 "group_id": preview["group_id"],
                 "status":   "error",
-                "error":    str(exc),
+                "error":    err_str,
             })
             if progress_fn:
-                progress_fn(len(group_results), n_groups, preview["group_id"], "error")
+                progress_fn(len(group_results), n_groups, preview["group_id"], "error", err_str)
 
     # undo_entries.undo_result_json에 요약 기록
     import json as _json
@@ -310,6 +317,11 @@ def execute_classify_batch(
     else:
         overall_status = "completed"
 
+    error_msg = (
+        f"{total_failed}개 그룹 실패: {first_error}"
+        if total_failed > 0 and first_error
+        else None
+    )
     return {
         "success":        overall_status != "failed",
         "status":         overall_status,
@@ -318,5 +330,12 @@ def execute_classify_batch(
         "copied":         total_copied,
         "skipped":        total_skipped,
         "failed_groups":  total_failed,
+        "first_error":    first_error or None,
+        "error":          error_msg,
+        "errors":         [
+            {"group_id": r["group_id"], "error": r["error"]}
+            for r in group_results
+            if r.get("status") == "error"
+        ],
         "group_results":  group_results,
     }

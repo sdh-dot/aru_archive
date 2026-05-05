@@ -79,8 +79,8 @@ class TestRunGuiLifecycle:
 
 
 class TestVersionUnchanged:
-    def test_main_keeps_application_version_0_1_0(self):
-        """본 PR은 setApplicationVersion 변경하지 않음."""
+    def test_main_uses_app_version_constant(self):
+        """main.py는 하드코딩 버전 문자열 대신 APP_VERSION 상수를 사용해야 한다."""
         from main import run_gui
         src = inspect.getsource(run_gui)
-        assert 'setApplicationVersion("0.1.0")' in src
+        assert 'setApplicationVersion(APP_VERSION)' in src

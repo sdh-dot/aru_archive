@@ -181,6 +181,8 @@ def build_exiftool_xp_args(
     metadata: dict,
     xp_subject: str = "",
     xp_comment: str = "",
+    *,
+    clear_before_write: bool = False,
 ) -> list[str]:
     """
     Windows Explorer 호환 EXIF XP 필드 기록용 ExifTool CLI 인자.
@@ -207,6 +209,15 @@ def build_exiftool_xp_args(
     반환값: [exiftool_path] + 이 리스트 형태로 subprocess.run()에 전달.
     """
     args: list[str] = ["-charset", "exif=utf8"]
+
+    if clear_before_write:
+        args.extend([
+            "-EXIF:XPTitle=",
+            "-EXIF:XPSubject=",
+            "-EXIF:XPAuthor=",
+            "-EXIF:XPKeywords=",
+            "-EXIF:XPComment=",
+        ])
 
     title = (metadata.get("artwork_title") or "").strip()
     if title:

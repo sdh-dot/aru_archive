@@ -24,9 +24,10 @@ CREATE TABLE IF NOT EXISTS artwork_groups (
                           -- single_image | multi_page | ugoira
     total_pages           INTEGER NOT NULL DEFAULT 1,
     cover_file_id         TEXT,                      -- artwork_files.file_id (lazy, FK 없음)
-    tags_json             TEXT,                      -- JSON array
+    tags_json             TEXT,                      -- JSON array (classified)
     character_tags_json   TEXT,
     series_tags_json      TEXT,
+    raw_tags_json         TEXT,                      -- JSON array (original Pixiv tags before classification)
     downloaded_at         TEXT NOT NULL,             -- ISO 8601
     indexed_at            TEXT NOT NULL,
     updated_at            TEXT,
@@ -294,11 +295,16 @@ CREATE TABLE IF NOT EXISTS tag_aliases (
     alias            TEXT NOT NULL,
     canonical        TEXT NOT NULL,
     tag_type         TEXT NOT NULL DEFAULT 'general',
-                     -- general | series | character
+                     -- general | series | character | group
     parent_series    TEXT NOT NULL DEFAULT '',
-                     -- character 타입 시 소속 시리즈 canonical명, 없으면 ''
+                     -- character / group 타입 시 소속 시리즈 canonical명, 없으면 ''
     media_type       TEXT,
                      -- game | anime | manga | novel | original | unknown
+    kind             TEXT NOT NULL DEFAULT '',
+                     -- character: '' | 'student' | 'npc' | 'unit' 등
+                     -- group:     '' | 'group' | 'organization' | 'club' 등
+                     -- series:    빈 문자열 사용
+                     -- 분류 알고리즘에는 영향을 주지 않으며 metadata 표시용.
     source           TEXT,
                      -- built_in | pixiv_translation | user_confirmed
                      -- candidate_accepted | import

@@ -105,6 +105,8 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     _migrate_delete_batches(conn)
     _migrate_delete_records(conn)
     _migrate_classification_overrides(conn)
+    _migrate_artwork_files(conn)
+    _migrate_copy_records(conn)
     _ensure_startup_query_indexes(conn)
 
 
@@ -116,14 +118,16 @@ def _ensure_startup_query_indexes(conn: sqlite3.Connection) -> None:
             "ON artwork_groups(indexed_at DESC)"
         )
     if _table_exists(conn, "artwork_files"):
+        af_cols = {row["name"] for row in _table_columns(conn, "artwork_files")}
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_artwork_files_group_status "
             "ON artwork_files(group_id, file_status)"
         )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_artwork_files_group_role_page "
-            "ON artwork_files(group_id, file_role, page_index)"
-        )
+        if "page_index" in af_cols:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_artwork_files_group_role_page "
+                "ON artwork_files(group_id, file_role, page_index)"
+            )
     conn.commit()
 
 
@@ -158,6 +162,7 @@ def _migrate_artwork_groups(conn: sqlite3.Connection) -> None:
     _add_column_if_missing(conn, "artwork_groups", cols, "tags_json", "TEXT")
     _add_column_if_missing(conn, "artwork_groups", cols, "character_tags_json", "TEXT")
     _add_column_if_missing(conn, "artwork_groups", cols, "series_tags_json", "TEXT")
+    _add_column_if_missing(conn, "artwork_groups", cols, "raw_tags_json", "TEXT")
     _add_column_if_missing(conn, "artwork_groups", cols, "downloaded_at", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "artwork_groups", cols, "indexed_at", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "artwork_groups", cols, "updated_at", "TEXT")
@@ -236,11 +241,20 @@ def _migrate_tag_aliases(conn: sqlite3.Connection) -> None:
         "tag_type",
         "parent_series",
     ]:
+        # 복합 PK 는 이미 적용된 상태 — kind 컬럼만 보강 (PR #121, NPC/group 구분).
+        # tag_aliases 의 모든 row 정책에 영향을 주지 않는 단순 부가 컬럼이며
+        # 분류 알고리즘은 kind 를 읽지 않는다.
+        _add_column_if_missing(
+            conn, "tag_aliases", cols, "kind",
+            "TEXT NOT NULL DEFAULT ''",
+        )
+        conn.commit()
         return
 
     tag_type_expr = "tag_type" if "tag_type" in cols else "'general'"
     parent_expr = "parent_series" if "parent_series" in cols else "''"
     media_expr = "media_type" if "media_type" in cols else "NULL"
+    kind_expr = "kind" if "kind" in cols else "''"
     source_expr = "source" if "source" in cols else (
         "source_site" if "source_site" in cols else "NULL"
     )
@@ -260,6 +274,7 @@ def _migrate_tag_aliases(conn: sqlite3.Connection) -> None:
                 tag_type         TEXT NOT NULL DEFAULT 'general',
                 parent_series    TEXT NOT NULL DEFAULT '',
                 media_type       TEXT,
+                kind             TEXT NOT NULL DEFAULT '',
                 source           TEXT,
                 confidence_score REAL,
                 enabled          INTEGER NOT NULL DEFAULT 1,
@@ -271,10 +286,12 @@ def _migrate_tag_aliases(conn: sqlite3.Connection) -> None:
         )
         conn.execute(
             f"""INSERT OR IGNORE INTO tag_aliases__migration
-                (alias, canonical, tag_type, parent_series, media_type, source,
-                 confidence_score, enabled, created_by, created_at, updated_at)
+                (alias, canonical, tag_type, parent_series, media_type, kind,
+                 source, confidence_score, enabled, created_by, created_at,
+                 updated_at)
                 SELECT alias, canonical, COALESCE({tag_type_expr}, 'general'),
-                       COALESCE({parent_expr}, ''), {media_expr}, {source_expr},
+                       COALESCE({parent_expr}, ''), {media_expr},
+                       COALESCE({kind_expr}, ''), {source_expr},
                        {confidence_expr}, COALESCE({enabled_expr}, 1),
                        {created_by_expr}, COALESCE({created_at_expr}, datetime('now')),
                        {updated_at_expr}
@@ -412,6 +429,27 @@ def _migrate_delete_records(conn: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_delete_records_file "
         "ON delete_records(file_id)"
     )
+    conn.commit()
+
+
+def _migrate_artwork_files(conn: sqlite3.Connection) -> None:
+    """artwork_files에 분류 실행 bookkeeping 컬럼을 보강한다."""
+    if not _table_exists(conn, "artwork_files"):
+        return
+    cols = {row["name"] for row in _table_columns(conn, "artwork_files")}
+    _add_column_if_missing(conn, "artwork_files", cols, "metadata_embedded", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "artwork_files", cols, "source_file_id", "TEXT")
+    _add_column_if_missing(conn, "artwork_files", cols, "classify_rule_id", "TEXT")
+    conn.commit()
+
+
+def _migrate_copy_records(conn: sqlite3.Connection) -> None:
+    """copy_records에 분류 실행 bookkeeping 컬럼을 보강한다."""
+    if not _table_exists(conn, "copy_records"):
+        return
+    cols = {row["name"] for row in _table_columns(conn, "copy_records")}
+    _add_column_if_missing(conn, "copy_records", cols, "dest_mtime_at_copy", "TEXT")
+    _add_column_if_missing(conn, "copy_records", cols, "dest_hash_at_copy", "TEXT")
     conn.commit()
 
 

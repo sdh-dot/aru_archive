@@ -264,9 +264,8 @@ class TestEnricherFinalStatusLog:
 # 2) writer: XMP+XP 성공 로그가 fallback 사용 여부를 명시
 # ---------------------------------------------------------------------------
 
-class TestXmpXpSuccessLogIndicatesFallback:
-    """write_xmp_metadata_with_exiftool 성공 로그가 primary와 fallback 경로를
-    구분하는지 검증한다."""
+class TestXmpXpSuccessLogMode:
+    """single-pass XMP+XP 성공 로그가 현재 기록 모드를 드러내는지 검증한다."""
 
     def _patched_run_jpeg(self, tmp_path: Path):
         """ExifTool 호출 mock + 1x1 JPEG 파일을 묶어 반환."""
@@ -275,17 +274,13 @@ class TestXmpXpSuccessLogIndicatesFallback:
         mock_result = MagicMock(returncode=0)
         return jpg, mock_result
 
-    def test_primary_xp_success_log_has_no_fallback_marker(
+    def test_single_pass_success_log_marks_single_pass(
         self, tmp_path: Path, caplog
     ) -> None:
         jpg, mock_result = self._patched_run_jpeg(tmp_path)
         with (
             patch("core.exiftool.validate_exiftool_path", return_value=True),
             patch("core.metadata_writer.subprocess.run", return_value=mock_result),
-            patch(
-                "core.metadata_writer._write_windows_exif_fields_best_effort",
-                return_value="primary",
-            ),
             caplog.at_level(logging.INFO, logger="core.metadata_writer"),
         ):
             ok = write_xmp_metadata_with_exiftool(
@@ -298,36 +293,33 @@ class TestXmpXpSuccessLogIndicatesFallback:
             and r.getMessage().startswith("XMP+XP 기록 완료")
         ]
         assert success_messages, "XMP+XP 성공 로그가 출력되어야 한다"
-        assert all("fallback" not in m for m in success_messages), (
-            f"primary 경로 성공 시 로그에 fallback 표시가 없어야 한다. "
+        assert all("single-pass" in m for m in success_messages), (
+            f"single-pass 성공 시 로그에 해당 표시가 있어야 한다. "
             f"실제: {success_messages}"
         )
 
-    def test_fallback_xp_success_log_marks_fallback(
+    def test_clear_first_success_log_marks_clear_first(
         self, tmp_path: Path, caplog
     ) -> None:
         jpg, mock_result = self._patched_run_jpeg(tmp_path)
         with (
             patch("core.exiftool.validate_exiftool_path", return_value=True),
             patch("core.metadata_writer.subprocess.run", return_value=mock_result),
-            patch(
-                "core.metadata_writer._write_windows_exif_fields_best_effort",
-                return_value="fallback",
-            ),
             caplog.at_level(logging.INFO, logger="core.metadata_writer"),
         ):
             ok = write_xmp_metadata_with_exiftool(
-                str(jpg), SAMPLE_META, "/fake/exiftool"
+                str(jpg), SAMPLE_META, "/fake/exiftool",
+                clear_windows_xp_fields_before_write=True,
             )
         assert ok is True
-        fallback_messages = [
+        clear_first_messages = [
             r.getMessage() for r in caplog.records
             if r.name == "core.metadata_writer"
-            and "fallback" in r.getMessage()
+            and "clear-first" in r.getMessage()
             and "XMP+XP 기록 완료" in r.getMessage()
         ]
-        assert fallback_messages, (
-            "XP fallback 사용 시 성공 로그가 fallback 표시를 포함해야 한다"
+        assert clear_first_messages, (
+            "clear-first 사용 시 성공 로그가 clear-first 표시를 포함해야 한다"
         )
 
     def test_xp_excluded_log_uses_xmp_only_wording(

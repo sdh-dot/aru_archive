@@ -37,6 +37,27 @@ def _parse_json_list(raw: str | None) -> list[str]:
     except Exception:
         return []
 
+
+def collect_classification_source_tags(row) -> list[str]:
+    """raw_tags_json / tags_json / series_tags_json / character_tags_json 를 병합한
+    classification source 태그 리스트를 반환한다.
+
+    - 순서: raw_tags_json → tags_json → series_tags_json → character_tags_json
+    - 중복 제거 (순서 보존)
+    - invalid JSON / NULL / 빈 값 안전 무시
+    - alias 제거 없음, canonical 강제 치환 없음
+    - row 는 dict 또는 sqlite3.Row 모두 허용
+    """
+    seen: dict[str, None] = {}
+    for field in ("raw_tags_json", "tags_json", "series_tags_json", "character_tags_json"):
+        try:
+            val = row[field]
+        except (KeyError, IndexError, TypeError):
+            val = None
+        for tag in _parse_json_list(val):
+            seen.setdefault(tag, None)
+    return list(seen)
+
 # ---------------------------------------------------------------------------
 # 상수
 # ---------------------------------------------------------------------------
@@ -44,6 +65,193 @@ def _parse_json_list(raw: str | None) -> list[str]:
 CLASSIFIABLE_STATUSES: frozenset[str] = frozenset(
     {"full", "json_only", "xmp_write_failed"}
 )
+
+
+# ---------------------------------------------------------------------------
+# series-only resolver — explicit series 와 character.parent_series 의 관계로
+# 시리즈 폴더만 모드의 destination 을 결정한다.
+#
+# series-only mode 의 cfg signature:
+#   enable_series_character         = False
+#   enable_series_uncategorized     = True
+#   enable_character_without_series = False
+#
+# 이 모듈의 함수들은 metadata pipeline / DB schema / classified_copy 생성
+# 정책을 변경하지 않는다. preview 단계에서 시리즈 destination 결정과
+# needs_review 판정에만 영향을 준다.
+# ---------------------------------------------------------------------------
+
+# series-only resolver 가 반환하는 review reason 상수.
+SERIES_ONLY_REASON_PARENT_CONFLICT      = "series_parent_conflict"
+SERIES_ONLY_REASON_MULTI_REQ_CONFIRM    = "multiple_parent_series_requires_confirmation"
+SERIES_ONLY_REASON_UNIDENTIFIED         = "series_unidentified"
+
+# series-only resolver 가 반환하는 ready rule 상수.
+SERIES_ONLY_RULE_SERIES_TAG             = "series_tag"
+SERIES_ONLY_RULE_PARENT_SERIES          = "parent_series"
+SERIES_ONLY_RULE_MULTIPLE_PARENT_SERIES = "multiple_parent_series"
+
+
+def is_series_only_mode(cfg: dict) -> bool:
+    """cfg 가 series-only mode signature 인지 검사한다.
+
+    Wizard Step 5 의 ``classification_level == 'series_only'`` 가 적용되면
+    `_apply_level_to_cfg` 가 위 3개 플래그를 세팅한다. 이 함수는 그 결과를
+    classifier 단에서 다시 검출해 series-only resolver 분기를 트리거한다.
+    """
+    return bool(
+        cfg.get("enable_series_character") is False
+        and cfg.get("enable_series_uncategorized") is True
+        and cfg.get("enable_character_without_series") is False
+    )
+
+
+def is_author_only_mode(cfg: dict) -> bool:
+    """cfg 가 author-only mode signature 인지 검사한다.
+
+    Wizard Step 5 의 ``classification_level == 'author_only'`` 가 적용되면
+    `_apply_level_to_cfg` 가 author_only_mode=True 를 세팅한다.
+    """
+    return bool(cfg.get("author_only_mode"))
+
+
+def resolve_series_only_destination(
+    explicit_series: list[str],
+    parent_series_map: dict[str, str],
+    *,
+    allow_multi_destination: bool = True,
+) -> dict:
+    """series-only mode 의 destination 결정 로직 (pure function).
+
+    Args:
+        explicit_series:    raw_tags 에서 직접 series alias 매칭으로 식별된
+                            canonical series 목록 (Pixiv 가 명시한 series).
+                            character.parent_series 로부터 역추론된 series 는
+                            포함하지 않는다.
+        parent_series_map:  character canonical → parent_series canonical
+                            매핑. 비어 있는 parent_series 는 caller 가 미리
+                            제외해서 넘긴다.
+        allow_multi_destination:
+                            True 면 explicit 가 없고 parent_series 가 여러
+                            개일 때 모두 destination 으로 emit 한다.
+                            False 면 needs_review (사용자 확인 필요) 로 분기.
+
+    Returns:
+        ready 케이스:
+            {
+                "status": "ready",
+                "rule":   "series_tag" | "parent_series" | "multiple_parent_series",
+                "series": [series_canonical, ...],
+            }
+        needs_review 케이스:
+            {
+                "status": "needs_review",
+                "reason": "series_parent_conflict" |
+                          "multiple_parent_series_requires_confirmation" |
+                          "series_unidentified",
+                "series":        [...],   # explicit series (있을 때)
+                "parent_series": [...],   # detected parent_series keys
+            }
+    """
+    explicit_set: list[str] = list(dict.fromkeys(explicit_series or []))
+    parent_keys: list[str] = sorted(
+        {s for s in (parent_series_map or {}).values() if s}
+    )
+
+    if explicit_set:
+        # Rule 1/2: explicit series O — parent_series 와 비교해 충돌 확인.
+        if parent_keys and not (set(explicit_set) & set(parent_keys)):
+            return {
+                "status":        "needs_review",
+                "reason":        SERIES_ONLY_REASON_PARENT_CONFLICT,
+                "series":        sorted(explicit_set),
+                "parent_series": parent_keys,
+            }
+        return {
+            "status": "ready",
+            "rule":   SERIES_ONLY_RULE_SERIES_TAG,
+            "series": sorted(explicit_set),
+        }
+
+    # Rule 3: explicit X, parent_series 1 → 단일 destination.
+    if len(parent_keys) == 1:
+        return {
+            "status": "ready",
+            "rule":   SERIES_ONLY_RULE_PARENT_SERIES,
+            "series": parent_keys,
+        }
+
+    # Rule 4/5: explicit X, parent_series 다수.
+    if len(parent_keys) > 1:
+        if allow_multi_destination:
+            return {
+                "status": "ready",
+                "rule":   SERIES_ONLY_RULE_MULTIPLE_PARENT_SERIES,
+                "series": parent_keys,
+            }
+        return {
+            "status":        "needs_review",
+            "reason":        SERIES_ONLY_REASON_MULTI_REQ_CONFIRM,
+            "series":        [],
+            "parent_series": parent_keys,
+        }
+
+    # Rule 6: explicit X, parent_series X → 시리즈 미식별.
+    return {
+        "status":        "needs_review",
+        "reason":        SERIES_ONLY_REASON_UNIDENTIFIED,
+        "series":        [],
+        "parent_series": [],
+    }
+
+
+def _resolve_series_only_inputs(
+    raw_tags: list[str],
+    conn: Optional[sqlite3.Connection],
+) -> tuple[list[str], dict[str, str]]:
+    """raw_tags 로부터 explicit series 와 character/group.parent_series 매핑을 만든다.
+
+    `core.tag_classifier.classify_pixiv_tags` 의 evidence 를 사용해
+    direct/normalized/popularity-suffix 매칭으로 식별된 series 만 explicit 로
+    분리하고, character / group evidence 의 parent_series 를 역추론용 매핑으로
+    모은다 (PR #121).
+
+    classify_pixiv_tags 호출이 실패해도 빈 결과를 반환 — preview 흐름이
+    끊기지 않도록 한다.
+    """
+    if not raw_tags:
+        return [], {}
+    try:
+        from core.tag_classifier import classify_pixiv_tags
+        result = classify_pixiv_tags(raw_tags, conn=conn)
+    except Exception:
+        return [], {}
+
+    inferred: set[str] = set()
+    for ev in result.get("evidence", {}).get("series", []):
+        source = ev.get("source")
+        if source in ("inferred_from_character", "inferred_from_group") and ev.get("canonical"):
+            inferred.add(ev["canonical"])
+
+    all_series = list(result.get("series_tags") or [])
+    explicit_series = [s for s in all_series if s not in inferred]
+
+    parent_series_map: dict[str, str] = {}
+    for ev in result.get("evidence", {}).get("characters", []):
+        canonical = ev.get("canonical")
+        parent    = ev.get("parent_series") or ""
+        if canonical and parent:
+            parent_series_map.setdefault(canonical, parent)
+    for ev in result.get("evidence", {}).get("groups", []):
+        canonical = ev.get("canonical")
+        parent    = ev.get("parent_series") or ""
+        if canonical and parent:
+            # group 의 canonical 이 character 와 같은 이름일 가능성은 매우 낮지만
+            # setdefault 로 기존 character 매핑을 우선한다 — 두 값이 같은 series 를
+            # 가리키므로 결과는 동일.
+            parent_series_map.setdefault(canonical, parent)
+
+    return explicit_series, parent_series_map
 
 
 # ---------------------------------------------------------------------------
@@ -90,8 +298,16 @@ def select_classify_target(
 # ---------------------------------------------------------------------------
 
 def _cls_cfg(config: dict) -> dict:
-    """classification 설정의 현재 정책값을 기본값과 병합한다."""
+    """classification 설정의 현재 정책값을 기본값과 병합한다.
+
+    PR #122: top-level ``folder_name_language`` 가 있으면 우선 사용한다.
+    없으면 기존 ``classification.folder_locale`` 을 그대로 이어 받는다 —
+    backward compat. 두 값은 같은 의미 (분류 폴더의 표시 언어) 이므로
+    서로 모순될 일이 없다.
+    """
     c = config.get("classification", {})
+    folder_name_lang = (config.get("folder_name_language") or "").strip()
+    folder_locale_value = folder_name_lang or c.get("folder_locale", "canonical")
     return {
         "enable_series_character":         c.get("enable_series_character", True),
         "enable_series_uncategorized":     c.get("enable_series_uncategorized", True),
@@ -101,11 +317,15 @@ def _cls_cfg(config: dict) -> dict:
         "enable_by_tag":                   c.get("enable_by_tag", False),
         "on_conflict":                     c.get("on_conflict", "rename"),
         # 다국어 폴더명
-        "folder_locale":                   c.get("folder_locale", "canonical"),
+        "folder_locale":                   folder_locale_value,
         "fallback_locale":                 c.get("fallback_locale", "canonical"),
         "enable_localized_folder_names":   c.get("enable_localized_folder_names", True),
+        # PR #122: 카테고리 폴더 (ByAuthor / BySeries / ByCharacter / ByTag) 의
+        # 표시 언어. 기본은 folder_locale 와 동일한 값을 따른다.
+        "folder_name_language":            folder_name_lang or c.get("folder_locale", "canonical"),
         # 일괄 분류
         "batch_existing_copy_policy":      c.get("batch_existing_copy_policy", "keep_existing"),
+        "author_only_mode":                c.get("author_only_mode", False),
     }
 
 
@@ -119,6 +339,8 @@ def _build_destinations(
     classified_dir: str,
     cfg: dict,
     conn: Optional[sqlite3.Connection] = None,
+    *,
+    series_only_mode: bool = False,
 ) -> list[dict]:
     """
     그룹·파일 정보를 바탕으로 복사 목적지 목록을 만든다.
@@ -126,7 +348,14 @@ def _build_destinations(
     각 항목: {rule_type, dest_path, conflict, will_copy}
     localization 활성 시 series_canonical, series_display, character_canonical,
     character_display, locale, used_fallback 추가.
+
+    series_only_mode=True 인 경우 (PR #125):
+    - Tier 2 에서 ``/_uncategorized`` 하위 폴더를 붙이지 않고 series 폴더 직접 사용.
+    - series / character 모두 없을 때 by_series root 아래 localized uncategorized
+      폴더로 배치 (rule_type="series_unidentified_fallback").
     """
+    from core.folder_localization import resolve_category_folder, resolve_uncategorized_folder
+
     filename  = Path(source_file["file_path"]).name
     base      = Path(classified_dir)
     dests: list[dict] = []
@@ -138,6 +367,16 @@ def _build_destinations(
         and locale != "canonical"
         and conn is not None
     )
+    # PR #122: 카테고리 폴더명 (ByXxx) 의 표시 언어 — folder_name_language 가
+    # 우선이며, 미설정 시 folder_locale 로 fallback. 알 수 없는 값은 영어로
+    # 안전 fallback 된다 (resolve_category_folder 내부에서 처리).
+    cat_lang = cfg.get("folder_name_language") or locale
+    by_series_label    = resolve_category_folder("by_series",    cat_lang)
+    by_character_label = resolve_category_folder("by_character", cat_lang)
+    by_author_label    = resolve_category_folder("by_author",    cat_lang)
+    by_tag_label       = resolve_category_folder("by_tag",       cat_lang)
+    # PR #125: `_uncategorized` 내부 폴더명 대신 localized label 사용.
+    uncategorized_label = resolve_uncategorized_folder(cat_lang)
 
     def _display(canonical: str, tag_type: str, parent_series: str = "") -> tuple[str, bool]:
         if not use_locale:
@@ -165,7 +404,10 @@ def _build_destinations(
     has_series  = bool(series_tags)
     has_char    = bool(char_tags)
 
-    # Tier 1: BySeries/{series}/{char} — 시리즈 + 캐릭터 모두 있을 때
+    # Tier 1: BySeries/{series}/{char} — 시리즈 + 캐릭터 모두 있을 때.
+    # PR #122: 카테고리 폴더명은 folder_name_language 에 따라 ko/ja/en 으로
+    # 로컬라이즈된 라벨을 사용한다. 내부 rule_type ("series_character" 등) 은
+    # 변경하지 않으므로 DB / consistency report / preview 매칭은 영향 없음.
     if has_series and has_char and cfg["enable_series_character"]:
         for series in series_tags:
             s_display, s_fb = _display(series, "series")
@@ -179,9 +421,13 @@ def _build_destinations(
                     "locale": locale if use_locale else "canonical",
                     "used_fallback": s_fb or c_fb,
                 } if use_locale else {}
-                _add("series_character", base / "BySeries" / s / c, extra)
+                _add("series_character", base / by_series_label / s / c, extra)
 
-    # Tier 2: BySeries/{series}/_uncategorized — 시리즈만 있을 때
+    # Tier 2: BySeries/{series} または BySeries/{series}/{uncategorized}
+    # series_only_mode=True (PR #125): character folder / _uncategorized 없이
+    #   series 폴더 바로 아래에 파일을 배치한다.
+    # series_only_mode=False (기존 series_character 모드):
+    #   시리즈만 있을 때 localized uncategorized 하위 폴더에 배치한다.
     elif has_series and cfg["enable_series_uncategorized"]:
         for series in series_tags:
             s_display, s_fb = _display(series, "series")
@@ -191,7 +437,10 @@ def _build_destinations(
                 "locale": locale if use_locale else "canonical",
                 "used_fallback": s_fb,
             } if use_locale else {}
-            _add("series_uncategorized", base / "BySeries" / s / "_uncategorized", extra)
+            if series_only_mode:
+                _add("series_uncategorized", base / by_series_label / s, extra)
+            else:
+                _add("series_uncategorized", base / by_series_label / s / uncategorized_label, extra)
 
     # Tier 3: ByCharacter/{char} — 캐릭터만 있을 때
     elif has_char and cfg["enable_character_without_series"]:
@@ -203,22 +452,39 @@ def _build_destinations(
                 "locale": locale if use_locale else "canonical",
                 "used_fallback": c_fb,
             } if use_locale else {}
-            _add("character", base / "ByCharacter" / c, extra)
+            _add("character", base / by_character_label / c, extra)
 
-    # Author fallback: 시리즈/캐릭터 모두 없을 때만
-    if not has_series and not has_char and cfg["fallback_by_author"]:
-        artist = (group_row.get("artist_name") or "").strip()
-        _add("author_fallback", base / "ByAuthor" / sanitize_path_component(artist, "_unknown_artist"))
+    # ---------------------------------------------------------------------------
+    # 미식별 fallback 및 author-only 목적지
+    # ---------------------------------------------------------------------------
+    is_author_only = cfg.get("author_only_mode", False)
 
-    # Always-on author: 시리즈/캐릭터 유무와 무관하게 항상 추가
-    if cfg["enable_by_author"]:
+    if is_author_only:
+        # Author-only mode: 시리즈/캐릭터 태그 무관하게 항상 author 폴더로 분류.
         artist = (group_row.get("artist_name") or "").strip()
-        _add("author", base / "ByAuthor" / sanitize_path_component(artist, "_unknown_artist"))
+        if artist:
+            _add("author_only", base / by_author_label / sanitize_path_component(artist, "_unknown_artist"))
+        else:
+            _add("author_unidentified", base / by_author_label / uncategorized_label)
+    elif series_only_mode and not has_series and not dests:
+        # series_only mode 미식별 (UNIDENTIFIED): series root / uncategorized 배치.
+        # (PR #125 기존 동작 유지)
+        _add("series_unidentified_fallback", base / by_series_label / uncategorized_label)
+    elif not series_only_mode and not dests and cfg.get("fallback_by_author", True):
+        # series_character mode 미식별: series root / uncategorized 배치.
+        # author_fallback 정책 제거 — 명시적 author_only 모드에서만 author 폴더 사용.
+        # series_only CONFLICT/AMBIGUOUS 케이스는 fallback_by_author=False 로 게이트됨.
+        _add("series_unidentified_fallback", base / by_series_label / uncategorized_label)
+
+    # Always-on author: 시리즈/캐릭터 유무와 무관하게 항상 추가 (enable_by_author=True 시)
+    if cfg["enable_by_author"] and not is_author_only:
+        artist = (group_row.get("artist_name") or "").strip()
+        _add("author", base / by_author_label / sanitize_path_component(artist, "_unknown_artist"))
 
     # ByTag (기본 비활성)
     if cfg["enable_by_tag"]:
         for tag in _parse_json_list(group_row.get("tags_json")):
-            _add("by_tag", base / "ByTag" / sanitize_path_component(tag))
+            _add("by_tag", base / by_tag_label / sanitize_path_component(tag))
 
     # 같은 경로가 중복 생성된 경우 dedupe (먼저 등장한 항목 유지)
     seen_paths: set[str] = set()
@@ -304,7 +570,108 @@ def build_classify_preview(
         return None
 
     cfg   = _cls_cfg(config)
-    dests = _build_destinations(dict(group), source, classified_dir, cfg, conn=conn)
+
+    # series-only mode 전용 destination resolver — explicit series 와
+    # character.parent_series 의 관계로 destination / needs_review 를 결정한다.
+    # PR #125: series_only 모드에서 _uncategorized 재사용을 중단하고 순수 시리즈
+    # 폴더로 배치한다. series_only_mode 플래그를 _build_destinations 에 전달해
+    # Tier 2 경로에서 하위 폴더를 붙이지 않도록 한다.
+    _series_only_mode = is_series_only_mode(cfg)
+    # needs_review 케이스에서는 series_unidentified_fallback 도 발동하지 않도록
+    # _build_destinations 에 전달하는 플래그를 별도 관리한다.
+    _build_series_only_mode = _series_only_mode
+    series_only_review: dict | None = None
+    series_only_rule: str = ""
+    group_dict_for_build = dict(group)
+
+    # PR #128: raw_tags_json / tags_json / series_tags_json / character_tags_json 를
+    # 병합한 classification source.  저장 구조 변경 없이 preview / classifier input
+    # 에서만 사용한다.
+    _source_tags = collect_classification_source_tags(group_dict_for_build)
+
+    if _series_only_mode:
+        # series-only: merged source を _resolve_series_only_inputs() に渡す.
+        # group_dict_for_build["series_tags_json"] は上書きしない — resolver が
+        # explicit vs inferred series の distinction を内部で保持するため.
+        # db_series augmentation は元の DB 값을 사용 (上書き前).
+        raw_tags_for_resolver = _source_tags  # PR #128: merged source 사용
+        explicit_series, parent_series_map = _resolve_series_only_inputs(
+            raw_tags_for_resolver, conn
+        )
+        # 기존 DB 의 series_tags_json 도 보조 source 로 사용 — Pixiv API 가
+        # 명시한 series 가 raw_tags 에 없는 edge case 를 보완한다.
+        db_series = _parse_json_list(group_dict_for_build.get("series_tags_json"))
+        explicit_series = list(dict.fromkeys([*explicit_series, *db_series]))
+        # _resolve_series_only_inputs 가 inferred series 를 이미 explicit
+        # 목록에서 제외해서 반환하므로 추가 후처리는 불필요.
+
+        resolver = resolve_series_only_destination(
+            explicit_series,
+            parent_series_map,
+            allow_multi_destination=bool(
+                config.get("classification", {}).get(
+                    "allow_multi_destination", True,
+                )
+            ),
+        )
+        if resolver["status"] == "ready":
+            series_only_rule = resolver["rule"]
+            # group dict 의 series_tags_json 을 resolver 결과로 override —
+            # _build_destinations 의 Tier 2 가 이 값을 기반으로 dest 를 만든다.
+            group_dict_for_build["series_tags_json"] = json.dumps(
+                resolver["series"], ensure_ascii=False
+            )
+        else:
+            series_only_review = resolver
+            group_dict_for_build["series_tags_json"] = "[]"
+            group_dict_for_build["character_tags_json"] = "[]"
+            cfg = dict(cfg)
+            cfg["fallback_by_author"] = False
+            # conflict/ambiguous 케이스에서는 series_unidentified_fallback 도 차단한다.
+            # series_unidentified (완전 미식별) 는 _build_destinations 내 fallback 에 위임.
+            if resolver.get("reason") != SERIES_ONLY_REASON_UNIDENTIFIED:
+                _build_series_only_mode = False
+
+    else:
+        # PR #128: non-series-only 모드 — merged source 기반으로 재분류해
+        # _build_destinations 에 전달할 series/character 를 갱신한다.
+        # series-only 모드는 resolver 가 내부에서 처리하므로 이 블록 제외.
+        if _source_tags:
+            try:
+                from core.tag_classifier import classify_pixiv_tags as _cls_fn
+                _result = _cls_fn(_source_tags, conn=conn)
+                _existing_series = _parse_json_list(group_dict_for_build.get("series_tags_json"))
+                _existing_chars  = _parse_json_list(group_dict_for_build.get("character_tags_json"))
+                _new_series = _result.get("series_tags", [])
+                _new_chars  = _result.get("character_tags", [])
+                # Series: use canonical-normalised result (resolves aliases like
+                # ブルーアーカイブ → Blue Archive). Fall back to existing only
+                # when classifier found nothing from the merged source.
+                group_dict_for_build["series_tags_json"] = json.dumps(
+                    _new_series if _new_series else _existing_series,
+                    ensure_ascii=False,
+                )
+                # Characters: union of new + existing.  The classifier may not
+                # recognise tags that are only in tag_localizations (not in
+                # tag_aliases), so we preserve existing chars even when the
+                # classifier returns an empty list.
+                group_dict_for_build["character_tags_json"] = json.dumps(
+                    list(dict.fromkeys([*_new_chars, *_existing_chars])),
+                    ensure_ascii=False,
+                )
+            except Exception:
+                pass  # DB 값 유지 — 분류 실패해도 preview 흐름이 끊기지 않도록
+
+    dests = _build_destinations(
+        group_dict_for_build, source, classified_dir, cfg, conn=conn,
+        series_only_mode=_build_series_only_mode,
+    )
+
+    # series-only ready 케이스: 각 destination 에 resolver rule 메타를 부착해
+    # UI 가 시리즈 태그 / 캐릭터 소속 / 복수 소속 를 구분할 수 있게 한다.
+    if series_only_rule:
+        for d in dests:
+            d["series_only_rule"] = series_only_rule
 
     on_conflict = cfg["on_conflict"]
     for d in dests:
@@ -341,25 +708,62 @@ def build_classify_preview(
     fallback_tags = list(_fb_set)
 
     # 분류 실패 원인 분석 및 inferred series evidence 검출
-    group_dict = dict(group)
-    series_tags_list = _parse_json_list(group_dict.get("series_tags_json"))
-    char_tags_list   = _parse_json_list(group_dict.get("character_tags_json"))
-    raw_tags_list    = _parse_json_list(group_dict.get("tags_json"))
+    # PR #128: merged source 기반으로 series/char 판정 — group_dict_for_build 에
+    # 이미 재분류 결과가 반영되어 있으므로 DB 원본 group 대신 이를 사용한다.
+    series_tags_list = _parse_json_list(group_dict_for_build.get("series_tags_json"))
+    char_tags_list   = _parse_json_list(group_dict_for_build.get("character_tags_json"))
+    raw_tags_list    = _source_tags  # merged source (used for candidate_source display)
+    # For inferred_series_evidence: use only raw/unclassified input (raw_tags_json +
+    # tags_json), NOT series_tags_json/character_tags_json — otherwise the series is
+    # always directly matched and the inferred_from_character signal is lost.
+    _raw_input_tags = []
+    for _f in ("raw_tags_json", "tags_json"):
+        _raw_input_tags.extend(_parse_json_list(group_dict_for_build.get(_f)))
     classification_info: dict | None = None
 
     # character alias로부터 역추론된 series evidence 검출
     inferred_series_evidence: list[dict] = []
-    if series_tags_list and raw_tags_list:
+    if series_tags_list and _raw_input_tags:
         try:
             from core.tag_classifier import classify_pixiv_tags
-            reclassify_ev = classify_pixiv_tags(raw_tags_list, conn=conn)
+            reclassify_ev = classify_pixiv_tags(_raw_input_tags, conn=conn)
             for ev in reclassify_ev.get("evidence", {}).get("series", []):
                 if ev.get("source") == "inferred_from_character":
                     inferred_series_evidence.append(ev)
         except Exception:
             pass
 
-    if series_tags_list and not char_tags_list:
+    if series_only_review is not None:
+        # series-only resolver 가 needs_review 를 반환한 케이스 — 새 reason
+        # 코드를 classification_info 로 노출한다. raw_tags 는 후보 보조용.
+        try:
+            from core.tag_candidate_generator import GENERAL_TAG_BLACKLIST
+        except Exception:
+            GENERAL_TAG_BLACKLIST = frozenset()
+        candidate_source = [
+            t for t in raw_tags_list if t not in GENERAL_TAG_BLACKLIST
+        ][:10]
+        reason = series_only_review.get("reason", "")
+        suggestion_map = {
+            SERIES_ONLY_REASON_PARENT_CONFLICT:
+                "명시 시리즈와 캐릭터 소속 시리즈가 다릅니다. "
+                "잘못된 alias 를 정리하거나 분류 기준을 확인하세요.",
+            SERIES_ONLY_REASON_MULTI_REQ_CONFIRM:
+                "캐릭터 소속 시리즈가 여러 개입니다. "
+                "여러 폴더 분류를 허용하거나 캐릭터 alias 를 정리하세요.",
+            SERIES_ONLY_REASON_UNIDENTIFIED:
+                "시리즈 / 캐릭터 alias 후보를 확인해 시리즈를 식별하세요.",
+        }
+        classification_info = {
+            "classification_reason": reason,
+            "missing_parts":         ["series"],
+            "series_context":        "",
+            "candidate_source_tags": candidate_source,
+            "suggested_action":      suggestion_map.get(reason, ""),
+            "series":                series_only_review.get("series", []),
+            "parent_series":         series_only_review.get("parent_series", []),
+        }
+    elif series_tags_list and not char_tags_list:
         # series_uncategorized: series는 감지됐지만 character가 없음
         try:
             from core.tag_candidate_generator import GENERAL_TAG_BLACKLIST
@@ -493,61 +897,128 @@ def execute_classify_preview(
             skipped += 1
             continue
 
-        dest_path, conflict = resolve_copy_destination(
-            Path(dest_info["dest_path"]), on_conflict
-        )
+        intended_dest = Path(dest_info["dest_path"])
 
-        if conflict == "skipped":
-            skipped += 1
-            continue
+        # --- DB 중복 체크: classified_copy record만 확인 ---
+        existing_db = conn.execute(
+            "SELECT file_id, group_id, source_file_id "
+            "FROM artwork_files WHERE file_path = ? AND file_role = 'classified_copy'",
+            (str(intended_dest),),
+        ).fetchone()
 
-        dest_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, str(dest_path))
+        stale_file_id: str | None = None  # same-group stale row → UPDATE 재사용
 
-        file_size = dest_path.stat().st_size
-        mtime_iso = datetime.fromtimestamp(
-            dest_path.stat().st_mtime, tz=timezone.utc
-        ).isoformat()
-        file_hash = _sha256(str(dest_path))
+        if existing_db is not None:
+            same_group  = existing_db["group_id"]      == preview["group_id"]
+            same_source = existing_db["source_file_id"] == preview.get("source_file_id")
+            if same_group and same_source:
+                if intended_dest.exists():
+                    # 같은 source/group, 물리 파일도 있음 → idempotent skip
+                    skipped += 1
+                    continue
+                # 물리 파일 없음 (stale row) → 복사 후 기존 row UPDATE
+                stale_file_id = existing_db["file_id"]
+            else:
+                if intended_dest.exists():
+                    raise ValueError(
+                        f"destination already registered for another group: {intended_dest}"
+                    )
+                # 다른 그룹의 stale row (물리 파일 없음) → 삭제 후 새 INSERT로 처리
+                conn.execute(
+                    "DELETE FROM artwork_files WHERE file_id = ?",
+                    (existing_db["file_id"],),
+                )
+
+        # --- 물리적 파일 존재 처리 ---
+        need_copy = True
+        if intended_dest.exists():
+            # DB record는 없지만 물리 파일이 있음 (이전 run에서 DB 기록 실패 등)
+            src_hash_check = _sha256(source_path)
+            dest_hash_check = _sha256(str(intended_dest))
+            if src_hash_check == dest_hash_check:
+                # 동일 파일 → 복사 생략, DB record만 생성
+                need_copy = False
+                dest_path = intended_dest
+                file_size = intended_dest.stat().st_size
+                mtime_iso = datetime.fromtimestamp(
+                    intended_dest.stat().st_mtime, tz=timezone.utc
+                ).isoformat()
+                file_hash = dest_hash_check
+            else:
+                # 다른 내용의 파일 → on_conflict 정책 적용
+                dest_path, conflict = resolve_copy_destination(intended_dest, on_conflict)
+                if conflict == "skipped":
+                    skipped += 1
+                    continue
+        else:
+            dest_path = intended_dest
+
+        if need_copy:
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, str(dest_path))
+            file_size = dest_path.stat().st_size
+            mtime_iso = datetime.fromtimestamp(
+                dest_path.stat().st_mtime, tz=timezone.utc
+            ).isoformat()
+            file_hash = _sha256(str(dest_path))
 
         ext = dest_path.suffix.lower().lstrip(".")
-        copy_file_id = str(uuid.uuid4())
 
-        conn.execute(
-            """INSERT INTO artwork_files
-               (file_id, group_id, page_index, file_role, file_path,
-                file_format, file_hash, file_size, metadata_embedded,
-                file_status, created_at, source_file_id, classify_rule_id)
-               VALUES (?, ?, 0, 'classified_copy', ?, ?, ?, ?,
-                       ?, 'present', ?, ?, ?)""",
-            (
-                copy_file_id, preview["group_id"],
-                str(dest_path), ext, file_hash, file_size,
-                src_metadata_embedded,
-                now, preview["source_file_id"],
-                dest_info.get("rule_type", "builtin"),
-            ),
-        )
+        if stale_file_id is not None:
+            # 같은 group/source의 stale row를 새 복사 정보로 UPDATE (UNIQUE 충돌 없이 재사용)
+            copy_file_id = stale_file_id
+            conn.execute(
+                """UPDATE artwork_files
+                   SET file_format = ?, file_hash = ?, file_size = ?,
+                       metadata_embedded = ?, file_status = 'present',
+                       created_at = ?, source_file_id = ?, classify_rule_id = ?
+                   WHERE file_id = ?""",
+                (
+                    ext, file_hash, file_size,
+                    src_metadata_embedded,
+                    now, preview["source_file_id"],
+                    dest_info.get("rule_type", "builtin"),
+                    stale_file_id,
+                ),
+            )
+        else:
+            copy_file_id = str(uuid.uuid4())
+            conn.execute(
+                """INSERT INTO artwork_files
+                   (file_id, group_id, page_index, file_role, file_path,
+                    file_format, file_hash, file_size, metadata_embedded,
+                    file_status, created_at, source_file_id, classify_rule_id)
+                   VALUES (?, ?, 0, 'classified_copy', ?, ?, ?, ?,
+                           ?, 'present', ?, ?, ?)""",
+                (
+                    copy_file_id, preview["group_id"],
+                    str(dest_path), ext, file_hash, file_size,
+                    src_metadata_embedded,
+                    now, preview["source_file_id"],
+                    dest_info.get("rule_type", "builtin"),
+                ),
+            )
 
-        conn.execute(
-            """INSERT INTO copy_records
-               (entry_id, src_file_id, dest_file_id, src_path, dest_path,
-                rule_id, dest_file_size, dest_mtime_at_copy,
-                dest_hash_at_copy, copied_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                entry_id,
-                preview["source_file_id"],
-                copy_file_id,
-                source_path,
-                str(dest_path),
-                dest_info.get("rule_type", "builtin"),
-                file_size,
-                mtime_iso,
-                file_hash,
-                now,
-            ),
-        )
+        if need_copy:
+            conn.execute(
+                """INSERT INTO copy_records
+                   (entry_id, src_file_id, dest_file_id, src_path, dest_path,
+                    rule_id, dest_file_size, dest_mtime_at_copy,
+                    dest_hash_at_copy, copied_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    entry_id,
+                    preview["source_file_id"],
+                    copy_file_id,
+                    source_path,
+                    str(dest_path),
+                    dest_info.get("rule_type", "builtin"),
+                    file_size,
+                    mtime_iso,
+                    file_hash,
+                    now,
+                ),
+            )
 
         copied += 1
         copy_log.append(str(dest_path))
@@ -562,10 +1033,20 @@ def execute_classify_preview(
     if _commit:
         conn.commit()
 
+    if skipped > 0 and copied == 0:
+        status = "skipped"
+        message = "already classified output exists"
+    else:
+        status = "ok"
+        message = ""
+
     return {
         "success":  True,
+        "status":   status,
         "copied":   copied,
         "skipped":  skipped,
+        "message":  message,
+        "error":    None,
         "entry_id": entry_id,
         "copy_log": copy_log,
         "group_id": preview["group_id"],

@@ -83,20 +83,40 @@ def test_misnamed_webp_disables_xp_and_image_description(tmp_path: Path):
     mock_run.assert_not_called()
 
 
-def test_existing_file_success_path_writes_no_xp_args_in_exiftool_call(tmp_path: Path):
+def test_existing_file_success_path_writes_xmp_and_xp_in_single_exiftool_call(tmp_path: Path):
     file_path = tmp_path / "real.jpg"
     file_path.write_bytes(b"\xff\xd8\xff\xd9")
     mock_result = MagicMock(returncode=0)
     with (
         patch("core.exiftool.validate_exiftool_path", return_value=True),
         patch("core.metadata_writer.subprocess.run", return_value=mock_result) as mock_run,
-        patch("core.metadata_writer._write_windows_exif_fields_best_effort") as mock_xp,
     ):
         assert write_xmp_metadata_with_exiftool(str(file_path), SAMPLE_META, "/usr/bin/exiftool") is True
     args_list = mock_run.call_args[0][0]
-    assert not any("XPTitle" in a for a in args_list)
-    assert not any("XPKeywords" in a for a in args_list)
-    mock_xp.assert_called_once()
+    assert any("XPTitle" in a for a in args_list)
+    assert any("XPKeywords" in a for a in args_list)
+    assert any("XMP:MetadataDate" in a for a in args_list)
+    assert mock_run.call_count == 1
+
+
+def test_clear_first_includes_xp_clear_and_set_in_same_exiftool_call(tmp_path: Path):
+    file_path = tmp_path / "clear-first.jpg"
+    file_path.write_bytes(b"\xff\xd8\xff\xd9")
+    mock_result = MagicMock(returncode=0)
+    with (
+        patch("core.exiftool.validate_exiftool_path", return_value=True),
+        patch("core.metadata_writer.subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        assert write_xmp_metadata_with_exiftool(
+            str(file_path),
+            SAMPLE_META,
+            "/usr/bin/exiftool",
+            clear_windows_xp_fields_before_write=True,
+        ) is True
+    args_list = mock_run.call_args[0][0]
+    clear_idx = args_list.index("-EXIF:XPTitle=")
+    set_idx = next(i for i, arg in enumerate(args_list) if "XPTitle=" in arg and arg != "-EXIF:XPTitle=")
+    assert clear_idx < set_idx
 
 
 def test_nonzero_returncode_raises_xmp_write_error():

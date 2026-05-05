@@ -117,5 +117,5 @@ def test_main_window_has_work_log_button(qt_app, tmp_path):
         "db": {"path": str(tmp_path / "aru.db")},
     }
     win = MainWindow(cfg, config_path=str(tmp_path / "cfg.json"))
-    assert win._btn_work_log.isEnabled()
+    assert win._act_work_log.isEnabled()
     win.close()

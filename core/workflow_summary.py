@@ -212,7 +212,7 @@ def compute_preview_risk_level(batch_summary: dict) -> str:
     """
     total       = batch_summary.get("total_groups", 0)
     failures    = batch_summary.get("excluded_count", 0)
-    fallbacks   = batch_summary.get("author_fallback_count", 0)
+    fallbacks   = batch_summary.get("series_unidentified_count") or batch_summary.get("author_fallback_count", 0)
     conflicts   = batch_summary.get("conflict_count", 0)
 
     if total == 0:

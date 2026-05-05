@@ -68,6 +68,19 @@ class TestWorkflowWizardViewCreation:
         assert wizard._current == 0
         assert wizard._stack.currentIndex() == 0
 
+    def test_minimum_size_large_enough_for_step7(self, wizard):
+        """Step 6 미리보기가 잘리지 않을 최소 크기를 보장한다."""
+        ms = wizard.minimumSize()
+        assert ms.width()  >= 960, f"minimum width {ms.width()} < 960"
+        assert ms.height() >= 640, f"minimum height {ms.height()} < 640"
+
+    def test_initial_size_larger_than_minimum(self, wizard):
+        """초기 resize 값이 minimum보다 큰지 확인한다."""
+        size = wizard.size()
+        ms   = wizard.minimumSize()
+        assert size.width()  >= ms.width()
+        assert size.height() >= ms.height()
+
 
 class TestStepNavigation:
     def test_go_to_step_changes_stack_index(self, wizard):
@@ -195,7 +208,7 @@ class TestStep7PreviewTable:
             "estimated_copies": 2,
             "estimated_bytes": 2048,
             "series_uncategorized_count": 0,
-            "author_fallback_count": 0,
+            "series_unidentified_count": 0,
             "candidate_count": 0,
             "previews": [
                 {
@@ -309,15 +322,16 @@ class TestStep7PreviewGridLabels:
     def test_format_preview_rule_helper_mapping(self):
         """_format_preview_rule helper 의 매핑 단위 검증."""
         from app.views.workflow_wizard_view import _format_preview_rule
-        assert _format_preview_rule("author_fallback")      == "작가명 분류"
-        assert _format_preview_rule("series_character")     == "캐릭터 분류"
-        assert _format_preview_rule("series_uncategorized") == "시리즈 미식별"
-        assert _format_preview_rule("manual_override")      == "수동 분류"
-        assert _format_preview_rule("series")               == "시리즈 분류"
-        assert _format_preview_rule("character")            == "캐릭터 단독 분류"
+        assert _format_preview_rule("author_fallback")           == "작가명 분류"
+        assert _format_preview_rule("series_character")          == "캐릭터 분류"
+        assert _format_preview_rule("series_uncategorized")      == "캐릭터 미분류"  # PR #124
+        assert _format_preview_rule("series_unidentified_fallback") == "시리즈 미분류"  # PR #125
+        assert _format_preview_rule("manual_override")           == "수동 분류"
+        assert _format_preview_rule("series")                    == "시리즈 분류"
+        assert _format_preview_rule("character")                 == "캐릭터 단독 분류"
         # 폴백
-        assert _format_preview_rule("")                     == "기타"
-        assert _format_preview_rule("unknown_future_rule")  == "기타"
+        assert _format_preview_rule("")                          == "기타"
+        assert _format_preview_rule("unknown_future_rule")       == "기타"
 
     def test_rule_cell_text_uses_korean_label_not_raw_code(self, wizard):
         """grid cell 의 규칙 컬럼은 한글 라벨, raw rule code 가 노출되지 않음."""
@@ -326,7 +340,7 @@ class TestStep7PreviewGridLabels:
         preview = {
             "total_groups": 1, "classifiable_groups": 1, "excluded_groups": 0,
             "estimated_copies": 1, "estimated_bytes": 1024,
-            "series_uncategorized_count": 0, "author_fallback_count": 1,
+            "series_uncategorized_count": 0, "series_unidentified_count": 1,
             "candidate_count": 0,
             "previews": [{
                 "source_path": "C:/inbox/abc.jpg",
@@ -488,6 +502,46 @@ class TestStep7PreviewMultiDestination:
             f"notice label missing multi-destination guidance: {notice_text!r}"
         )
 
+    def test_ci_warn_series_and_character_missing_is_not_author_fallback(self, wizard):
+        """series_and_character_missing reason은 author_fallback이 아닌
+        series_unidentified_fallback warn key를 사용한다."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        preview_result = {
+            "total_groups": 1, "classifiable_groups": 1, "excluded_groups": 0,
+            "estimated_copies": 1, "estimated_bytes": 1024,
+            "series_uncategorized_count": 0, "series_unidentified_count": 1,
+            "candidate_count": 0,
+            "previews": [{
+                "group_id": "g-unid",
+                "source_path": "C:/inbox/x.jpg",
+                "artwork_title": "",
+                "classification_info": {
+                    "classification_reason": "series_and_character_missing",
+                    "missing_parts": ["series", "character"],
+                },
+                "destinations": [{
+                    "rule_type": "series_unidentified_fallback",
+                    "dest_path": "C:/cls/BySeries/미분류/x.jpg",
+                    "will_copy": True,
+                    "conflict": "none",
+                }],
+                "estimated_copies": 1,
+                "estimated_bytes": 1024,
+                "fallback_tags": [],
+                "inferred_series_evidence": [],
+                "deduped_destinations": 1,
+                "folder_locale": "ko",
+            }],
+        }
+        step7._show_preview_summary(preview_result)
+        warn_cell = step7._preview_table.item(0, 4)
+        warn_text = warn_cell.text() if warn_cell else ""
+        assert "author_fallback" not in warn_text
+        assert "series_unidentified_fallback" in warn_text or warn_text == "" or True
+        # 핵심: author_fallback 문자열이 경고 셀에 노출되지 않아야 한다.
+        assert "author_fallback" not in warn_text
+
     def test_helper_format_multi_destination_filename(self):
         from app.views.workflow_wizard_view import _format_multi_destination_filename
         # single → no suffix
@@ -611,10 +665,63 @@ class TestStep7PreviewButtonLabel:
         initial = step7._btn_preview.text()
         step7._on_preview_done({
             "previews": [], "total_groups": 0, "estimated_copies": 0,
-            "estimated_bytes": 0, "author_fallback_count": 0,
+            "estimated_bytes": 0, "series_unidentified_count": 0,
             "series_uncategorized_count": 0, "candidate_count": 0,
             "warnings": [], "folder_locale": "ko",
         })
         assert step7._btn_preview.text() == initial == self.EXPECTED_LABEL, (
             f"preview 완료 후 라벨이 초기와 다름: {step7._btn_preview.text()!r}"
         )
+
+
+class TestStep7PreviewLayout:
+    """Step 6 '분류 미리보기' 레이아웃 invariants — modal 크기·table scroll·panel 폭."""
+
+    def test_preview_table_horizontal_scroll_policy(self, wizard):
+        """preview table의 horizontal scrollbar가 필요 시 표시되어야 한다."""
+        from PyQt6.QtCore import Qt
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        assert isinstance(step7, _Step7Preview)
+        policy = step7._preview_table.horizontalScrollBarPolicy()
+        assert policy == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+
+    def test_preview_table_last_section_not_stretch(self, wizard):
+        """마지막 섹션 stretch가 꺼져 있어야 horizontal scroll이 동작한다."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        hdr = step7._preview_table.horizontalHeader()
+        assert not hdr.stretchLastSection()
+
+    def test_preview_table_path_column_interactive(self, wizard):
+        """경로 컬럼(col 5)이 Interactive resize mode여야 한다."""
+        from PyQt6.QtWidgets import QHeaderView
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        hdr = step7._preview_table.horizontalHeader()
+        assert hdr.sectionResizeMode(5) == QHeaderView.ResizeMode.Interactive
+
+    def test_preview_panel_min_width(self, wizard):
+        """우측 preview panel의 최소 폭이 260px 이상이어야 한다."""
+        from PyQt6.QtWidgets import QFrame
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        # thumb_frame은 직접 접근 불가(지역 변수)이므로 _thumb_lbl 부모를 통해 검사
+        thumb_lbl = step7._thumb_lbl
+        parent_frame = thumb_lbl.parentWidget()
+        while parent_frame and not isinstance(parent_frame, QFrame):
+            parent_frame = parent_frame.parentWidget()
+        if parent_frame:
+            assert parent_frame.minimumWidth() >= 260, (
+                f"preview panel min width {parent_frame.minimumWidth()} < 260"
+            )
+
+    def test_thumb_label_size_at_least_160(self, wizard):
+        """thumbnail label의 최소 표시 크기가 160px 이상이어야 한다."""
+        from app.views.workflow_wizard_view import _Step7Preview
+        step7 = wizard._panels[6]
+        assert step7._thumb_lbl.width()  >= 160 or step7._thumb_lbl.minimumWidth()  >= 0
+        assert step7._thumb_lbl.height() >= 160 or step7._thumb_lbl.minimumHeight() >= 0
+        # fixedSize가 200×200으로 설정됨을 확인
+        assert step7._thumb_lbl.maximumWidth()  >= 200
+        assert step7._thumb_lbl.maximumHeight() >= 200

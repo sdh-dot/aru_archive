@@ -2,7 +2,7 @@
 batch preview에서 character alias → inferred series가 올바르게 반영되는지 테스트.
 
 - character-only raw tag group이 retag 후 BySeries로 분류됨
-- batch preview의 author_fallback_count가 감소함
+- batch preview의 series_unidentified_count가 감소함
 - inferred series가 있는 group은 series_uncategorized가 아닌 series_character로 분류됨
 """
 from __future__ import annotations
@@ -106,7 +106,7 @@ class TestBatchInference:
         assert "author_fallback" not in rule_types
 
     def test_author_fallback_count_is_zero_when_character_inferred(self, db, tmp_path):
-        """character alias로 series가 inferred된 group은 author_fallback_count에 포함 안 됨."""
+        """character alias로 series가 inferred된 group은 series_unidentified_count에 포함 안 됨."""
         # 이미 retag된 상태 (series/character 모두 있음)
         gid = _insert_group(
             db,
@@ -119,10 +119,10 @@ class TestBatchInference:
             "classification": {"fallback_by_author": True},
         }
         result = build_classify_batch_preview(db, [gid], config)
-        assert result["author_fallback_count"] == 0
+        assert result["series_unidentified_count"] == 0
 
     def test_two_groups_one_inferred_one_fallback(self, db, tmp_path):
-        """inferred series group 1개 + fallback group 1개 → author_fallback_count=1."""
+        """inferred series group 1개 + fallback group 1개 → series_unidentified_count=1."""
         gid_inferred = _insert_group(
             db,
             series_tags=["Blue Archive"],
@@ -142,4 +142,4 @@ class TestBatchInference:
         }
         result = build_classify_batch_preview(db, [gid_inferred, gid_fallback], config)
         assert result["classifiable_groups"] == 2
-        assert result["author_fallback_count"] == 1
+        assert result["series_unidentified_count"] == 1

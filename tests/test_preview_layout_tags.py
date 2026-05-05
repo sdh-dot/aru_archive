@@ -142,9 +142,10 @@ class TestTableMinimumWidthAdjusted:
         # 7 column 구조는 변경하지 않는다 (PR 안전 invariant).
         assert step7._preview_table.columnCount() == 7
 
-    def test_stretch_column_unchanged(self, step7):
+    def test_path_column_is_interactive(self, step7):
+        """경로 컬럼(col 5)은 Interactive mode — horizontal scroll을 위해 Stretch 금지."""
         hdr = step7._preview_table.horizontalHeader()
-        assert hdr.sectionResizeMode(5) == QHeaderView.ResizeMode.Stretch
+        assert hdr.sectionResizeMode(5) == QHeaderView.ResizeMode.Interactive
 
 
 # ---------------------------------------------------------------------------

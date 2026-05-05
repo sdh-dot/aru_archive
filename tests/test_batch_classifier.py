@@ -87,6 +87,23 @@ CREATE TABLE tag_localizations (
     updated_at      TEXT,
     UNIQUE(canonical, tag_type, parent_series, locale)
 );
+CREATE TABLE IF NOT EXISTS tag_candidates (
+    candidate_id            TEXT PRIMARY KEY,
+    raw_tag                 TEXT NOT NULL,
+    translated_tag          TEXT,
+    suggested_canonical     TEXT,
+    suggested_type          TEXT NOT NULL,
+    suggested_parent_series TEXT NOT NULL DEFAULT '',
+    media_type              TEXT,
+    confidence_score        REAL NOT NULL DEFAULT 0,
+    evidence_count          INTEGER NOT NULL DEFAULT 1,
+    source                  TEXT NOT NULL,
+    evidence_json           TEXT,
+    status                  TEXT NOT NULL DEFAULT 'pending',
+    created_at              TEXT NOT NULL,
+    updated_at              TEXT,
+    UNIQUE (raw_tag, suggested_type, suggested_parent_series)
+);
 """
 
 

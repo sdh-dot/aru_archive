@@ -366,12 +366,20 @@ class DetailView(QWidget):
             lbl.setToolTip(tooltip if tooltip else "")
 
     def _update_tags_section(self, group: dict) -> None:
+        raw_json = group.get("raw_tags_json")
+        if raw_json:
+            try:
+                tags = json.loads(raw_json)
+                self._tags_edit.setPlainText(", ".join(tags) if tags else "(없음)")
+                return
+            except Exception:
+                pass
         tags: list[str] = []
         for key in ("tags_json", "character_tags_json", "series_tags_json"):
-            raw = group.get(key)
-            if raw:
+            val = group.get(key)
+            if val:
                 try:
-                    tags.extend(json.loads(raw))
+                    tags.extend(json.loads(val))
                 except Exception:
                     pass
         self._tags_edit.setPlainText(", ".join(tags) if tags else "(없음)")

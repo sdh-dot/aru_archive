@@ -147,18 +147,13 @@ class TestTimingDisabled:
 
 
 # ---------------------------------------------------------------------------
-# Test 2 — env 활성화: timings dict + 9 stage + total
+# Test 2 — env 활성화: timings dict + phase 키 + total
 # ---------------------------------------------------------------------------
 
+# Phase 1/2 분리 후 wrapper는 fetch_store / metadata_write / total 3개 키를 반환한다.
 _EXPECTED_STAGES = (
-    "db_lookup",
-    "parse_filename",
-    "pixiv_fetch",
-    "to_aru_meta",
-    "write_aru",
-    "write_xmp",
-    "db_update",
-    "tag_observe_candidate",
+    "fetch_store",
+    "metadata_write",
     "total",
 )
 
@@ -171,7 +166,7 @@ class TestTimingEnabled:
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """ARU_ENRICH_TIMING=1 시 timings dict + 9 stage 키 + 0 이상 값 + 로그 출력."""
+        """ARU_ENRICH_TIMING=1 시 timings dict + phase 키 3개 + 0 이상 값 + 로그 출력."""
         monkeypatch.setenv("ARU_ENRICH_TIMING", "1")
 
         img = _make_jpeg(tmp_path / "98765432_p0.jpg")
@@ -192,7 +187,7 @@ class TestTimingEnabled:
             result = enrich_file_from_pixiv(db, fid, adapter=adapter)
 
         assert result["status"] == "success"
-        # timings dict + 9 stage 키 모두 존재 + 값 ≥ 0
+        # timings dict + phase 키 3개 모두 존재 + 값 ≥ 0
         timings = result.get("timings")
         assert isinstance(timings, dict) and timings, (
             "timing 활성인데 timings 키가 부재 또는 빈 dict"
@@ -223,11 +218,8 @@ class TestTimingEnabled:
             f"enrich_timing 로그에 절대 경로가 노출됨: parent={parent_str!r} msg={msg!r}"
         )
 
-        # 9 stage가 키-값 형태로 메시지에 포함되어 있는지 (느슨한 검증)
-        for stage_label in (
-            "db_lookup=", "parse=", "fetch=", "aru_meta=",
-            "write_aru=", "write_xmp=", "db_update=", "tag_post=", "total=",
-        ):
+        # Phase 1/2 분리 후 3개 stage 라벨 (느슨한 검증)
+        for stage_label in ("fetch_store=", "metadata_write=", "total="):
             assert stage_label in msg, (
                 f"로그 메시지에 stage 라벨 부재: {stage_label!r} msg={msg!r}"
             )

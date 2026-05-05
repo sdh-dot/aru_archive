@@ -199,7 +199,7 @@ def test_apply_override_dest_contains_series_and_character(conn):
 
     assert result["destinations"]
     dest_path = result["destinations"][0]["dest_path"]
-    assert "BySeries" in dest_path
+    assert "Series" in dest_path
     assert "Blue Archive" in dest_path
     assert "伊落マリー" in dest_path
 
@@ -214,7 +214,7 @@ def test_apply_override_series_only_goes_to_uncategorized(conn):
     result = apply_override_to_preview_item(conn, preview, override, config={"classified_dir": "/Classified"})
 
     dest_path = result["destinations"][0]["dest_path"]
-    assert "_uncategorized" in dest_path
+    assert "Uncategorized" in dest_path
     assert "Blue Archive" in dest_path
 
 
