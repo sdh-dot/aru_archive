@@ -67,10 +67,19 @@ def _is_timing_enabled(config: Optional[dict] = None) -> bool:
     return False
 
 
+def _stats_inc(stats: Optional[dict], key: str, amount: int = 1) -> None:
+    """Best-effort in-memory counter for analysis-only instrumentation."""
+    if stats is None:
+        return
+    stats[key] = int(stats.get(key, 0) or 0) + amount
+
+
 def fetch_and_store_pixiv_metadata(
     conn: sqlite3.Connection,
     file_id: str,
     adapter=None,
+    *,
+    _stats: Optional[dict] = None,
 ) -> dict:
     """Phase 1: Pixiv API 조회 + DB 저장. 파일 write 없음.
 
@@ -143,7 +152,7 @@ def fetch_and_store_pixiv_metadata(
         raw = adapter.fetch_metadata(artwork_id)
     except PixivRestrictedError as exc:
         if previous_status != "full":
-            _set_sync_status(conn, group_id, "metadata_write_failed")
+            _set_sync_status(conn, group_id, "metadata_write_failed", _stats=_stats)
         sync_s = None if previous_status == "full" else "metadata_write_failed"
         return {
             "status": "error", "phase": "fetch_store",
@@ -152,7 +161,7 @@ def fetch_and_store_pixiv_metadata(
         }
     except PixivNotFoundError as exc:
         if previous_status != "full":
-            _set_sync_status(conn, group_id, "source_unavailable")
+            _set_sync_status(conn, group_id, "source_unavailable", _stats=_stats)
         sync_s = None if previous_status == "full" else "source_unavailable"
         return {
             "status": "error", "phase": "fetch_store",
@@ -191,6 +200,7 @@ def fetch_and_store_pixiv_metadata(
     now = datetime.now(timezone.utc).isoformat()
     _update_group_from_meta(conn, group_id, meta, "json_only", now)
     conn.commit()
+    _stats_inc(_stats, "db_commit_count")
     logger.info("Phase 1 완료 (DB 저장): %s → json_only", file_basename)
 
     # 6. 태그 관측 기록 (raw가 있는 Phase 1에서만 수행)
@@ -233,6 +243,7 @@ def write_stored_metadata_to_file(
     exiftool_path: Optional[str] = None,
     *,
     _override_previous_sync_status: Optional[str] = None,
+    _stats: Optional[dict] = None,
 ) -> dict:
     """Phase 2: DB에 저장된 metadata를 파일(UserComment JSON/XMP/XP)에 기록한다.
     Pixiv API 조회 없음.
@@ -301,7 +312,8 @@ def write_stored_metadata_to_file(
 
     # 3. 파일 존재 확인
     if not Path(file_path).exists():
-        _set_file_missing(conn, file_id)
+        _set_file_missing(conn, file_id, _stats=_stats)
+        _stats_inc(_stats, "db_commit_count")
         conn.commit()
         return {
             "status": "error", "phase": "metadata_write",
@@ -312,10 +324,40 @@ def write_stored_metadata_to_file(
         }
 
     # 4. DB → AruMetadata 재구성 (Pixiv API 호출 없음)
+    #
+    # artwork_id 정책:
+    #   - DB의 숫자형 artwork_id를 우선 사용.
+    #   - 비숫자(예: file_hash[:16] placeholder)이면 파일명에서 숫자 ID 복구 시도.
+    #   - 복구 실패 시 원래 값 유지 (파일 write에만 영향, DB 변경 없음).
+    #
+    # artwork_url 정책:
+    #   - DB에 artwork_url이 있으면 그대로 사용.
+    #   - 없고 숫자 artwork_id가 있으면 https://www.pixiv.net/artworks/{id}로 생성.
+    #   - 이 URL이 XMP-dc:Source로 기록되어 Aru Source Captioner가 출처를 찾을 수 있게 된다.
+    _raw_artwork_id = row["artwork_id"] or ""
+    _raw_artwork_url = row["artwork_url"] or ""
+
+    _effective_artwork_id = _raw_artwork_id
+    if _raw_artwork_id and not _raw_artwork_id.isdigit():
+        _parsed_fn = parse_pixiv_filename(file_path)
+        if _parsed_fn is not None:
+            _effective_artwork_id = _parsed_fn.artwork_id
+            logger.debug(
+                "Phase 2: artwork_id %r 비숫자 — 파일명 fallback: %s",
+                _raw_artwork_id, _effective_artwork_id,
+            )
+
+    _effective_artwork_url = _raw_artwork_url
+    if not _effective_artwork_url and _effective_artwork_id and _effective_artwork_id.isdigit():
+        _effective_artwork_url = f"https://www.pixiv.net/artworks/{_effective_artwork_id}"
+        logger.debug(
+            "Phase 2: artwork_url 없음 — artwork_id로 생성: %s", _effective_artwork_url
+        )
+
     meta = AruMetadata(
         source_site="pixiv",
-        artwork_id=row["artwork_id"] or "",
-        artwork_url=row["artwork_url"] or "",
+        artwork_id=_effective_artwork_id,
+        artwork_url=_effective_artwork_url,
         artwork_title=row["artwork_title"] or "",
         page_index=page_index,
         total_pages=row["total_pages"] or 1,
@@ -334,13 +376,16 @@ def write_stored_metadata_to_file(
 
     # 6. UserComment JSON / iTXt write
     try:
-        write_aru_metadata(file_path, meta.to_dict(), file_format)
+        if _stats is None:
+            write_aru_metadata(file_path, meta.to_dict(), file_format)
+        else:
+            write_aru_metadata(file_path, meta.to_dict(), file_format, _stats=_stats)
         sync_status: Optional[str] = "json_only"
         logger.info("JSON 메타데이터 기록 완료: %s", file_basename)
     except Exception as exc:
         logger.error("메타데이터 쓰기 실패: %s → %s", file_basename, exc)
-        _set_sync_status(conn, group_id, "metadata_write_failed")
-        _set_file_embedded(conn, file_id, 0)
+        _set_sync_status(conn, group_id, "metadata_write_failed", _stats=_stats)
+        _set_file_embedded(conn, file_id, 0, _stats=_stats)
         return {
             "status": "error", "phase": "metadata_write",
             "group_id": group_id, "file_id": file_id,
@@ -352,10 +397,17 @@ def write_stored_metadata_to_file(
     # 7. XMP/XP 기록 시도 (ExifTool 설정 시)
     if exiftool_path and sync_status == "json_only":
         try:
-            ok = write_xmp_metadata_with_exiftool(
-                file_path, meta.to_dict(), exiftool_path,
-                clear_windows_xp_fields_before_write=_clear_first,
-            )
+            if _stats is None:
+                ok = write_xmp_metadata_with_exiftool(
+                    file_path, meta.to_dict(), exiftool_path,
+                    clear_windows_xp_fields_before_write=_clear_first,
+                )
+            else:
+                ok = write_xmp_metadata_with_exiftool(
+                    file_path, meta.to_dict(), exiftool_path,
+                    clear_windows_xp_fields_before_write=_clear_first,
+                    _stats=_stats,
+                )
             if ok:
                 sync_status = "full"
         except XmpWriteError as exc:
@@ -375,6 +427,16 @@ def write_stored_metadata_to_file(
         (file_id,),
     )
     conn.commit()
+    _stats_inc(_stats, "db_commit_count")
+
+    if _stats is not None and _is_timing_enabled():
+        logger.info(
+            "metadata_write_stats file=%s exiftool_spawn_count=%d db_commit_count=%d file_write_count=%d",
+            file_basename,
+            int(_stats.get("exiftool_spawn_count", 0) or 0),
+            int(_stats.get("db_commit_count", 0) or 0),
+            int(_stats.get("file_write_count", 0) or 0),
+        )
 
     return {
         "status": "ok", "phase": "metadata_write",
@@ -529,16 +591,21 @@ def enrich_file_from_pixiv(
 # 내부 DB 헬퍼
 # ---------------------------------------------------------------------------
 
-def _set_sync_status(conn: sqlite3.Connection, group_id: str, status: str) -> None:
+def _set_sync_status(
+    conn: sqlite3.Connection, group_id: str, status: str, *, _stats: Optional[dict] = None,
+) -> None:
     conn.execute(
         "UPDATE artwork_groups SET metadata_sync_status = ?, updated_at = ? "
         "WHERE group_id = ?",
         (status, datetime.now(timezone.utc).isoformat(), group_id),
     )
     conn.commit()
+    _stats_inc(_stats, "db_commit_count")
 
 
-def _set_file_embedded(conn: sqlite3.Connection, file_id: str, embedded: int) -> None:
+def _set_file_embedded(
+    conn: sqlite3.Connection, file_id: str, embedded: int, *, _stats: Optional[dict] = None,
+) -> None:
     """Update metadata_embedded flag and commit immediately.
 
     The explicit commit removes a latent dependency on caller-side trailing
@@ -552,14 +619,18 @@ def _set_file_embedded(conn: sqlite3.Connection, file_id: str, embedded: int) ->
         (embedded, file_id),
     )
     conn.commit()
+    _stats_inc(_stats, "db_commit_count")
 
 
-def _set_file_missing(conn: sqlite3.Connection, file_id: str) -> None:
+def _set_file_missing(
+    conn: sqlite3.Connection, file_id: str, *, _stats: Optional[dict] = None,
+) -> None:
     conn.execute(
         "UPDATE artwork_files SET file_status = 'missing' WHERE file_id = ?",
         (file_id,),
     )
     conn.commit()
+    _stats_inc(_stats, "db_commit_count")
 
 
 def _update_group_from_meta(

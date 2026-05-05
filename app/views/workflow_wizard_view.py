@@ -245,8 +245,14 @@ class _EnrichThread(QThread):
         try:
             file_ids = build_enrichment_queue(conn, mode=self._mode)
             total    = len(file_ids)
+            timing_enabled = _is_timing_enabled()
+            phase1_t0 = time.perf_counter()
+            ui_progress_emit_count = 0
+            exiftool_spawn_count = 0
+            db_commit_count = 0
+            file_write_count = 0
 
-            if _is_timing_enabled():
+            if timing_enabled:
                 self._emit_queue_summary(conn)
 
             # ---- Phase 1: Pixiv 조회 + DB 저장 ----
@@ -256,8 +262,11 @@ class _EnrichThread(QThread):
 
             for idx, file_id in enumerate(file_ids):
                 self.progress.emit(idx + 1, total, "1단계: Pixiv 정보 조회 중")
+                ui_progress_emit_count += 1
                 try:
-                    r = fetch_and_store_pixiv_metadata(conn, file_id)
+                    file_stats: dict[str, int] = {}
+                    r = fetch_and_store_pixiv_metadata(conn, file_id, _stats=file_stats)
+                    db_commit_count += int(file_stats.get("db_commit_count", 0) or 0)
                     if r["status"] == "ok":
                         fetch_success += 1
                         write_targets.append(file_id)
@@ -275,15 +284,25 @@ class _EnrichThread(QThread):
             conn.commit()
 
             # ---- Phase 2: XMP/Explorer 메타데이터 기록 ----
+            db_commit_count += 1
+            phase1_fetch_total_ms = (time.perf_counter() - phase1_t0) * 1000.0
             n_write       = len(write_targets)
             write_success = 0
             write_failed  = 0
             write_skipped = 0
+            phase2_t0 = time.perf_counter()
 
             for idx, file_id in enumerate(write_targets):
                 self.progress.emit(idx + 1, n_write, "2단계: XMP/Explorer 메타데이터 기록 중")
+                ui_progress_emit_count += 1
                 try:
-                    r = write_stored_metadata_to_file(conn, file_id, exiftool_path=self._exiftool_path)
+                    file_stats = {}
+                    r = write_stored_metadata_to_file(
+                        conn, file_id, exiftool_path=self._exiftool_path, _stats=file_stats,
+                    )
+                    exiftool_spawn_count += int(file_stats.get("exiftool_spawn_count", 0) or 0)
+                    db_commit_count += int(file_stats.get("db_commit_count", 0) or 0)
+                    file_write_count += int(file_stats.get("file_write_count", 0) or 0)
                     if r["status"] == "ok":
                         write_success += 1
                     elif r["status"] == "skipped":
@@ -298,6 +317,25 @@ class _EnrichThread(QThread):
                     write_failed += 1
 
             conn.commit()
+            db_commit_count += 1
+            phase2_write_total_ms = (time.perf_counter() - phase2_t0) * 1000.0
+            per_file_avg_ms = phase2_write_total_ms / n_write if n_write else 0.0
+
+            if timing_enabled:
+                report_lines = [
+                    "Metadata batch performance report:",
+                    f"- targets: {total}",
+                    f"- phase1_fetch_total_ms: {phase1_fetch_total_ms:.1f}",
+                    f"- phase2_write_total_ms: {phase2_write_total_ms:.1f}",
+                    f"- per_file_avg_ms: {per_file_avg_ms:.1f}",
+                    f"- exiftool_spawn_count: {exiftool_spawn_count}",
+                    f"- db_commit_count: {db_commit_count}",
+                    f"- ui_progress_emit_count: {ui_progress_emit_count}",
+                    f"- file_write_count: {file_write_count}",
+                ]
+                report_text = "\n".join(report_lines)
+                logger.info(report_text)
+                self.log_msg.emit(report_text)
 
             self.done.emit({
                 "fetch_success": fetch_success,
@@ -305,15 +343,73 @@ class _EnrichThread(QThread):
                 "write_success": write_success,
                 "write_failed":  write_failed,
                 "write_skipped": write_skipped,
+                "phase1_fetch_total_ms": phase1_fetch_total_ms,
+                "phase2_write_total_ms": phase2_write_total_ms,
+                "per_file_avg_ms": per_file_avg_ms,
+                "exiftool_spawn_count": exiftool_spawn_count,
+                "db_commit_count": db_commit_count,
+                "ui_progress_emit_count": ui_progress_emit_count,
+                "file_write_count": file_write_count,
             })
         except Exception as exc:
             self.log_msg.emit(f"[ERROR] 보강 스레드 예외: {exc}")
             self.done.emit({
                 "fetch_success": 0, "fetch_failed": 0,
                 "write_success": 0, "write_failed": 0, "write_skipped": 0,
+                "phase1_fetch_total_ms": 0.0,
+                "phase2_write_total_ms": 0.0,
+                "per_file_avg_ms": 0.0,
+                "exiftool_spawn_count": 0,
+                "db_commit_count": 0,
+                "ui_progress_emit_count": 0,
+                "file_write_count": 0,
             })
         finally:
             conn.close()
+
+    def _emit_queue_summary(self, conn) -> None:
+        """ARU_ENRICH_TIMING=1 시 enrich queue의 total/unique/savings_potential을 보고한다."""
+        try:
+            counts = conn.execute(
+                "SELECT COUNT(*) AS total_files, "
+                "       COUNT(DISTINCT ag.artwork_id) AS unique_artworks "
+                "FROM artwork_files af "
+                "JOIN artwork_groups ag ON ag.group_id = af.group_id "
+                "WHERE ag.metadata_sync_status IN ('metadata_missing', 'json_only') "
+                "  AND ag.artwork_id IS NOT NULL AND ag.artwork_id != '' "
+                "  AND af.file_role = 'original'"
+            ).fetchone()
+            multi_rows = conn.execute(
+                "SELECT ag.artwork_id, COUNT(*) AS cnt "
+                "FROM artwork_files af "
+                "JOIN artwork_groups ag ON ag.group_id = af.group_id "
+                "WHERE ag.metadata_sync_status IN ('metadata_missing', 'json_only') "
+                "  AND ag.artwork_id IS NOT NULL AND ag.artwork_id != '' "
+                "  AND af.file_role = 'original' "
+                "GROUP BY ag.artwork_id"
+            ).fetchall()
+        except Exception as exc:
+            logger.debug("enrich queue summary 계산 실패 (무시): %s", exc)
+            return
+
+        total_files     = int(counts["total_files"] or 0) if counts else 0
+        unique_artworks = int(counts["unique_artworks"] or 0) if counts else 0
+        multi_page_files  = sum(int(r["cnt"]) for r in multi_rows if int(r["cnt"]) > 1)
+        single_page_files = total_files - multi_page_files
+        savings_potential = max(0, total_files - unique_artworks)
+
+        msg = (
+            f"[INFO] enrich queue: {total_files} files / "
+            f"{unique_artworks} unique artworks "
+            f"(multi-page: {multi_page_files} files, single-page: {single_page_files}). "
+            f"이론상 fetch 절약 가능: {savings_potential}건."
+        )
+        self.log_msg.emit(msg)
+        logger.info(
+            "enrich_queue_summary total=%d unique=%d multi=%d single=%d savings_potential=%d",
+            total_files, unique_artworks, multi_page_files, single_page_files,
+            savings_potential,
+        )
 
 
 class _LocalMetadataImportThread(QThread):
