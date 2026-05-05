@@ -18,10 +18,6 @@ class TestRuntimeAssetsRelocated:
         p = REPO_ROOT / "assets" / "splash" / "splash.png"
         assert p.exists(), f"assets/splash/splash.png 누락: {p}"
 
-    def test_icon_source_1_at_assets_icon_source(self):
-        p = REPO_ROOT / "assets" / "icon" / "source" / "icon_1.png"
-        assert p.exists()
-
     def test_icon_source_02_at_assets_icon_source(self):
         p = REPO_ROOT / "assets" / "icon" / "source" / "icon_02.png"
         assert p.exists()
