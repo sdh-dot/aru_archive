@@ -351,7 +351,7 @@ def write_stored_metadata_to_file(
             logger.warning("XMP 기록 실패: %s → %s", file_basename, exc)
             sync_status = "xmp_write_failed"
 
-    logger.info("Phase 2 완료 (파일 기록): %s → %s", file_basename, sync_status)
+    logger.info("메타데이터 기록 완료: %s → %s", file_basename, sync_status)
 
     # 8. DB 갱신 — 단일 트랜잭션
     now = datetime.now(timezone.utc).isoformat()
