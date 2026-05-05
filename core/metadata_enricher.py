@@ -17,6 +17,7 @@ import logging
 import os
 import sqlite3
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
@@ -44,6 +45,18 @@ _EXISTING_REGISTRATION_STATUSES: frozenset[str] = frozenset({
     "out_of_sync", "source_unavailable", "needs_reindex",
     "file_write_failed", "db_update_failed",
 })
+
+
+@dataclass(frozen=True)
+class MetadataWriteDbOutcome:
+    """Phase 2 success-path DB updates captured before applying them."""
+
+    group_id: str
+    file_id: str
+    sync_status: str
+    updated_at: str
+    recovered_artwork_id: Optional[str] = None
+    recovered_artwork_url: Optional[str] = None
 
 
 def _get_previous_status(conn: sqlite3.Connection, group_id: str) -> Optional[str]:
@@ -414,45 +427,19 @@ def write_stored_metadata_to_file(
 
     logger.info("메타데이터 기록 완료: %s → %s", file_basename, sync_status)
 
-    # 8. DB 갱신 — 단일 트랜잭션
+    # 8. DB 갱신은 outcome/helper로 분리하되, 이번 단계에서는 기존 per-file commit 유지.
     now = datetime.now(timezone.utc).isoformat()
-    conn.execute(
-        "UPDATE artwork_groups SET metadata_sync_status = ?, updated_at = ? WHERE group_id = ?",
-        (sync_status, now, group_id),
+    outcome = _build_metadata_write_db_outcome(
+        group_id=group_id,
+        file_id=file_id,
+        sync_status=sync_status,
+        updated_at=now,
+        raw_artwork_id=_raw_artwork_id,
+        effective_artwork_id=_effective_artwork_id,
+        raw_artwork_url=_raw_artwork_url,
+        effective_artwork_url=_effective_artwork_url,
     )
-
-    # Phase 2 recovery로 artwork_id / artwork_url이 변경됐으면 artwork_groups도 갱신.
-    # hash placeholder → 숫자 Pixiv ID로 복구된 경우가 주 케이스.
-    # source_site / metadata_sync_status 의미는 변경하지 않는다.
-    _id_recovered  = _effective_artwork_id  != _raw_artwork_id
-    _url_recovered = _effective_artwork_url != _raw_artwork_url
-    if _id_recovered or _url_recovered:
-        _update_fields: list[str] = []
-        _update_vals: list = []
-        if _id_recovered:
-            _update_fields.append("artwork_id = ?")
-            _update_vals.append(_effective_artwork_id)
-        if _url_recovered:
-            _update_fields.append("artwork_url = ?")
-            _update_vals.append(_effective_artwork_url)
-        _update_vals.append(group_id)
-        conn.execute(
-            f"UPDATE artwork_groups SET {', '.join(_update_fields)} WHERE group_id = ?",
-            _update_vals,
-        )
-        logger.info(
-            "Phase 2: artwork_groups recovery 갱신 group_id=%s artwork_id=%s artwork_url=%s",
-            group_id,
-            _effective_artwork_id if _id_recovered else "(unchanged)",
-            _effective_artwork_url if _url_recovered else "(unchanged)",
-        )
-
-    conn.execute(
-        "UPDATE artwork_files SET metadata_embedded = 1 WHERE file_id = ?",
-        (file_id,),
-    )
-    conn.commit()
-    _stats_inc(_stats, "db_commit_count")
+    _apply_metadata_write_db_outcome(conn, outcome, _stats=_stats)
 
     if _stats is not None and _is_timing_enabled():
         logger.info(
@@ -710,6 +697,75 @@ def _update_group_from_meta(
             "INSERT INTO tags (group_id, tag, tag_type) VALUES (?, ?, 'character')",
             (group_id, tag),
         )
+
+
+def _build_metadata_write_db_outcome(
+    *,
+    group_id: str,
+    file_id: str,
+    sync_status: str,
+    updated_at: str,
+    raw_artwork_id: str,
+    effective_artwork_id: str,
+    raw_artwork_url: str,
+    effective_artwork_url: str,
+) -> MetadataWriteDbOutcome:
+    """Capture Phase 2 success-path DB effects without applying them yet."""
+    recovered_artwork_id = None
+    recovered_artwork_url = None
+    if effective_artwork_id != raw_artwork_id:
+        recovered_artwork_id = effective_artwork_id
+    if effective_artwork_url != raw_artwork_url:
+        recovered_artwork_url = effective_artwork_url
+    return MetadataWriteDbOutcome(
+        group_id=group_id,
+        file_id=file_id,
+        sync_status=sync_status,
+        updated_at=updated_at,
+        recovered_artwork_id=recovered_artwork_id,
+        recovered_artwork_url=recovered_artwork_url,
+    )
+
+
+def _apply_metadata_write_db_outcome(
+    conn: sqlite3.Connection,
+    outcome: MetadataWriteDbOutcome,
+    *,
+    _stats: Optional[dict] = None,
+) -> None:
+    """Apply the Phase 2 success-path DB updates and keep per-file commit semantics."""
+    conn.execute(
+        "UPDATE artwork_groups SET metadata_sync_status = ?, updated_at = ? WHERE group_id = ?",
+        (outcome.sync_status, outcome.updated_at, outcome.group_id),
+    )
+
+    if outcome.recovered_artwork_id is not None or outcome.recovered_artwork_url is not None:
+        update_fields: list[str] = []
+        update_vals: list[str] = []
+        if outcome.recovered_artwork_id is not None:
+            update_fields.append("artwork_id = ?")
+            update_vals.append(outcome.recovered_artwork_id)
+        if outcome.recovered_artwork_url is not None:
+            update_fields.append("artwork_url = ?")
+            update_vals.append(outcome.recovered_artwork_url)
+        update_vals.append(outcome.group_id)
+        conn.execute(
+            f"UPDATE artwork_groups SET {', '.join(update_fields)} WHERE group_id = ?",
+            update_vals,
+        )
+        logger.info(
+            "Phase 2: artwork_groups recovery 갱신 group_id=%s artwork_id=%s artwork_url=%s",
+            outcome.group_id,
+            outcome.recovered_artwork_id if outcome.recovered_artwork_id is not None else "(unchanged)",
+            outcome.recovered_artwork_url if outcome.recovered_artwork_url is not None else "(unchanged)",
+        )
+
+    conn.execute(
+        "UPDATE artwork_files SET metadata_embedded = 1 WHERE file_id = ?",
+        (outcome.file_id,),
+    )
+    conn.commit()
+    _stats_inc(_stats, "db_commit_count")
 
 
 # ---------------------------------------------------------------------------
