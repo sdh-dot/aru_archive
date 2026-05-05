@@ -115,11 +115,26 @@ Expand-Archive `
   -DestinationPath $ReleaseCheckDir `
   -Force
 
-$appPath = Join-Path $ReleaseCheckDir "AruArchive-v$Version-win-x64\AruArchive.exe"
-
-if (-not (Test-Path $appPath)) {
-  throw "AruArchive.exe not found: $appPath"
+$appCandidates = Get-ChildItem -Path $ReleaseCheckDir -Recurse -File -ErrorAction SilentlyContinue |
+Where-Object {
+  $_.Name -in @("AruArchive.exe", "aru_archive.exe")
 }
+
+if (-not $appCandidates -or $appCandidates.Count -eq 0) {
+  Write-Host "Extracted files:"
+  Get-ChildItem -Path $ReleaseCheckDir -Recurse |
+  Select-Object FullName |
+  Format-Table -AutoSize
+
+  throw "Aru Archive executable not found under: $ReleaseCheckDir"
+}
+
+if ($appCandidates.Count -gt 1) {
+  Write-Warning "실행 파일 후보가 여러 개입니다. 첫 번째 항목을 사용합니다."
+  $appCandidates | Select-Object FullName | Format-Table -AutoSize
+}
+
+$appPath = $appCandidates[0].FullName
 
 Write-Host "Extracted app: $appPath"
 
