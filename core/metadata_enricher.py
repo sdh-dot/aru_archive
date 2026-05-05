@@ -498,11 +498,19 @@ def enrich_file_from_pixiv(
         "message":     r2["message"],
     }
     if _timing_on:
+        _ts_fetch = _t1 - _t0
+        _ts_write = _t2 - _t1
+        _ts_total = _t2 - _t0
         result["timings"] = {
-            "fetch_store":    _t1 - _t0,
-            "metadata_write": _t2 - _t1,
-            "total":          _t2 - _t0,
+            "fetch_store":    _ts_fetch,
+            "metadata_write": _ts_write,
+            "total":          _ts_total,
         }
+        _basename = Path(_pre_row["file_path"]).name if _pre_row else file_id[:8]
+        logger.info(
+            "enrich_timing %s fetch_store=%.3f metadata_write=%.3f total=%.3f",
+            _basename, _ts_fetch, _ts_write, _ts_total,
+        )
     return result
 
 

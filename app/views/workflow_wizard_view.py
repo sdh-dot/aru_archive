@@ -224,8 +224,8 @@ class _ScanThread(QThread):
 
 class _EnrichThread(QThread):
     log_msg  = Signal(str)
-    progress = Signal(int, int)  # (done, total)
-    done     = Signal(dict)      # {"success": N, "failed": N, "skipped": N}
+    progress = Signal(int, int, str)  # (done, total, phase_label)
+    done     = Signal(dict)           # {fetch_success, fetch_failed, write_success, write_failed, write_skipped}
 
     def __init__(self, db_path: str, exiftool_path: Optional[str], parent=None, *, mode: str = "missing_only"):
         super().__init__(parent)
@@ -235,54 +235,83 @@ class _EnrichThread(QThread):
 
     def run(self) -> None:
         from db.database import initialize_database
-        from core.metadata_enricher import enrich_file_from_pixiv, _is_timing_enabled, build_enrichment_queue
+        from core.metadata_enricher import (
+            fetch_and_store_pixiv_metadata,
+            write_stored_metadata_to_file,
+            _is_timing_enabled,
+            build_enrichment_queue,
+        )
         conn = initialize_database(self._db_path)
         try:
             file_ids = build_enrichment_queue(conn, mode=self._mode)
             total    = len(file_ids)
 
-            # ---- queue-level summary (timing 활성 시에만 출력) ----
-            _timing_on = _is_timing_enabled()
-            if _timing_on:
+            if _is_timing_enabled():
                 self._emit_queue_summary(conn)
 
-            # per-file timings 누적 (timing 활성 시에만)
-            _agg_sum: dict[str, float] = {}
-            _agg_max: dict[str, float] = {}
-            _n_with_timing = 0
+            # ---- Phase 1: Pixiv 조회 + DB 저장 ----
+            fetch_success  = 0
+            fetch_failed   = 0
+            write_targets: list[str] = []
 
-            success = failed = skipped = 0
             for idx, file_id in enumerate(file_ids):
-                self.progress.emit(idx + 1, total)
+                self.progress.emit(idx + 1, total, "1단계: Pixiv 정보 조회 중")
                 try:
-                    r = enrich_file_from_pixiv(conn, file_id, exiftool_path=self._exiftool_path)
-                    if r.get("status") == "success":
-                        success += 1
-                    elif r.get("status") in ("no_artwork_id", "not_found", "missing_file"):
-                        skipped += 1
+                    r = fetch_and_store_pixiv_metadata(conn, file_id)
+                    if r["status"] == "ok":
+                        fetch_success += 1
+                        write_targets.append(file_id)
                     else:
-                        failed += 1
-
-                    # timings 집계
-                    _t = r.get("timings") or {}
-                    if _t:
-                        _n_with_timing += 1
-                        for k, v in _t.items():
-                            _agg_sum[k] = _agg_sum.get(k, 0.0) + float(v)
-                            _agg_max[k] = max(_agg_max.get(k, 0.0), float(v))
+                        fetch_failed += 1
+                        err = r.get("error") or ""
+                        if err not in ("no_artwork_id", "not_found_at_source", "restricted"):
+                            self.log_msg.emit(
+                                f"[WARN] fetch 실패 ({file_id[:8]}): {r.get('message', '')}"
+                            )
                 except Exception as exc:
-                    self.log_msg.emit(f"[ERROR] 보강 실패 ({file_id[:8]}): {exc}")
-                    failed += 1
+                    self.log_msg.emit(f"[ERROR] fetch 예외 ({file_id[:8]}): {exc}")
+                    fetch_failed += 1
+
             conn.commit()
 
-            # ---- aggregate timing summary (timings를 받은 파일이 1건 이상일 때만) ----
-            if _n_with_timing > 0:
-                self._emit_timing_aggregate(_n_with_timing, _agg_sum, _agg_max)
+            # ---- Phase 2: XMP/Explorer 메타데이터 기록 ----
+            n_write       = len(write_targets)
+            write_success = 0
+            write_failed  = 0
+            write_skipped = 0
 
-            self.done.emit({"success": success, "failed": failed, "skipped": skipped})
+            for idx, file_id in enumerate(write_targets):
+                self.progress.emit(idx + 1, n_write, "2단계: XMP/Explorer 메타데이터 기록 중")
+                try:
+                    r = write_stored_metadata_to_file(conn, file_id, exiftool_path=self._exiftool_path)
+                    if r["status"] == "ok":
+                        write_success += 1
+                    elif r["status"] == "skipped":
+                        write_skipped += 1
+                    else:
+                        write_failed += 1
+                        self.log_msg.emit(
+                            f"[WARN] write 실패 ({file_id[:8]}): {r.get('message', '')}"
+                        )
+                except Exception as exc:
+                    self.log_msg.emit(f"[ERROR] write 예외 ({file_id[:8]}): {exc}")
+                    write_failed += 1
+
+            conn.commit()
+
+            self.done.emit({
+                "fetch_success": fetch_success,
+                "fetch_failed":  fetch_failed,
+                "write_success": write_success,
+                "write_failed":  write_failed,
+                "write_skipped": write_skipped,
+            })
         except Exception as exc:
             self.log_msg.emit(f"[ERROR] 보강 스레드 예외: {exc}")
-            self.done.emit({"success": 0, "failed": 0, "skipped": 0})
+            self.done.emit({
+                "fetch_success": 0, "fetch_failed": 0,
+                "write_success": 0, "write_failed": 0, "write_skipped": 0,
+            })
         finally:
             conn.close()
 
@@ -1460,7 +1489,7 @@ class _Step4Enrich(_StepPanel):
         self._enrich_thread = _EnrichThread(db_path, exiftool, self, mode=mode)
         self._enrich_thread.log_msg.connect(self.log_msg)
         self._enrich_thread.progress.connect(
-            lambda done, total: self._progress_lbl.setText(f"진행: {done}/{total}")
+            lambda done, total, phase: self._progress_lbl.setText(f"{phase} {done}/{total}")
         )
         self._enrich_thread.done.connect(self._on_enrich_done)
         self._enrich_thread.start()
@@ -1472,7 +1501,10 @@ class _Step4Enrich(_StepPanel):
         self._btn_enrich_all.setEnabled(True)
         self._btn_enrich.setText("🔄 메타데이터 없는 항목만 보강")
         self._progress_lbl.setText(
-            f"완료 — 성공: {result['success']}, 실패: {result['failed']}, 스킵: {result['skipped']}"
+            f"완료 — "
+            f"조회 성공: {result['fetch_success']}, 조회 실패: {result['fetch_failed']}, "
+            f"기록 성공: {result['write_success']}, 기록 실패: {result['write_failed']}, "
+            f"기록 스킵: {result['write_skipped']}"
         )
         _log_phase("postprocess.start", 0.0, op="wizard.enrich_legacy")
         self.refresh()
@@ -1679,7 +1711,10 @@ class _Step4EnrichModern(_StepPanel):
         self._set_actions_enabled(True)
         self._progress.hide()
         self._progress_lbl.setText(
-            f"Pixiv 데이터 입력 완료 — 성공: {result['success']}, 실패: {result['failed']}, 스킵: {result['skipped']}"
+            f"Pixiv 데이터 입력 완료 — "
+            f"조회 성공: {result['fetch_success']}, 조회 실패: {result['fetch_failed']}, "
+            f"기록 성공: {result['write_success']}, 기록 실패: {result['write_failed']}, "
+            f"기록 스킵: {result['write_skipped']}"
         )
         if self._pending_bulk_followup:
             followup_mode = self._pending_bulk_followup
@@ -1899,11 +1934,11 @@ class _Step4EnrichModern(_StepPanel):
         self._local_import_thread.done.connect(self._on_local_import_done)
         self._local_import_thread.start()
 
-    def _on_pixiv_progress(self, done: int, total: int) -> None:
+    def _on_pixiv_progress(self, done: int, total: int, phase: str) -> None:
         total = max(total, 1)
         self._progress.setRange(0, total)
         self._progress.setValue(done)
-        self._progress_lbl.setText(f"Pixiv 데이터 입력 진행 중… {done}/{total}")
+        self._progress_lbl.setText(f"{phase} {done}/{total}")
 
     def _on_local_import_progress(self, done: int, total: int, group_id: str) -> None:
         total = max(total, 1)
@@ -1918,7 +1953,10 @@ class _Step4EnrichModern(_StepPanel):
         self._set_actions_enabled(True)
         self._progress.hide()
         self._progress_lbl.setText(
-            f"Pixiv 보강 완료 — 성공: {result['success']}, 실패: {result['failed']}, 건너뜀: {result['skipped']}"
+            f"Pixiv 보강 완료 — "
+            f"조회 성공: {result['fetch_success']}, 조회 실패: {result['fetch_failed']}, "
+            f"기록 성공: {result['write_success']}, 기록 실패: {result['write_failed']}, "
+            f"기록 스킵: {result['write_skipped']}"
         )
         _log_phase("postprocess.start", 0.0, op="wizard.enrich_modern2")
         self.refresh()
@@ -1951,13 +1989,13 @@ class _Step4EnrichModern(_StepPanel):
         _log_phase("refresh_main.emit", (time.perf_counter() - _t_emit) * 1000, op="wizard.local_import_modern2")
         _log_phase("postprocess.end", (time.perf_counter() - _t_post) * 1000, op="wizard.local_import_modern2")
 
-    def _on_pixiv_progress(self, done: int, total: int) -> None:
+    def _on_pixiv_progress(self, done: int, total: int, phase: str) -> None:
         total = max(total, 1)
         self._progress.setRange(0, total)
         self._progress.setValue(done)
-        self._progress_lbl.setText(f"Pixiv 데이터 입력 진행 중… {done}/{total}")
+        self._progress_lbl.setText(f"{phase} {done}/{total}")
         self._update_loading(
-            message="Pixiv 데이터 입력 진행 중…",
+            message=phase,
             current=done,
             total=total,
         )
