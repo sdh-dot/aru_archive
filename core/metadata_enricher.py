@@ -113,8 +113,19 @@ def fetch_and_store_pixiv_metadata(
     previous_status = row["metadata_sync_status"]
     file_basename   = Path(file_path).name
 
-    # 2. artwork_id 확보 (DB 우선 → 파일명 파싱 fallback)
-    artwork_id = row["artwork_id"] or ""
+    # 2. artwork_id 확보
+    # 우선순위: (a) DB의 숫자형 artwork_id → (b) 파일명 파싱 fallback.
+    # DB값이 비어있거나 숫자가 아닌 경우(예: 스캐너가 기록한 file_hash[:16] placeholder)
+    # 파일명 파싱으로 되돌아간다.  file_id / group_id / hash를 Pixiv ID로 쓰면 안 된다.
+    _db_artwork_id = row["artwork_id"] or ""
+    if _db_artwork_id and not _db_artwork_id.isdigit():
+        logger.debug(
+            "DB artwork_id %r는 유효한 Pixiv 숫자 ID가 아님 (%s) — 파일명 파싱 fallback",
+            _db_artwork_id, file_basename,
+        )
+        _db_artwork_id = ""  # 무효값 → filename fallback 강제
+
+    artwork_id = _db_artwork_id
     if not artwork_id:
         parsed = parse_pixiv_filename(file_path)
         if parsed is None:
@@ -122,7 +133,7 @@ def fetch_and_store_pixiv_metadata(
                 "status": "error", "phase": "fetch_store",
                 "group_id": group_id, "file_id": file_id,
                 "sync_status": previous_status,
-                "message": f"파일명에서 artwork_id 추출 불가: {file_basename}",
+                "message": f"유효한 Pixiv artwork_id 없음: {file_basename}",
                 "error": "no_artwork_id",
             }
         artwork_id = parsed.artwork_id
@@ -622,7 +633,8 @@ def build_enrichment_queue(
     """모드에 따라 enrichment 대상 file_id 리스트를 반환한다.
 
     공통 조건:
-    - artwork_id가 NULL/"" 아님
+    - artwork_id가 NULL/"" 아님 (스캐너가 file_hash[:16]을 placeholder로 저장한 경우 포함)
+      → 비숫자 artwork_id는 fetch_and_store_pixiv_metadata 내부에서 filename fallback 처리됨
     - file_role = 'original'
     - ORDER BY ag.indexed_at DESC
 
