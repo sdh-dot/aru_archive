@@ -547,6 +547,93 @@ def write_windows_exif_fields(
         )
 
 
+def _write_xmp_and_xp_single_pass(
+    file_path: str,
+    metadata: dict,
+    exiftool_path: str,
+    *,
+    include_xp_fields: bool,
+    clear_windows_xp_fields_before_write: bool,
+    _stats: Optional[dict] = None,
+) -> bool:
+    """Write XMP + XP in one ExifTool invocation to avoid duplicate rewrites."""
+    from core.exiftool import (
+        build_exiftool_xmp_args,
+        build_exiftool_xp_args,
+        validate_exiftool_path,
+    )
+
+    if not validate_exiftool_path(exiftool_path):
+        logger.warning("ExifTool 실행 불가: %s", exiftool_path)
+        return False
+
+    mismatch = detect_header_extension_mismatch(file_path)
+    if mismatch is not None:
+        path_fmt, actual_fmt = mismatch
+        logger.warning(
+            "XMP target header/extension mismatch: path=%s ext=%s actual=%s",
+            file_path, path_fmt, actual_fmt,
+        )
+        return False
+
+    summary = _build_user_facing_summary(metadata)
+    xmp_args = build_exiftool_xmp_args(
+        file_path,
+        metadata,
+        user_facing_summary=summary,
+        include_exif_description=True,
+    )
+
+    args = [exiftool_path] + xmp_args[:-2]
+    xp_mode = "excluded"
+    if include_xp_fields:
+        xp_args = build_exiftool_xp_args(
+            file_path,
+            metadata,
+            xp_subject=(metadata.get("artwork_title") or "").strip(),
+            xp_comment=summary,
+            clear_before_write=clear_windows_xp_fields_before_write,
+        )
+        args.extend(xp_args[:-2])
+        xp_mode = "clear_first" if clear_windows_xp_fields_before_write else "primary"
+    args.extend(["-overwrite_original", file_path])
+
+    _t0 = time.perf_counter()
+    _timeout = False
+    _success = False
+    try:
+        _stats_inc(_stats, "exiftool_spawn_count")
+        result = subprocess.run(args, capture_output=True, timeout=60, **no_window_kwargs())
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8", errors="replace")
+            stdout = result.stdout.decode("utf-8", errors="replace")
+            raise XmpWriteError(
+                f"ExifTool 실패 (returncode={result.returncode}): "
+                f"{stderr.strip() or stdout.strip()}"
+            )
+        _stats_inc(_stats, "file_write_count")
+        if not include_xp_fields:
+            logger.info("XMP 기록 완료: %s", file_path)
+        elif xp_mode == "clear_first":
+            logger.info("XMP+XP 기록 완료 (single-pass / XP clear-first 포함): %s", file_path)
+        else:
+            logger.info("XMP+XP 기록 완료 (single-pass): %s", file_path)
+        _success = True
+        return True
+    except subprocess.TimeoutExpired:
+        _timeout = True
+        raise XmpWriteError(f"ExifTool 타임아웃(60s): {file_path}")
+    except XmpWriteError:
+        raise
+    except Exception as exc:
+        raise XmpWriteError(f"ExifTool 실행 오류: {exc}") from exc
+    finally:
+        _log_exiftool_call(
+            file_path, time.perf_counter() - _t0, len(args),
+            timeout=_timeout, success=_success,
+        )
+
+
 def write_xmp_metadata_with_exiftool(
     file_path: str,
     metadata: dict,
@@ -577,6 +664,15 @@ def write_xmp_metadata_with_exiftool(
     """
     if not exiftool_path:
         return False
+
+    return _write_xmp_and_xp_single_pass(
+        file_path,
+        metadata,
+        exiftool_path,
+        include_xp_fields=include_xp_fields,
+        clear_windows_xp_fields_before_write=clear_windows_xp_fields_before_write,
+        _stats=_stats,
+    )
 
     from core.exiftool import (
         build_exiftool_xp_args,
@@ -640,11 +736,10 @@ def write_xmp_metadata_with_exiftool(
         _stats_inc(_stats, "file_write_count")
         if not effective_include_xp:
             logger.info("XMP 기록 완료: %s", file_path)
-        elif xp_path_used == "clear_first":
+        elif xp_mode == "clear_first":
             logger.info(
                 "XMP+XP 기록 완료 (XP는 clear-first 경로 사용): %s", file_path
             )
-        elif xp_path_used == "fallback":
             logger.info(
                 "XMP+XP 기록 완료 (XP는 fallback 경로 사용): %s", file_path
             )

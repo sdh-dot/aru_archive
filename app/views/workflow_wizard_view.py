@@ -233,6 +233,14 @@ class _EnrichThread(QThread):
         self._exiftool_path = exiftool_path
         self._mode          = mode
 
+    @staticmethod
+    def _should_emit_progress(done: int, total: int) -> bool:
+        if total <= 0:
+            return True
+        if done <= 1 or done >= total:
+            return True
+        return (done % 10) == 0
+
     def run(self) -> None:
         from db.database import initialize_database
         from core.metadata_enricher import (
@@ -261,8 +269,10 @@ class _EnrichThread(QThread):
             write_targets: list[str] = []
 
             for idx, file_id in enumerate(file_ids):
-                self.progress.emit(idx + 1, total, "1단계: Pixiv 정보 조회 중")
-                ui_progress_emit_count += 1
+                done = idx + 1
+                if self._should_emit_progress(done, total):
+                    self.progress.emit(done, total, "1단계: Pixiv 정보 조회 중")
+                    ui_progress_emit_count += 1
                 try:
                     file_stats: dict[str, int] = {}
                     r = fetch_and_store_pixiv_metadata(conn, file_id, _stats=file_stats)
@@ -293,8 +303,10 @@ class _EnrichThread(QThread):
             phase2_t0 = time.perf_counter()
 
             for idx, file_id in enumerate(write_targets):
-                self.progress.emit(idx + 1, n_write, "2단계: XMP/Explorer 메타데이터 기록 중")
-                ui_progress_emit_count += 1
+                done = idx + 1
+                if self._should_emit_progress(done, n_write):
+                    self.progress.emit(done, n_write, "2단계: XMP/Explorer 메타데이터 기록 중")
+                    ui_progress_emit_count += 1
                 try:
                     file_stats = {}
                     r = write_stored_metadata_to_file(
