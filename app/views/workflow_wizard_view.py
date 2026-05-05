@@ -223,6 +223,8 @@ class _ScanThread(QThread):
 
 
 class _EnrichThread(QThread):
+    _PHASE2_DB_BATCH_SIZE = 50
+
     log_msg  = Signal(str)
     progress = Signal(int, int, str)  # (done, total, phase_label)
     done     = Signal(dict)           # {fetch_success, fetch_failed, write_success, write_failed, write_skipped}
@@ -244,6 +246,8 @@ class _EnrichThread(QThread):
     def run(self) -> None:
         from db.database import initialize_database
         from core.metadata_enricher import (
+            MetadataWriteDbOutcome,
+            _apply_metadata_write_db_outcomes_with_fallback,
             fetch_and_store_pixiv_metadata,
             write_stored_metadata_to_file,
             _is_timing_enabled,
@@ -252,20 +256,23 @@ class _EnrichThread(QThread):
         conn = initialize_database(self._db_path)
         try:
             file_ids = build_enrichment_queue(conn, mode=self._mode)
-            total    = len(file_ids)
+            total = len(file_ids)
             timing_enabled = _is_timing_enabled()
             phase1_t0 = time.perf_counter()
             ui_progress_emit_count = 0
             exiftool_spawn_count = 0
             db_commit_count = 0
             file_write_count = 0
+            db_batch_flush_count = 0
+            db_batch_replay_count = 0
+            db_batch_replay_failure_count = 0
+            db_safe_mode_activations = 0
 
             if timing_enabled:
                 self._emit_queue_summary(conn)
 
-            # ---- Phase 1: Pixiv 조회 + DB 저장 ----
-            fetch_success  = 0
-            fetch_failed   = 0
+            fetch_success = 0
+            fetch_failed = 0
             write_targets: list[str] = []
 
             for idx, file_id in enumerate(file_ids):
@@ -293,14 +300,14 @@ class _EnrichThread(QThread):
 
             conn.commit()
 
-            # ---- Phase 2: XMP/Explorer 메타데이터 기록 ----
-            db_commit_count += 1
             phase1_fetch_total_ms = (time.perf_counter() - phase1_t0) * 1000.0
-            n_write       = len(write_targets)
+            n_write = len(write_targets)
             write_success = 0
-            write_failed  = 0
+            write_failed = 0
             write_skipped = 0
             phase2_t0 = time.perf_counter()
+            pending_db_outcomes: list[MetadataWriteDbOutcome] = []
+            phase2_safe_mode = False
 
             for idx, file_id in enumerate(write_targets):
                 done = idx + 1
@@ -310,13 +317,49 @@ class _EnrichThread(QThread):
                 try:
                     file_stats = {}
                     r = write_stored_metadata_to_file(
-                        conn, file_id, exiftool_path=self._exiftool_path, _stats=file_stats,
+                        conn,
+                        file_id,
+                        exiftool_path=self._exiftool_path,
+                        _defer_db_outcome=not phase2_safe_mode,
+                        _stats=file_stats,
                     )
                     exiftool_spawn_count += int(file_stats.get("exiftool_spawn_count", 0) or 0)
                     db_commit_count += int(file_stats.get("db_commit_count", 0) or 0)
                     file_write_count += int(file_stats.get("file_write_count", 0) or 0)
                     if r["status"] == "ok":
-                        write_success += 1
+                        if phase2_safe_mode:
+                            write_success += 1
+                        else:
+                            db_outcome = r.get("db_outcome")
+                            if db_outcome is None:
+                                write_failed += 1
+                                self.log_msg.emit(f"[ERROR] write DB outcome 누락 ({file_id[:8]})")
+                            else:
+                                pending_db_outcomes.append(db_outcome)
+                                if len(pending_db_outcomes) >= self._PHASE2_DB_BATCH_SIZE:
+                                    flush_stats: dict[str, int] = {}
+                                    flush_result = _apply_metadata_write_db_outcomes_with_fallback(
+                                        conn,
+                                        pending_db_outcomes,
+                                        _stats=flush_stats,
+                                    )
+                                    db_batch_flush_count += 1
+                                    db_commit_count += int(flush_stats.get("db_commit_count", 0) or 0)
+                                    write_success += flush_result.persisted_count
+                                    write_failed += flush_result.replay_failed_count
+                                    if flush_result.batch_failed:
+                                        db_batch_replay_count += flush_result.replay_attempt_count
+                                        db_batch_replay_failure_count += flush_result.replay_failed_count
+                                        db_safe_mode_activations += 1
+                                        phase2_safe_mode = True
+                                        self.log_msg.emit(
+                                            f"[WARN] Phase 2 DB batch flush 실패, safe mode 전환 (chunk={len(pending_db_outcomes)})"
+                                        )
+                                        for failed_file_id, err_text in flush_result.replay_failures:
+                                            self.log_msg.emit(
+                                                f"[ERROR] Phase 2 DB replay 실패 ({failed_file_id[:8]}): {err_text}"
+                                            )
+                                    pending_db_outcomes.clear()
                     elif r["status"] == "skipped":
                         write_skipped += 1
                     else:
@@ -328,8 +371,29 @@ class _EnrichThread(QThread):
                     self.log_msg.emit(f"[ERROR] write 예외 ({file_id[:8]}): {exc}")
                     write_failed += 1
 
-            conn.commit()
-            db_commit_count += 1
+            if pending_db_outcomes:
+                flush_stats = {}
+                flush_result = _apply_metadata_write_db_outcomes_with_fallback(
+                    conn,
+                    pending_db_outcomes,
+                    _stats=flush_stats,
+                )
+                db_batch_flush_count += 1
+                db_commit_count += int(flush_stats.get("db_commit_count", 0) or 0)
+                write_success += flush_result.persisted_count
+                write_failed += flush_result.replay_failed_count
+                if flush_result.batch_failed:
+                    db_batch_replay_count += flush_result.replay_attempt_count
+                    db_batch_replay_failure_count += flush_result.replay_failed_count
+                    db_safe_mode_activations += 1
+                    self.log_msg.emit(
+                        f"[WARN] Phase 2 DB batch flush 실패, safe mode 전환 (chunk={len(pending_db_outcomes)})"
+                    )
+                    for failed_file_id, err_text in flush_result.replay_failures:
+                        self.log_msg.emit(
+                            f"[ERROR] Phase 2 DB replay 실패 ({failed_file_id[:8]}): {err_text}"
+                        )
+
             phase2_write_total_ms = (time.perf_counter() - phase2_t0) * 1000.0
             per_file_avg_ms = phase2_write_total_ms / n_write if n_write else 0.0
 
@@ -342,6 +406,10 @@ class _EnrichThread(QThread):
                     f"- per_file_avg_ms: {per_file_avg_ms:.1f}",
                     f"- exiftool_spawn_count: {exiftool_spawn_count}",
                     f"- db_commit_count: {db_commit_count}",
+                    f"- db_batch_flush_count: {db_batch_flush_count}",
+                    f"- db_batch_replay_count: {db_batch_replay_count}",
+                    f"- db_batch_replay_failure_count: {db_batch_replay_failure_count}",
+                    f"- db_safe_mode_activations: {db_safe_mode_activations}",
                     f"- ui_progress_emit_count: {ui_progress_emit_count}",
                     f"- file_write_count: {file_write_count}",
                 ]
@@ -351,28 +419,39 @@ class _EnrichThread(QThread):
 
             self.done.emit({
                 "fetch_success": fetch_success,
-                "fetch_failed":  fetch_failed,
+                "fetch_failed": fetch_failed,
                 "write_success": write_success,
-                "write_failed":  write_failed,
+                "write_failed": write_failed,
                 "write_skipped": write_skipped,
                 "phase1_fetch_total_ms": phase1_fetch_total_ms,
                 "phase2_write_total_ms": phase2_write_total_ms,
                 "per_file_avg_ms": per_file_avg_ms,
                 "exiftool_spawn_count": exiftool_spawn_count,
                 "db_commit_count": db_commit_count,
+                "db_batch_flush_count": db_batch_flush_count,
+                "db_batch_replay_count": db_batch_replay_count,
+                "db_batch_replay_failure_count": db_batch_replay_failure_count,
+                "db_safe_mode_activations": db_safe_mode_activations,
                 "ui_progress_emit_count": ui_progress_emit_count,
                 "file_write_count": file_write_count,
             })
         except Exception as exc:
             self.log_msg.emit(f"[ERROR] 보강 스레드 예외: {exc}")
             self.done.emit({
-                "fetch_success": 0, "fetch_failed": 0,
-                "write_success": 0, "write_failed": 0, "write_skipped": 0,
+                "fetch_success": 0,
+                "fetch_failed": 0,
+                "write_success": 0,
+                "write_failed": 0,
+                "write_skipped": 0,
                 "phase1_fetch_total_ms": 0.0,
                 "phase2_write_total_ms": 0.0,
                 "per_file_avg_ms": 0.0,
                 "exiftool_spawn_count": 0,
                 "db_commit_count": 0,
+                "db_batch_flush_count": 0,
+                "db_batch_replay_count": 0,
+                "db_batch_replay_failure_count": 0,
+                "db_safe_mode_activations": 0,
                 "ui_progress_emit_count": 0,
                 "file_write_count": 0,
             })
@@ -414,7 +493,7 @@ class _EnrichThread(QThread):
             f"[INFO] enrich queue: {total_files} files / "
             f"{unique_artworks} unique artworks "
             f"(multi-page: {multi_page_files} files, single-page: {single_page_files}). "
-            f"이론상 fetch 절약 가능: {savings_potential}건."
+            f"중복 fetch 절약 가능 {savings_potential}건"
         )
         self.log_msg.emit(msg)
         logger.info(
@@ -422,8 +501,6 @@ class _EnrichThread(QThread):
             total_files, unique_artworks, multi_page_files, single_page_files,
             savings_potential,
         )
-
-
 class _LocalMetadataImportThread(QThread):
     log_msg = Signal(str)
     progress = Signal(int, int, str)

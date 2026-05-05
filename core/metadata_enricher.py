@@ -59,6 +59,17 @@ class MetadataWriteDbOutcome:
     recovered_artwork_url: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class MetadataWriteDbBatchResult:
+    """Result of applying deferred Phase 2 DB outcomes."""
+
+    persisted_count: int
+    batch_failed: bool = False
+    replay_attempt_count: int = 0
+    replay_failed_count: int = 0
+    replay_failures: tuple[tuple[str, str], ...] = ()
+
+
 def _get_previous_status(conn: sqlite3.Connection, group_id: str) -> Optional[str]:
     row = conn.execute(
         "SELECT metadata_sync_status FROM artwork_groups WHERE group_id = ?",
@@ -256,6 +267,7 @@ def write_stored_metadata_to_file(
     exiftool_path: Optional[str] = None,
     *,
     _override_previous_sync_status: Optional[str] = None,
+    _defer_db_outcome: bool = False,
     _stats: Optional[dict] = None,
 ) -> dict:
     """Phase 2: DB에 저장된 metadata를 파일(UserComment JSON/XMP/XP)에 기록한다.
@@ -439,7 +451,11 @@ def write_stored_metadata_to_file(
         raw_artwork_url=_raw_artwork_url,
         effective_artwork_url=_effective_artwork_url,
     )
-    _apply_metadata_write_db_outcome(conn, outcome, _stats=_stats)
+    if _defer_db_outcome:
+        db_outcome = outcome
+    else:
+        _apply_metadata_write_db_outcome(conn, outcome, _stats=_stats)
+        db_outcome = None
 
     if _stats is not None and _is_timing_enabled():
         logger.info(
@@ -450,7 +466,7 @@ def write_stored_metadata_to_file(
             int(_stats.get("file_write_count", 0) or 0),
         )
 
-    return {
+    result = {
         "status": "ok", "phase": "metadata_write",
         "group_id": group_id, "file_id": file_id,
         "sync_status": sync_status,
@@ -461,6 +477,9 @@ def write_stored_metadata_to_file(
         ),
         "error": None,
     }
+    if db_outcome is not None:
+        result["db_outcome"] = db_outcome
+    return result
 
 
 def enrich_file_from_pixiv(
@@ -731,6 +750,7 @@ def _apply_metadata_write_db_outcome(
     conn: sqlite3.Connection,
     outcome: MetadataWriteDbOutcome,
     *,
+    commit: bool = True,
     _stats: Optional[dict] = None,
 ) -> None:
     """Apply the Phase 2 success-path DB updates and keep per-file commit semantics."""
@@ -764,8 +784,77 @@ def _apply_metadata_write_db_outcome(
         "UPDATE artwork_files SET metadata_embedded = 1 WHERE file_id = ?",
         (outcome.file_id,),
     )
-    conn.commit()
-    _stats_inc(_stats, "db_commit_count")
+    if commit:
+        conn.commit()
+        _stats_inc(_stats, "db_commit_count")
+
+
+def _apply_metadata_write_db_outcomes_chunk(
+    conn: sqlite3.Connection,
+    outcomes: list[MetadataWriteDbOutcome],
+    *,
+    _stats: Optional[dict] = None,
+) -> None:
+    """Apply multiple Phase 2 success-path DB outcomes in one short transaction."""
+    if not outcomes:
+        return
+
+    conn.execute("BEGIN")
+    try:
+        for outcome in outcomes:
+            _apply_metadata_write_db_outcome(conn, outcome, commit=False, _stats=_stats)
+        conn.commit()
+        _stats_inc(_stats, "db_commit_count")
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def _apply_metadata_write_db_outcomes_with_fallback(
+    conn: sqlite3.Connection,
+    outcomes: list[MetadataWriteDbOutcome],
+    *,
+    _stats: Optional[dict] = None,
+) -> MetadataWriteDbBatchResult:
+    """Try chunk apply first, then replay per file without rewriting files on failure."""
+    if not outcomes:
+        return MetadataWriteDbBatchResult(persisted_count=0)
+
+    try:
+        _apply_metadata_write_db_outcomes_chunk(conn, outcomes, _stats=_stats)
+        return MetadataWriteDbBatchResult(persisted_count=len(outcomes))
+    except Exception as exc:
+        logger.warning(
+            "Phase 2 DB batch flush failed for %d outcomes: %s",
+            len(outcomes),
+            exc,
+        )
+
+    replay_failures: list[tuple[str, str]] = []
+    persisted_count = 0
+    replay_attempt_count = 0
+
+    for outcome in outcomes:
+        replay_attempt_count += 1
+        try:
+            _apply_metadata_write_db_outcome(conn, outcome, _stats=_stats)
+            persisted_count += 1
+        except Exception as replay_exc:
+            conn.rollback()
+            replay_failures.append((outcome.file_id, str(replay_exc)))
+            logger.error(
+                "Phase 2 DB replay failed for file_id=%s: %s",
+                outcome.file_id,
+                replay_exc,
+            )
+
+    return MetadataWriteDbBatchResult(
+        persisted_count=persisted_count,
+        batch_failed=True,
+        replay_attempt_count=replay_attempt_count,
+        replay_failed_count=len(replay_failures),
+        replay_failures=tuple(replay_failures),
+    )
 
 
 # ---------------------------------------------------------------------------
