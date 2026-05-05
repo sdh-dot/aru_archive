@@ -257,14 +257,128 @@ class TestExistingArtworkUrlPreserved:
 
 
 # ---------------------------------------------------------------------------
-# E. DB 변경 없음 확인 (write_stored_metadata_to_file은 파일만 바꿈)
+# E. Phase 2 recovery 후 artwork_groups DB row 갱신 확인
+#
+# hash placeholder artwork_id가 파일명에서 숫자 Pixiv ID로 복구된 경우
+# artwork_groups.artwork_id와 artwork_url도 갱신되어야 한다.
+# 앱 Detail panel은 artwork_groups를 읽으므로 파일과 DB가 일치해야 한다.
 # ---------------------------------------------------------------------------
 
-class TestDatabaseNotModifiedByPhase2Fix:
-    def test_db_artwork_id_unchanged_after_phase2(self, db, tmp_path):
-        """파일명 복구는 파일 write에만 영향. DB artwork_id는 변경하지 않는다."""
+class TestDatabaseUpdatedByPhase2Recovery:
+    def test_db_artwork_id_updated_after_recovery(self, db, tmp_path):
+        """hash artwork_id가 파일명에서 복구되면 artwork_groups.artwork_id도 갱신된다."""
         hash_val = "89b60d43b5d23e86"
         img = tmp_path / "88908024_p0_master1200.jpg"
+        _make_jpg(img)
+
+        gid = str(uuid.uuid4())
+        fid = str(uuid.uuid4())
+        _insert_group(db, gid, artwork_id=hash_val, artwork_url="")
+        _insert_file(db, fid, gid, str(img))
+
+        result = _run_phase2(db, fid, tmp_path)
+        assert result["status"] == "ok", result
+
+        row = db.execute(
+            "SELECT artwork_id, artwork_url FROM artwork_groups WHERE group_id = ?",
+            (gid,),
+        ).fetchone()
+        assert row["artwork_id"] == "88908024", (
+            f"DB artwork_id가 hash({hash_val})에서 숫자 ID로 갱신되지 않음: {row['artwork_id']}"
+        )
+        assert row["artwork_url"] == "https://www.pixiv.net/artworks/88908024"
+
+    def test_db_artwork_url_updated_when_previously_empty(self, db, tmp_path):
+        """숫자 artwork_id가 있고 artwork_url이 비어 있으면 DB artwork_url도 갱신된다."""
+        img = tmp_path / "72043386_p0.jpg"
+        _make_jpg(img)
+
+        gid = str(uuid.uuid4())
+        fid = str(uuid.uuid4())
+        _insert_group(db, gid, artwork_id="72043386", artwork_url="")
+        _insert_file(db, fid, gid, str(img))
+
+        _run_phase2(db, fid, tmp_path)
+
+        row = db.execute(
+            "SELECT artwork_id, artwork_url FROM artwork_groups WHERE group_id = ?",
+            (gid,),
+        ).fetchone()
+        assert row["artwork_id"] == "72043386"
+        assert row["artwork_url"] == "https://www.pixiv.net/artworks/72043386"
+
+    @pytest.mark.parametrize("hash_val,filename,expected_id", [
+        ("d43965258a880b20", "72043386_p0_master1200.webp", "72043386"),
+        ("ea6f21659f3a6d5f", "78563767_p5_master1200.jpg",  "78563767"),
+        ("c7ebd6a56a72929a", "72043386_p0.png",             "72043386"),
+    ])
+    def test_db_row_updated_for_reported_hash_placeholders(
+        self, db, tmp_path, hash_val, filename, expected_id
+    ):
+        """실제 보고된 hash placeholder들이 DB에서도 숫자 ID로 복구된다."""
+        img = tmp_path / filename
+        _make_jpg(img)
+
+        gid = str(uuid.uuid4())
+        fid = str(uuid.uuid4())
+        _insert_group(db, gid, artwork_id=hash_val, artwork_url="")
+        _insert_file(db, fid, gid, str(img))
+
+        result = _run_phase2(db, fid, tmp_path)
+        assert result["status"] == "ok", result
+
+        row = db.execute(
+            "SELECT artwork_id, artwork_url FROM artwork_groups WHERE group_id = ?",
+            (gid,),
+        ).fetchone()
+        assert row["artwork_id"] == expected_id, (
+            f"hash({hash_val}) → DB artwork_id 미갱신: {row['artwork_id']}"
+        )
+        assert row["artwork_url"] == f"https://www.pixiv.net/artworks/{expected_id}"
+
+    def test_hash_id_not_left_in_db_after_recovery(self, db, tmp_path):
+        """복구 후 16자리 hex hash가 DB artwork_id에 남아 있지 않아야 한다."""
+        hash_val = "eb7496245122d7fb"
+        img = tmp_path / "87802710_p0_master1200.jpg"
+        _make_jpg(img)
+
+        gid = str(uuid.uuid4())
+        fid = str(uuid.uuid4())
+        _insert_group(db, gid, artwork_id=hash_val, artwork_url="")
+        _insert_file(db, fid, gid, str(img))
+
+        _run_phase2(db, fid, tmp_path)
+
+        row = db.execute(
+            "SELECT artwork_id FROM artwork_groups WHERE group_id = ?", (gid,)
+        ).fetchone()
+        import re
+        assert not re.fullmatch(r"[0-9a-f]{16}", row["artwork_id"]), (
+            f"hash placeholder가 여전히 DB에 남아 있음: {row['artwork_id']}"
+        )
+
+    def test_existing_artwork_url_not_overwritten_in_db(self, db, tmp_path):
+        """DB에 artwork_url이 이미 있으면 갱신하지 않는다."""
+        existing_url = "https://www.pixiv.net/artworks/88908024"
+        img = tmp_path / "88908024_p0_master1200.jpg"
+        _make_jpg(img)
+
+        gid = str(uuid.uuid4())
+        fid = str(uuid.uuid4())
+        _insert_group(db, gid, artwork_id="88908024", artwork_url=existing_url)
+        _insert_file(db, fid, gid, str(img))
+
+        _run_phase2(db, fid, tmp_path)
+
+        row = db.execute(
+            "SELECT artwork_url FROM artwork_groups WHERE group_id = ?", (gid,)
+        ).fetchone()
+        assert row["artwork_url"] == existing_url
+
+    def test_non_pixiv_filename_leaves_hash_in_db(self, db, tmp_path):
+        """비 Pixiv 파일명이면 hash가 복구 불가 — DB artwork_id도 hash 그대로 유지."""
+        hash_val = "c7ebd6a56a72929a"
+        img = tmp_path / "sample_photo.jpg"
         _make_jpg(img)
 
         gid = str(uuid.uuid4())
@@ -278,5 +392,25 @@ class TestDatabaseNotModifiedByPhase2Fix:
             "SELECT artwork_id, artwork_url FROM artwork_groups WHERE group_id = ?",
             (gid,),
         ).fetchone()
-        # DB는 변경하지 않는다
-        assert row["artwork_id"] == hash_val
+        assert row["artwork_id"] == hash_val, "복구 불가 케이스에서 artwork_id가 바뀜"
+        assert row["artwork_url"] == ""
+
+    def test_metadata_sync_status_meaning_unchanged(self, db, tmp_path):
+        """DB 갱신 중 metadata_sync_status 의미는 바뀌지 않는다."""
+        img = tmp_path / "88908024_p0_master1200.jpg"
+        _make_jpg(img)
+
+        gid = str(uuid.uuid4())
+        fid = str(uuid.uuid4())
+        _insert_group(db, gid, artwork_id="89b60d43b5d23e86", artwork_url="")
+        _insert_file(db, fid, gid, str(img))
+
+        _run_phase2(db, fid, tmp_path)
+
+        row = db.execute(
+            "SELECT metadata_sync_status FROM artwork_groups WHERE group_id = ?", (gid,)
+        ).fetchone()
+        # exiftool 없음 → json_only가 정상 결과
+        assert row["metadata_sync_status"] in ("json_only", "full"), (
+            f"metadata_sync_status가 예상 외 값: {row['metadata_sync_status']}"
+        )

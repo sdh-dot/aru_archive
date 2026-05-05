@@ -313,8 +313,6 @@ def write_stored_metadata_to_file(
     # 3. 파일 존재 확인
     if not Path(file_path).exists():
         _set_file_missing(conn, file_id, _stats=_stats)
-        _stats_inc(_stats, "db_commit_count")
-        conn.commit()
         return {
             "status": "error", "phase": "metadata_write",
             "group_id": group_id, "file_id": file_id,
@@ -422,6 +420,33 @@ def write_stored_metadata_to_file(
         "UPDATE artwork_groups SET metadata_sync_status = ?, updated_at = ? WHERE group_id = ?",
         (sync_status, now, group_id),
     )
+
+    # Phase 2 recovery로 artwork_id / artwork_url이 변경됐으면 artwork_groups도 갱신.
+    # hash placeholder → 숫자 Pixiv ID로 복구된 경우가 주 케이스.
+    # source_site / metadata_sync_status 의미는 변경하지 않는다.
+    _id_recovered  = _effective_artwork_id  != _raw_artwork_id
+    _url_recovered = _effective_artwork_url != _raw_artwork_url
+    if _id_recovered or _url_recovered:
+        _update_fields: list[str] = []
+        _update_vals: list = []
+        if _id_recovered:
+            _update_fields.append("artwork_id = ?")
+            _update_vals.append(_effective_artwork_id)
+        if _url_recovered:
+            _update_fields.append("artwork_url = ?")
+            _update_vals.append(_effective_artwork_url)
+        _update_vals.append(group_id)
+        conn.execute(
+            f"UPDATE artwork_groups SET {', '.join(_update_fields)} WHERE group_id = ?",
+            _update_vals,
+        )
+        logger.info(
+            "Phase 2: artwork_groups recovery 갱신 group_id=%s artwork_id=%s artwork_url=%s",
+            group_id,
+            _effective_artwork_id if _id_recovered else "(unchanged)",
+            _effective_artwork_url if _url_recovered else "(unchanged)",
+        )
+
     conn.execute(
         "UPDATE artwork_files SET metadata_embedded = 1 WHERE file_id = ?",
         (file_id,),
