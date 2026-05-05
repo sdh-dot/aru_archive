@@ -579,6 +579,7 @@ def write_xmp_metadata_with_exiftool(
         return False
 
     from core.exiftool import (
+        build_exiftool_xp_args,
         build_exiftool_xmp_args,
         validate_exiftool_path,
     )
@@ -610,7 +611,19 @@ def write_xmp_metadata_with_exiftool(
         include_exif_description=include_exif_description,
     )
 
-    args = [exiftool_path] + xmp_args
+    args = [exiftool_path] + xmp_args[:-2]
+    xp_mode = "excluded"
+    if effective_include_xp:
+        xp_args = build_exiftool_xp_args(
+            file_path,
+            metadata,
+            xp_subject=(metadata.get("artwork_title") or "").strip(),
+            xp_comment=summary,
+            clear_before_write=clear_windows_xp_fields_before_write,
+        )
+        args.extend(xp_args[:-2])
+        xp_mode = "clear_first" if clear_windows_xp_fields_before_write else "primary"
+    args.extend(["-overwrite_original", file_path])
     _t0 = time.perf_counter()
     _timeout = False
     _success = False
@@ -624,16 +637,7 @@ def write_xmp_metadata_with_exiftool(
                 f"ExifTool 실패 (returncode={result.returncode}): "
                 f"{stderr.strip() or stdout.strip()}"
             )
-        xp_path_used: Optional[str] = None
         _stats_inc(_stats, "file_write_count")
-        if effective_include_xp and Path(file_path).exists():
-            xp_path_used = _write_windows_exif_fields_best_effort(
-                file_path,
-                metadata,
-                exiftool_path,
-                clear_before_write=clear_windows_xp_fields_before_write,
-                _stats=_stats,
-            )
         if not effective_include_xp:
             logger.info("XMP 기록 완료: %s", file_path)
         elif xp_path_used == "clear_first":
