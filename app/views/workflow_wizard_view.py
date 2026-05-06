@@ -266,6 +266,7 @@ class _EnrichThread(QThread):
             db_batch_flush_count = 0
             db_batch_replay_count = 0
             db_batch_replay_failure_count = 0
+            db_batch_outcome_count = 0
             db_safe_mode_activations = 0
 
             if timing_enabled:
@@ -347,6 +348,7 @@ class _EnrichThread(QThread):
                                     db_commit_count += int(flush_stats.get("db_commit_count", 0) or 0)
                                     write_success += flush_result.persisted_count
                                     write_failed += flush_result.replay_failed_count
+                                    db_batch_outcome_count += len(pending_db_outcomes)
                                     if flush_result.batch_failed:
                                         db_batch_replay_count += flush_result.replay_attempt_count
                                         db_batch_replay_failure_count += flush_result.replay_failed_count
@@ -372,6 +374,7 @@ class _EnrichThread(QThread):
                     write_failed += 1
 
             if pending_db_outcomes:
+                db_batch_outcome_count += len(pending_db_outcomes)
                 flush_stats = {}
                 flush_result = _apply_metadata_write_db_outcomes_with_fallback(
                     conn,
@@ -407,8 +410,11 @@ class _EnrichThread(QThread):
                     f"- exiftool_spawn_count: {exiftool_spawn_count}",
                     f"- db_commit_count: {db_commit_count}",
                     f"- db_batch_flush_count: {db_batch_flush_count}",
+                    f"- db_batch_outcome_count: {db_batch_outcome_count}",
                     f"- db_batch_replay_count: {db_batch_replay_count}",
                     f"- db_batch_replay_failure_count: {db_batch_replay_failure_count}",
+                    f"- db_batch_safe_mode_enabled: {int(phase2_safe_mode)}",
+                    f"- db_batch_chunk_size: {self._PHASE2_DB_BATCH_SIZE}",
                     f"- db_safe_mode_activations: {db_safe_mode_activations}",
                     f"- ui_progress_emit_count: {ui_progress_emit_count}",
                     f"- file_write_count: {file_write_count}",
@@ -429,8 +435,11 @@ class _EnrichThread(QThread):
                 "exiftool_spawn_count": exiftool_spawn_count,
                 "db_commit_count": db_commit_count,
                 "db_batch_flush_count": db_batch_flush_count,
+                "db_batch_outcome_count": db_batch_outcome_count,
                 "db_batch_replay_count": db_batch_replay_count,
                 "db_batch_replay_failure_count": db_batch_replay_failure_count,
+                "db_batch_safe_mode_enabled": int(phase2_safe_mode),
+                "db_batch_chunk_size": self._PHASE2_DB_BATCH_SIZE,
                 "db_safe_mode_activations": db_safe_mode_activations,
                 "ui_progress_emit_count": ui_progress_emit_count,
                 "file_write_count": file_write_count,
@@ -449,8 +458,11 @@ class _EnrichThread(QThread):
                 "exiftool_spawn_count": 0,
                 "db_commit_count": 0,
                 "db_batch_flush_count": 0,
+                "db_batch_outcome_count": 0,
                 "db_batch_replay_count": 0,
                 "db_batch_replay_failure_count": 0,
+                "db_batch_safe_mode_enabled": 0,
+                "db_batch_chunk_size": self._PHASE2_DB_BATCH_SIZE,
                 "db_safe_mode_activations": 0,
                 "ui_progress_emit_count": 0,
                 "file_write_count": 0,

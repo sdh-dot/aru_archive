@@ -180,8 +180,10 @@ EXPECTED_DONE_KEYS = {
     "write_success", "write_failed", "write_skipped",
     "phase1_fetch_total_ms", "phase2_write_total_ms", "per_file_avg_ms",
     "exiftool_spawn_count", "db_commit_count",
-    "db_batch_flush_count", "db_batch_replay_count",
-    "db_batch_replay_failure_count", "db_safe_mode_activations",
+    "db_batch_flush_count", "db_batch_outcome_count",
+    "db_batch_replay_count", "db_batch_replay_failure_count",
+    "db_batch_safe_mode_enabled", "db_batch_chunk_size",
+    "db_safe_mode_activations",
     "ui_progress_emit_count", "file_write_count",
 }
 
