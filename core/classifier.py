@@ -58,6 +58,73 @@ def collect_classification_source_tags(row) -> list[str]:
             seen.setdefault(tag, None)
     return list(seen)
 
+
+def _resolve_tag_table_canonical_fallback(
+    conn: sqlite3.Connection,
+    raw_tag: str,
+    tag_type: str,
+) -> Optional[str]:
+    """tags.canonical 이 비어 있을 때 tag_aliases exact match 로 canonical 을 보완한다.
+
+    series 는 alias 가 단일 canonical 로 귀결될 때만 확정한다.
+    character / group 도 동일 정책을 따르되, 같은 alias 가 여러 canonical 로 갈라지면
+    자동 확정하지 않는다.
+    """
+    if not raw_tag or not tag_type or tag_type == "general":
+        return None
+    try:
+        rows = conn.execute(
+            """SELECT DISTINCT canonical
+               FROM tag_aliases
+               WHERE alias = ? AND tag_type = ? AND enabled = 1""",
+            (raw_tag, tag_type),
+        ).fetchall()
+    except Exception:
+        return None
+    canonicals = [str(r["canonical"]).strip() for r in rows if (r["canonical"] or "").strip()]
+    unique = list(dict.fromkeys(canonicals))
+    if len(unique) == 1:
+        return unique[0]
+    return None
+
+
+def _load_group_tag_table_context(
+    conn: sqlite3.Connection,
+    group_id: str,
+) -> dict[str, list[str]]:
+    """group_id 의 tags table 을 읽어 raw/canonical 보조 입력을 만든다."""
+    context = {
+        "raw_tags": [],
+        "series_canonicals": [],
+        "character_canonicals": [],
+    }
+    try:
+        rows = conn.execute(
+            """SELECT tag, tag_type, canonical
+               FROM tags
+               WHERE group_id = ?""",
+            (group_id,),
+        ).fetchall()
+    except Exception:
+        return context
+
+    for row in rows:
+        raw_tag = (row["tag"] or "").strip()
+        tag_type = (row["tag_type"] or "").strip()
+        canonical = (row["canonical"] or "").strip()
+        if raw_tag:
+            context["raw_tags"].append(raw_tag)
+        if not canonical:
+            canonical = _resolve_tag_table_canonical_fallback(conn, raw_tag, tag_type) or ""
+        if tag_type == "series" and canonical:
+            context["series_canonicals"].append(canonical)
+        elif tag_type == "character" and canonical:
+            context["character_canonicals"].append(canonical)
+
+    for key in context:
+        context[key] = list(dict.fromkeys(context[key]))
+    return context
+
 # ---------------------------------------------------------------------------
 # 상수
 # ---------------------------------------------------------------------------
@@ -583,11 +650,27 @@ def build_classify_preview(
     series_only_review: dict | None = None
     series_only_rule: str = ""
     group_dict_for_build = dict(group)
+    tag_table_ctx = _load_group_tag_table_context(conn, group_id)
+
+    if tag_table_ctx["series_canonicals"]:
+        existing_series = _parse_json_list(group_dict_for_build.get("series_tags_json"))
+        group_dict_for_build["series_tags_json"] = json.dumps(
+            list(dict.fromkeys([*existing_series, *tag_table_ctx["series_canonicals"]])),
+            ensure_ascii=False,
+        )
+    if tag_table_ctx["character_canonicals"]:
+        existing_chars = _parse_json_list(group_dict_for_build.get("character_tags_json"))
+        group_dict_for_build["character_tags_json"] = json.dumps(
+            list(dict.fromkeys([*existing_chars, *tag_table_ctx["character_canonicals"]])),
+            ensure_ascii=False,
+        )
 
     # PR #128: raw_tags_json / tags_json / series_tags_json / character_tags_json 를
     # 병합한 classification source.  저장 구조 변경 없이 preview / classifier input
     # 에서만 사용한다.
     _source_tags = collect_classification_source_tags(group_dict_for_build)
+    if tag_table_ctx["raw_tags"]:
+        _source_tags = list(dict.fromkeys([*_source_tags, *tag_table_ctx["raw_tags"]]))
 
     if _series_only_mode:
         # series-only: merged source を _resolve_series_only_inputs() に渡す.
