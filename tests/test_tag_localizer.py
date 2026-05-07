@@ -132,6 +132,30 @@ def test_ko_character_from_builtin(seeded_db):
     assert name == "리쿠하치마 아루"
 
 
+def test_ko_toki_from_builtin_uses_confirmed_localization(seeded_db):
+    name = resolve_display_name(
+        seeded_db, "飛鳥馬トキ", "character",
+        parent_series="Blue Archive", locale="ko", fallback_locale="canonical",
+    )
+    assert name == "아스마 토키"
+
+
+def test_ko_karin_from_builtin_uses_kakudate_not_onikata(seeded_db):
+    name = resolve_display_name(
+        seeded_db, "角楯カリン", "character",
+        parent_series="Blue Archive", locale="ko", fallback_locale="canonical",
+    )
+    assert name == "카쿠다테 카린"
+
+
+def test_wrong_blue_archive_karin_builtin_is_absent(seeded_db):
+    name = resolve_display_name(
+        seeded_db, "鬼方カリン", "character",
+        parent_series="Blue Archive", locale="ko", fallback_locale="canonical",
+    )
+    assert name == "鬼方カリン"
+
+
 def test_ko_missing_falls_back_to_canonical(seeded_db):
     name = resolve_display_name(
         seeded_db, "UnknownChar", "character",

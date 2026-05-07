@@ -94,7 +94,7 @@ BUILTIN_LOCALIZATIONS: list[dict] = [
         "tag_type": "character",
         "parent_series": "Blue Archive",
         "locale": "ko",
-        "display_name": "아스마 도키",
+        "display_name": "아스마 토키",
     },
     {
         "canonical": "天雨涙",
@@ -104,11 +104,11 @@ BUILTIN_LOCALIZATIONS: list[dict] = [
         "display_name": "아마우 루이",
     },
     {
-        "canonical": "鬼方カリン",
+        "canonical": "角楯カリン",
         "tag_type": "character",
         "parent_series": "Blue Archive",
         "locale": "ko",
-        "display_name": "오니가타 카린",
+        "display_name": "카쿠다테 카린",
     },
     {
         "canonical": "壱百満天原サロメ",
