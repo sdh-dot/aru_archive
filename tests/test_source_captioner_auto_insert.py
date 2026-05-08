@@ -397,6 +397,78 @@ class TestMobileManifestCoverage:
         )
 
 
+# ---------------------------------------------------------------------------
+# 12. 중복 삽입 방지 (mobile double-insert hotfix)
+# ---------------------------------------------------------------------------
+
+class TestDuplicateInsertPrevention:
+
+    def test_pending_file_keys_set_defined(self, ff_content_js):
+        """pendingFileKeys Set이 정의되어 있어야 한다 (비동기 경합 방지)."""
+        assert "pendingFileKeys" in ff_content_js
+
+    def test_handled_file_events_weakset_defined(self, ff_content_js):
+        """handledFileEvents WeakSet이 정의되어 있어야 한다 (이벤트 중복 실행 방지)."""
+        assert "handledFileEvents" in ff_content_js
+
+    def test_event_guard_in_attach_listener(self, ff_content_js):
+        """attachFileInputListeners에서 handledFileEvents.has(ev) 가드가 있어야 한다."""
+        assert "handledFileEvents.has(ev)" in ff_content_js
+        assert "handledFileEvents.add(ev)" in ff_content_js
+
+    def test_pending_key_guard_in_handle_files(self, ff_content_js):
+        """handleSelectedImageFiles에서 pendingFileKeys.has(key) 가드가 있어야 한다."""
+        assert "pendingFileKeys.has(key)" in ff_content_js
+
+    def test_pending_key_lifecycle_add_and_finally_delete(self, ff_content_js):
+        """pendingFileKeys는 추가(add)되고 finally에서 반드시 삭제(delete)되어야 한다."""
+        assert "pendingFileKeys.add(key)" in ff_content_js
+        assert "pendingFileKeys.delete(key)" in ff_content_js
+
+    def test_mobile_insert_result_consumed_on_success(self, ff_content_js):
+        """모바일 insert 성공 시 pending record를 소비해 observer 중복 삽입을 막아야 한다."""
+        pattern = re.compile(
+            r"const inserted = tryMobileWriteInsert\([\s\S]{0,200}?if \(inserted\)[\s\S]{0,100}?consumePendingRecordByFileName",
+            re.MULTILINE
+        )
+        assert pattern.search(ff_content_js), (
+            "tryMobileWriteInsert 결과를 받아 inserted=true일 때 consumePendingRecordByFileName을 호출하지 않음"
+        )
+
+    def test_try_mobile_write_insert_returns_true_on_contenteditable(self, ff_content_js):
+        """tryMobileWriteInsert가 contenteditable 삽입 성공 시 true를 반환해야 한다."""
+        pattern = re.compile(
+            r"target\.appendChild\(caption\)[\s\S]{0,300}?return true",
+            re.MULTILINE
+        )
+        assert pattern.search(ff_content_js), (
+            "tryMobileWriteInsert contenteditable 경로에서 return true가 없음"
+        )
+
+    def test_try_mobile_write_insert_returns_result_eq_ok_for_textarea(self, ff_content_js):
+        """tryMobileWriteInsert textarea 경로는 result === 'ok' 기준으로 반환해야 한다."""
+        assert 'return result === "ok"' in ff_content_js
+
+    def test_try_mobile_write_insert_returns_false_on_no_target(self, ff_content_js):
+        """tryMobileWriteInsert가 타겟 없을 때 false를 반환해야 한다."""
+        pattern = re.compile(
+            r"no write area found[\s\S]{0,50}?return false",
+            re.MULTILINE
+        )
+        assert pattern.search(ff_content_js), (
+            "tryMobileWriteInsert: no write area found 후 return false 없음"
+        )
+
+    def test_contenteditable_existing_check_normalized(self, ff_content_js):
+        """contenteditable 중복 감지에서 공백 정규화를 거쳐야 한다."""
+        assert 'replace(/\\s+/g, " ")' in ff_content_js
+
+    def test_mobile_observer_path_separated(self, ff_content_js):
+        """insertCaptionIfNeeded가 consumePendingRecordByFileName으로 pending을 확인해야 한다."""
+        # observer 경로가 pending record를 consume해 중복을 막는 메커니즘 존재 확인
+        assert "consumePendingRecordByFileName" in ff_content_js
+
+
 class TestSecurityPolicy:
 
     def test_no_inner_html(self, ff_content_js):

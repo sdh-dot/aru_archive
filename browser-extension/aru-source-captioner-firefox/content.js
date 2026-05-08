@@ -55,6 +55,10 @@
   // 이번 세션에서 이미 처리한 파일의 식별자 Set.
   // name + size + lastModified 조합으로 동일 파일의 중복 처리를 방지한다.
   const processedFileKeys = new Set();
+  // 현재 비동기 처리 중인 파일 key — async 경합으로 두 핸들러가 동시에 같은 key를 보는 것을 방지.
+  const pendingFileKeys = new Set();
+  // 이벤트 객체 단위 중복 실행 방지 — document capture + input 직접 listener가 공존하는 경우 대비.
+  const handledFileEvents = new WeakSet();
 
   function makeFileKey(file) {
     return `${file.name}|${file.size}|${file.lastModified}`;
@@ -163,6 +167,13 @@
 
   function attachFileInputListeners(config) {
     document.addEventListener("change", async (ev) => {
+      // 동일 event 객체를 두 번 처리하지 않는다 (capture listener 중복 등 방어).
+      if (handledFileEvents.has(ev)) {
+        console.debug("[Aru Source Captioner] skip duplicate file event { source: document-capture }");
+        return;
+      }
+      handledFileEvents.add(ev);
+
       const target = ev.target;
       if (!(target instanceof HTMLInputElement)) return;
       if (target.type !== "file") return;
@@ -183,33 +194,45 @@
     for (const file of files) {
       const key = makeFileKey(file);
       if (processedFileKeys.has(key)) {
-        console.debug("[Aru Source Captioner] skipping already-processed file:", file.name);
+        console.debug("[Aru Source Captioner] skip processed file", { key });
+        continue;
+      }
+      if (pendingFileKeys.has(key)) {
+        console.debug("[Aru Source Captioner] skip pending file", { key });
         continue;
       }
       processedFileKeys.add(key);
-
-      let sourceInfo;
+      pendingFileKeys.add(key);
       try {
-        sourceInfo = await parseSourceFromFile(file);
-      } catch (err) {
-        console.debug("[Aru Source Captioner] parse failed for", file.name, err);
-        sourceInfo = { status: "error", url: null, reason: "parse_threw" };
-      }
-      addPendingRecord(file, sourceInfo);
+        let sourceInfo;
+        try {
+          sourceInfo = await parseSourceFromFile(file);
+        } catch (err) {
+          console.debug("[Aru Source Captioner] parse failed for", file.name, err);
+          sourceInfo = { status: "error", url: null, reason: "parse_threw" };
+        }
+        addPendingRecord(file, sourceInfo);
 
-      // 모바일 글쓰기 페이지: 파일 선택 시점에 즉시 출처 삽입.
-      // 데스크톱에서는 MutationObserver가 <img>를 감지한 뒤 삽입하지만,
-      // 모바일 Ruliweb은 에디터 구조가 달라 img.alt 매칭이 작동하지 않는 경우가 있다.
-      // isReadPage()===true인 경우는 hookCommentFileInput()이 처리하므로 제외한다.
-      if (
-        isMobileAutoInsertEnvironment() &&
-        !isReadPage() &&
-        sourceInfo !== null &&
-        sourceInfo !== undefined &&
-        sourceInfo.status === "ok" &&
-        sourceInfo.url
-      ) {
-        tryMobileWriteInsert(sourceInfo.url);
+        // 모바일 글쓰기 페이지: 파일 선택 시점에 즉시 출처 삽입.
+        // 삽입 성공 시 pending record를 즉시 소비해 MutationObserver 경로의 중복 삽입을 막는다.
+        // 데스크톱은 MutationObserver가 <img> 감지 후 삽입하므로 이 분기를 실행하지 않는다.
+        // isReadPage()===true는 hookCommentFileInput()이 처리하므로 제외.
+        if (
+          isMobileAutoInsertEnvironment() &&
+          !isReadPage() &&
+          sourceInfo !== null &&
+          sourceInfo !== undefined &&
+          sourceInfo.status === "ok" &&
+          sourceInfo.url
+        ) {
+          const inserted = tryMobileWriteInsert(sourceInfo.url);
+          if (inserted) {
+            // pending record를 소비해 observer가 같은 파일의 <img>를 감지해도 2차 삽입하지 않도록 한다.
+            consumePendingRecordByFileName(file.name);
+          }
+        }
+      } finally {
+        pendingFileKeys.delete(key);
       }
     }
   }
@@ -937,46 +960,53 @@
     return null;
   }
 
+  // 모바일 글쓰기 직접 삽입.
+  // 반환값: true=캡션을 새로 삽입함 / false=삽입 안 함(이미 존재·타겟 없음·오류).
+  // 호출자는 반환값이 true일 때만 pending record를 consume해 observer 중복 삽입을 방지한다.
   function tryMobileWriteInsert(rawUrl) {
     const effectiveConfig = cachedConfig || { ...DEFAULT_OPTIONS };
     const safeUrl = sanitizeSourceUrl(rawUrl, effectiveConfig);
     if (!safeUrl) {
       console.debug("[Aru Source Captioner] mobile write: URL rejected by sanitizer");
-      return;
+      return false;
     }
 
     const target = findMobileWriteArea();
     if (!target) {
       console.warn("[Aru Source Captioner] mobile write: no write area found — no-op");
-      return;
+      return false;
     }
 
-    // textarea 경로: 댓글 페이지의 insertSourceIntoCommentTextarea 재사용.
+    // textarea 경로: insertSourceIntoCommentTextarea 재사용.
     // 중복 감지(동일 줄 이미 존재 / maxLength 초과)는 함수 내부에서 처리한다.
     if (target instanceof HTMLTextAreaElement) {
       const sourceText = buildCommentSourceText(safeUrl);
       const result = insertSourceIntoCommentTextarea(target, sourceText);
       console.log("[Aru Source Captioner] mobile write: textarea insert result =", result);
-      return;
+      return result === "ok";
     }
 
-    // contenteditable 경로: 이미 동일 URL이 있으면 skip, 없으면 캡션 <p> 삽입.
+    // contenteditable 경로: textContent 정규화 후 중복 감지, 없으면 캡션 <p> 삽입.
+    // HTML entity·zero-width 차이를 완화하기 위해 연속 공백을 단일 공백으로 정규화한다.
     if (target.isContentEditable) {
-      if ((target.textContent || "").includes(safeUrl)) {
-        console.log("[Aru Source Captioner] mobile write: caption already in editor");
-        return;
+      const existingText = (target.textContent || "").replace(/\s+/g, " ");
+      if (existingText.includes(safeUrl)) {
+        console.log("[Aru Source Captioner] mobile write: already in editor");
+        return false;
       }
       try {
         const caption = createSourceCaption(safeUrl);
         target.appendChild(caption);
         console.log("[Aru Source Captioner] mobile write: inserted caption into contenteditable");
+        return true;
       } catch (err) {
         console.debug("[Aru Source Captioner] mobile write: contenteditable insert failed:", err);
+        return false;
       }
-      return;
     }
 
     console.warn("[Aru Source Captioner] mobile write: target is neither textarea nor contenteditable — no-op");
+    return false;
   }
 
   // ---------------- 페이지 종류 감지 ----------------

@@ -82,10 +82,12 @@ lint 통과 확인 후 AMO 제출 진행.
 
 ### 모바일 UI 확인
 
-12. [ ] 화면 회전 (세로/가로) 후 기능 정상 동작 확인
-13. [ ] "출처 추가" 버튼이 기본으로 노출되지 않음 확인
-14. [ ] 에디터 selector 미탐지 시 오류 없이 종료 확인 (console warning 정도만)
-15. [ ] `about:debugging` 또는 `adb logcat`에서 `[Aru Source Captioner]` 로그 확인
+12. [ ] 이미지 선택 후 출처가 정확히 **1회만** 삽입되는지 확인 (중복 삽입 없음)
+13. [ ] 동일 이미지 재선택 시 `skip processed file` 로그 → 중복 삽입 없음 확인
+14. [ ] 화면 회전 (세로/가로) 후 기능 정상 동작 확인
+15. [ ] "출처 추가" 버튼이 기본으로 노출되지 않음 확인
+16. [ ] 에디터 selector 미탐지 시 오류 없이 종료 확인 (console warning 정도만)
+17. [ ] `about:debugging` 또는 `adb logcat`에서 `[Aru Source Captioner]` 로그 확인
 
 ### 실패 시 로그 기반 진단
 
