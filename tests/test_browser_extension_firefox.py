@@ -1,7 +1,7 @@
 """Firefox 확장 manifest 구조 및 filename fallback 동작 검증 테스트.
 
 자동 검증 대상:
-  1. manifest_firefox.json — background.scripts, no service_worker, content_scripts.matches
+  1. aru-source-captioner-firefox/manifest.json — background.scripts, no service_worker, content_scripts.matches
   2. manifest.json — Chrome/Whale용 background.service_worker 존재 확인
   3. parsePixivFilenameUrl 동등 로직 — Python regex로 JS 동작 동일성 검증
   4. content.js — filename fallback 로그 문자열 삽입 확인
@@ -17,8 +17,9 @@ from pathlib import Path
 import pytest
 
 EXT_DIR = Path(__file__).parent.parent / "browser-extension" / "aru-source-captioner"
+EXT_DIR_FIREFOX = Path(__file__).parent.parent / "browser-extension" / "aru-source-captioner-firefox"
 MANIFEST_CHROME = EXT_DIR / "manifest.json"
-MANIFEST_FIREFOX = EXT_DIR / "manifest_firefox.json"
+MANIFEST_FIREFOX = EXT_DIR_FIREFOX / "manifest.json"
 CONTENT_JS = EXT_DIR / "content.js"
 
 
@@ -29,7 +30,7 @@ CONTENT_JS = EXT_DIR / "content.js"
 class TestFirefoxManifest:
     @pytest.fixture(autouse=True)
     def manifest(self):
-        assert MANIFEST_FIREFOX.exists(), f"manifest_firefox.json 없음: {MANIFEST_FIREFOX}"
+        assert MANIFEST_FIREFOX.exists(), f"aru-source-captioner-firefox/manifest.json 없음: {MANIFEST_FIREFOX}"
         with open(MANIFEST_FIREFOX, encoding="utf-8") as f:
             self._data = json.load(f)
 
