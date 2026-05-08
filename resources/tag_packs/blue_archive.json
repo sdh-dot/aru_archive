@@ -1,7 +1,7 @@
 {
   "pack_id": "blue_archive",
   "name": "Blue Archive",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "source": "built_in",
   "series": [
     {
@@ -1299,6 +1299,85 @@
         "ko": "쿠로다테 하루나",
         "ja": "黒舘ハルナ",
         "en": "Kurodate Haruna"
+      }
+    },
+    {
+      "canonical": "角楯カリン",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "角楯カリン",
+        "カリン",
+        "Kakudate Karin",
+        "Karin",
+        "카쿠다테 카린"
+      ],
+      "localizations": {
+        "ko": "카쿠다테 카린",
+        "ja": "角楯カリン",
+        "en": "Kakudate Karin"
+      }
+    },
+    {
+      "canonical": "白石ウタハ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "白石ウタハ",
+        "ウタハ",
+        "Shiraishi Utaha",
+        "Utaha",
+        "시라이시 우타하"
+      ],
+      "localizations": {
+        "ko": "시라이시 우타하",
+        "ja": "白石ウタハ",
+        "en": "Shiraishi Utaha"
+      }
+    },
+    {
+      "canonical": "三香本ネル",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "三香本ネル",
+        "Mikamo Neru",
+        "Neru",
+        "미카모 네루"
+      ],
+      "localizations": {
+        "ko": "미카모 네루",
+        "ja": "三香本ネル",
+        "en": "Mikamo Neru"
+      }
+    },
+    {
+      "canonical": "白見イオリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "白見イオリ",
+        "イオリ",
+        "Shiromi Iori",
+        "Iori",
+        "시로미 이오리"
+      ],
+      "localizations": {
+        "ko": "시로미 이오리",
+        "ja": "白見イオリ",
+        "en": "Shiromi Iori"
+      }
+    },
+    {
+      "canonical": "連川チェリノ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "連川チェリノ",
+        "チェリノ",
+        "Renkawa Cherino",
+        "Cherino",
+        "렌카와 체리노"
+      ],
+      "localizations": {
+        "ko": "렌카와 체리노",
+        "ja": "連川チェリノ",
+        "en": "Renkawa Cherino"
       }
     }
   ],
