@@ -2,12 +2,16 @@
 
 Blue Archive tag pack 사전 보강 회귀 테스트.
 
-Phase A (enrichment-campaign, 5 confirmed characters):
-  - 角楯カリン  / 카쿠다테 카린  / Kakudate Karin  — Millennium C&C
-  - 白石ウタハ  / 시라이시 우타하 / Shiraishi Utaha — Millennium Seminar
-  - 三香本ネル  / 미카모 네루    / Mikamo Neru    — Millennium C&C
-  - 白見イオリ  / 시로미 이오리   / Shiromi Iori   — Gehenna 선도부
-  - 連川チェリノ / 렌카와 체리노  / Renkawa Cherino — Red Winter
+Phase A 1차 (5 confirmed characters):
+  - 角楯カリン / 白石ウタハ / 三香本ネル / 白見イオリ / 連川チェリノ
+
+Phase A 2차 (28 new characters + 2 existing entry fixes):
+  - 기존 수정: 佐城トモエ (사죠→사시로), 鷲見セリナ (와시미→스미)
+  - 신규: 棗イロハ, 鬼怒川カスミ, 下倉メグ, 和楽チセ, 朝比奈フィーナ,
+    勇美カエデ, 千鳥ミチル, 大野ツクヨ, 桑上カホ, 池倉マリナ, 天見ノドカ,
+    間宵シグレ, 安守ミノリ, 姫木メル, 秋泉モミジ, 和泉元エイミ, 豊見コトリ,
+    室笠アカネ, 乙花スミレ, 薬師サヤ, 朱城ルミ, 近衛ミナ, 戒野ミサキ,
+    秤アツコ, 槌永ヒヨリ, 円堂シミコ, 仲正イチカ, 尾刃カンナ
 
 alias 충돌 회귀 가드:
   - 三香本ネル 에 "ネル" 단독 alias 금지 (Trickcal Re:VIVE 네르와 충돌)
@@ -41,6 +45,45 @@ PHASE_A_CHARACTERS: list[tuple[str, str, str]] = [
 
 # ネル 단독은 Trickcal 네르와 충돌 — BA pack 에 절대 추가 금지.
 ALIAS_CONFLICT_GUARD = "ネル"
+
+# Phase A 2차 — 기존 항목 표기 수정 (ko/en 오류 수정)
+CORRECTED_ENTRIES: list[tuple[str, str, str, list[str]]] = [
+    # (canonical_ja, correct_ko, correct_en, legacy_aliases_must_survive)
+    ("佐城トモエ", "사시로 토모에", "Sashiro Tomoe", ["사죠 토모에", "Sajo Tomoe"]),
+    ("鷲見セリナ", "스미 세리나",   "Sumi Serina",   ["와시미 세리나", "Washimi Serina"]),
+]
+
+# Phase A 2차 — 신규 28명 (canonical_ja, ko, en) 튜플
+PHASE_A2_CHARACTERS: list[tuple[str, str, str]] = [
+    ("棗イロハ",    "나츠메 이로하",   "Natsume Iroha"),
+    ("鬼怒川カスミ", "키누가와 카스미", "Kinugawa Kasumi"),
+    ("下倉メグ",    "시모쿠라 메구",   "Shimokura Megu"),
+    ("和楽チセ",    "와라쿠 치세",    "Waraku Chise"),
+    ("朝比奈フィーナ","아사히나 피나",  "Asahina Pina"),
+    ("勇美カエデ",  "이사미 카에데",   "Isami Kaede"),
+    ("千鳥ミチル",  "치도리 미치루",   "Chidori Michiru"),
+    ("大野ツクヨ",  "오노 츠쿠요",    "Oono Tsukuyo"),
+    ("桑上カホ",    "쿠와카미 카호",   "Kuwakami Kaho"),
+    ("池倉マリナ",  "이케쿠라 마리나", "Ikekura Marina"),
+    ("天見ノドカ",  "아마미 노도카",   "Amami Nodoka"),
+    ("間宵シグレ",  "마요이 시구레",   "Mayoi Shigure"),
+    ("安守ミノリ",  "야스모리 미노리", "Yasumori Minori"),
+    ("姫木メル",    "히메키 메루",    "Himeki Meru"),
+    ("秋泉モミジ",  "아키이즈미 모미지","Akiizumi Momiji"),
+    ("和泉元エイミ", "이즈미모토 에이미","Izumimoto Eimi"),
+    ("豊見コトリ",  "토요미 코토리",   "Toyomi Kotori"),
+    ("室笠アカネ",  "무로카사 아카네", "Murokasa Akane"),
+    ("乙花スミレ",  "오토하나 스미레", "Otohana Sumire"),
+    ("薬師サヤ",    "야쿠시 사야",    "Yakushi Saya"),
+    ("朱城ルミ",    "아케시로 루미",   "Akeshiro Rumi"),
+    ("近衛ミナ",    "코노에 미나",    "Konoe Mina"),
+    ("戒野ミサキ",  "이마시노 미사키", "Imashino Misaki"),
+    ("秤アツコ",    "하카리 아츠코",   "Hakari Atsuko"),
+    ("槌永ヒヨリ",  "츠치나가 히요리", "Tsuchinaga Hiyori"),
+    ("円堂シミコ",  "엔도우 시미코",   "Endo Shimiko"),
+    ("仲正イチカ",  "나카마사 이치카", "Nakamasa Ichika"),
+    ("尾刃カンナ",  "오가타 칸나",    "Ogata Kanna"),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -225,3 +268,168 @@ class TestPhaseACharactersSeeded:
             assert row["display_name"] == ko, (
                 f"{ja!r} ko display_name 불일치: {row['display_name']!r} != {ko!r}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Phase A 2차 — 기존 항목 표기 수정 (静的 + DB)
+# ---------------------------------------------------------------------------
+
+class TestExistingEntryFixes:
+    def test_corrected_ko_localizations_in_pack(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        char_by_canonical = {c["canonical"]: c for c in pack["characters"]}
+        for ja, correct_ko, correct_en, legacy in CORRECTED_ENTRIES:
+            char = char_by_canonical.get(ja)
+            assert char is not None, f"canonical 누락: {ja!r}"
+            assert char["localizations"]["ko"] == correct_ko, (
+                f"{ja!r} ko 수정 미반영: {char['localizations']['ko']!r} != {correct_ko!r}"
+            )
+            assert char["localizations"]["en"] == correct_en, (
+                f"{ja!r} en 수정 미반영: {char['localizations']['en']!r} != {correct_en!r}"
+            )
+
+    def test_legacy_aliases_still_present(self):
+        """구 표기 alias 가 하위 호환을 위해 aliases 배열에 남아 있어야 한다."""
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        char_by_canonical = {c["canonical"]: c for c in pack["characters"]}
+        for ja, correct_ko, correct_en, legacy in CORRECTED_ENTRIES:
+            char = char_by_canonical[ja]
+            for old_alias in legacy:
+                assert old_alias in char["aliases"], (
+                    f"{ja!r}: 구 alias {old_alias!r} 가 aliases 에서 제거됨 — 하위 호환 파손"
+                )
+
+    def test_corrected_ko_aliases_present(self):
+        """수정된 KR 표기가 aliases 배열에도 들어 있어야 한다."""
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        char_by_canonical = {c["canonical"]: c for c in pack["characters"]}
+        for ja, correct_ko, correct_en, legacy in CORRECTED_ENTRIES:
+            char = char_by_canonical[ja]
+            assert correct_ko in char["aliases"], (
+                f"{ja!r}: 수정 KR alias {correct_ko!r} 가 aliases 에 없음"
+            )
+
+    def test_corrected_ko_resolves_in_db(self, conn):
+        """수정된 KR 표기로 DB에서 canonical 이 반환된다."""
+        for ja, correct_ko, correct_en, legacy in CORRECTED_ENTRIES:
+            row = conn.execute(
+                "SELECT canonical FROM tag_aliases "
+                "WHERE alias = ? AND tag_type = 'character' AND enabled = 1",
+                (correct_ko,),
+            ).fetchone()
+            assert row is not None, f"수정 KR alias 미등록: {correct_ko!r}"
+            assert row["canonical"] == ja
+
+    def test_legacy_aliases_still_resolve_in_db(self, conn):
+        """구 alias 도 DB에서 같은 canonical 로 해소된다."""
+        for ja, correct_ko, correct_en, legacy in CORRECTED_ENTRIES:
+            for old_alias in legacy:
+                row = conn.execute(
+                    "SELECT canonical FROM tag_aliases "
+                    "WHERE alias = ? AND tag_type = 'character' AND enabled = 1",
+                    (old_alias,),
+                ).fetchone()
+                assert row is not None, f"구 alias 미등록: {old_alias!r}"
+                assert row["canonical"] == ja, (
+                    f"구 alias {old_alias!r} 가 다른 canonical 로 연결됨: {row['canonical']!r}"
+                )
+
+
+# ---------------------------------------------------------------------------
+# Phase A 2차 — 신규 28명 (静的 + DB)
+# ---------------------------------------------------------------------------
+
+class TestPhaseA2PackShape:
+    def test_character_count_at_least_122(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        assert len(pack["characters"]) >= 122, (
+            f"Phase A 2차 추가 후 최소 122명 기대, 실제: {len(pack['characters'])}"
+        )
+
+    def test_phase_a2_canonicals_present(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        canonicals = {c["canonical"] for c in pack["characters"]}
+        for ja, ko, en in PHASE_A2_CHARACTERS:
+            assert ja in canonicals, f"canonical 누락: {ja!r}"
+
+    def test_phase_a2_ko_localizations(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        char_by_canonical = {c["canonical"]: c for c in pack["characters"]}
+        for ja, ko, en in PHASE_A2_CHARACTERS:
+            char = char_by_canonical[ja]
+            assert char["localizations"].get("ko") == ko, (
+                f"{ja!r} ko 불일치: {char['localizations'].get('ko')!r} != {ko!r}"
+            )
+
+    def test_phase_a2_en_localizations(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        char_by_canonical = {c["canonical"]: c for c in pack["characters"]}
+        for ja, ko, en in PHASE_A2_CHARACTERS:
+            char = char_by_canonical[ja]
+            assert char["localizations"].get("en") == en, (
+                f"{ja!r} en 불일치: {char['localizations'].get('en')!r} != {en!r}"
+            )
+
+    def test_phase_a2_ja_localizations(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        char_by_canonical = {c["canonical"]: c for c in pack["characters"]}
+        for ja, ko, en in PHASE_A2_CHARACTERS:
+            char = char_by_canonical[ja]
+            assert char["localizations"].get("ja") == ja, (
+                f"{ja!r} ja localization 불일치: {char['localizations'].get('ja')!r}"
+            )
+
+    def test_phase_a2_parent_series(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        char_by_canonical = {c["canonical"]: c for c in pack["characters"]}
+        for ja, ko, en in PHASE_A2_CHARACTERS:
+            char = char_by_canonical[ja]
+            assert char["parent_series"] == CANONICAL_SERIES
+
+    def test_phase_a2_ko_aliases_present(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        char_by_canonical = {c["canonical"]: c for c in pack["characters"]}
+        for ja, ko, en in PHASE_A2_CHARACTERS:
+            char = char_by_canonical[ja]
+            assert ko in char["aliases"], (
+                f"{ja!r} aliases 에 KR 표기 누락: {ko!r}"
+            )
+
+    def test_version_at_least_1_6(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        major, minor, _ = (int(x) for x in pack["version"].split("."))
+        assert (major, minor) >= (1, 6), (
+            f"Phase A 2차 후 version >= 1.6.0 이어야 함: {pack['version']!r}"
+        )
+
+
+class TestPhaseA2CharactersSeeded:
+    def test_ko_alias_resolves(self, conn):
+        for ja, ko, en in PHASE_A2_CHARACTERS:
+            row = conn.execute(
+                "SELECT canonical FROM tag_aliases "
+                "WHERE alias = ? AND tag_type = 'character' AND enabled = 1",
+                (ko,),
+            ).fetchone()
+            assert row is not None, f"KR alias 미등록: {ko!r}"
+            assert row["canonical"] == ja
+
+    def test_en_alias_resolves(self, conn):
+        for ja, ko, en in PHASE_A2_CHARACTERS:
+            row = conn.execute(
+                "SELECT canonical FROM tag_aliases "
+                "WHERE alias = ? AND tag_type = 'character' AND enabled = 1",
+                (en,),
+            ).fetchone()
+            assert row is not None, f"EN alias 미등록: {en!r}"
+            assert row["canonical"] == ja
+
+    def test_ko_localizations_in_db(self, conn):
+        for ja, ko, en in PHASE_A2_CHARACTERS:
+            row = conn.execute(
+                "SELECT display_name FROM tag_localizations "
+                "WHERE canonical = ? AND tag_type = 'character' AND locale = 'ko'",
+                (ja,),
+            ).fetchone()
+            assert row is not None, f"ko localization 미등록: {ja!r}"
+            assert row["display_name"] == ko
