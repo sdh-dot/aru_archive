@@ -48,6 +48,32 @@
   // 같은 파일명이 여러 번 첨부되면 FIFO로 소비.
   const pendingByFileName = new Map();
 
+  // 이번 세션에서 이미 처리한 파일의 식별자 Set.
+  // name + size + lastModified 조합으로 동일 파일의 중복 처리를 방지한다.
+  const processedFileKeys = new Set();
+
+  function makeFileKey(file) {
+    return `${file.name}|${file.size}|${file.lastModified}`;
+  }
+
+  // 모바일 자동 삽입 환경 판별.
+  // Android UA, coarse pointer, 좁은 화면 중 하나라도 해당하면 모바일로 간주한다.
+  // 판별 실패(throw)는 항상 false로 fall back한다.
+  function isMobileAutoInsertEnvironment() {
+    try {
+      const ua = typeof navigator !== "undefined" ? (navigator.userAgent || "") : "";
+      const isAndroid = /Android/i.test(ua);
+      const isCoarsePointer =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(pointer: coarse)").matches;
+      const isNarrow = typeof window !== "undefined" && window.innerWidth < 768;
+      return isAndroid || (isCoarsePointer && isNarrow);
+    } catch {
+      return false;
+    }
+  }
+
   // ---------------- 옵션 로드 (Phase 2A 재사용) ----------------
 
   // chrome.storage.sync 가용성 검증 — 모든 체인을 명시적 &&로 검증한다.
@@ -151,6 +177,13 @@
 
   async function handleSelectedImageFiles(files) {
     for (const file of files) {
+      const key = makeFileKey(file);
+      if (processedFileKeys.has(key)) {
+        console.debug("[Aru Source Captioner] skipping already-processed file:", file.name);
+        continue;
+      }
+      processedFileKeys.add(key);
+
       let sourceInfo;
       try {
         sourceInfo = await parseSourceFromFile(file);
@@ -1345,21 +1378,13 @@
   function setupCommentSourceCaptioner(config) {
     if (!isReadPage()) return;
     // config 인자가 없으면 init()에서 캐시한 readPageConfig를 사용한다.
-    // 둘 다 없으면 file input hook은 skip되지만 button 주입은 진행한다.
     const effectiveConfig = config || readPageConfig;
     const wrappers = findCommentInputWrappers();
-    let injected = 0;
+    // 자동 삽입 모드: 파일 선택 이벤트에서 바로 출처 캡션을 삽입한다.
+    // "출처 추가" 버튼 주입은 기본 비활성화 — injectCommentSourceButton은
+    // 정의만 유지하고 호출하지 않는다.
     let hookedFileInputs = 0;
     for (const wrapper of wrappers) {
-      // 출처 추가 button 주입 — 한 wrapper당 1회.
-      if (wrapper.dataset[COMMENT_BOUND_DATASET_KEY] !== "1") {
-        const ok = injectCommentSourceButton(wrapper);
-        if (ok) {
-          wrapper.dataset[COMMENT_BOUND_DATASET_KEY] = "1";
-          injected++;
-        }
-      }
-      // file input change hook — wrapper 안의 file input마다 dataset 가드로 1회.
       if (effectiveConfig && hookCommentFileInput(wrapper, effectiveConfig)) {
         hookedFileInputs++;
       }
@@ -1368,9 +1393,9 @@
       console.log(
         "[Aru Source Captioner] setup: no comment wrapper found yet (may load later)"
       );
-    } else if (injected > 0 || hookedFileInputs > 0) {
+    } else if (hookedFileInputs > 0) {
       console.log(
-        `[Aru Source Captioner] setup: injected ${injected} new buttons, hooked ${hookedFileInputs} new file inputs`
+        `[Aru Source Captioner] setup: hooked ${hookedFileInputs} new file inputs (auto-insert mode)`
       );
     }
   }
@@ -1486,8 +1511,12 @@
     startEditorObserver(config);
 
     console.info(
-      "[Aru Source Captioner] phase 2B active — caption insertion enabled",
-      { strictAllowlist: config.strictAllowlist, allowHttp: config.allowHttp }
+      "[Aru Source Captioner] auto-insert mode active — file selection triggers caption insertion",
+      {
+        strictAllowlist: config.strictAllowlist,
+        allowHttp: config.allowHttp,
+        mobile: isMobileAutoInsertEnvironment(),
+      }
     );
   }
 
