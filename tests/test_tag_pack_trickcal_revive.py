@@ -14,9 +14,15 @@ Trickcal Re:VIVE tag pack 회귀 테스트 (확장판).
   - 코스튬 변형 alias (별도 entry 가 아니라 base 의 alias):
     헤일리(멀쩡)/네르(빡침)/에르핀(왕도)/아멜리아(R41)/티그(Hero)
 
-여전히 보류 (이번 PR 미포함):
-  - 에슈르/코미/하이디/델리아/아라그니아/리코타/시저 EN 표기
-  - 일부 EN/JA 흔들림 표기 (Haley / Asher / Eshur / Ashur / Heidi / Kommy / Comi)
+Phase B 반영 (data/dictionary-enrichment-campaign):
+  - EN hold 해소 8건: 에슈르(Ashur)/코미(Kommy)/하이디(Heidi)/델리아(Delia)/
+    아라그니아(Aragnia)/리코타(Ricotta)/시저(Caesar)/헤일리(Haley)
+  - KR-only EN 추가 9건: 다야(Daya)/이프리트(Ifrit)/마에스트로 2호(Maestro MK2)/
+    림(Rim)/스피키(Speaki)/벨벳(Velvet)/빅우드(Bigwood)/제이드(Jade)/벨리타(Belita)
+
+여전히 보류:
+  - 실라/벨라/교주 EN 미확인
+  - 잘못된 표기 alias 가드: Eshur/Asher/Comi
   - 중문 alias
 """
 from __future__ import annotations
@@ -52,17 +58,36 @@ EXPECTED_CHARACTERS_KO: list[str] = [
 ]
 
 # 공식 EN 또는 안정 보조 EN 이 확보된 캐릭터 → 해당 KR canonical 의 EN alias.
-# 흔들림이 큰 항목 (에슈르/코미/하이디/델리아/아라그니아/리코타/시저 EN, 헤일리 EN) 은 추가 안 함.
+# Phase B (data/dictionary-enrichment-campaign) 에서 hold 8건 + KR-only 9건 추가.
 EXPECTED_EN_BY_KO: dict[str, str] = {
-    "아사나":   "Asana",     # 공식 (보도자료 본문)
-    "뮤트":     "Mute",      # 공식 (보도자료 본문)
-    "에르핀":   "Erpin",     # 보조 안정
-    "네르":     "Ner",       # 보조 안정
-    "버터":     "Butter",    # 보조 안정
-    "요미":     "Yomi",      # 보조 안정
-    "클로에":   "Chloe",     # 보조 안정
-    "아멜리아": "Amelia",    # 보조 안정
-    "티그":     "Tig",       # 보조 안정
+    "아사나":       "Asana",        # 공식 (보도자료 본문)
+    "뮤트":         "Mute",         # 공식 (보도자료 본문)
+    "에르핀":       "Erpin",        # 보조 안정
+    "네르":         "Ner",          # 보조 안정
+    "버터":         "Butter",       # 보조 안정
+    "요미":         "Yomi",         # 보조 안정
+    "클로에":       "Chloe",        # 보조 안정
+    "아멜리아":     "Amelia",       # 보조 안정
+    "티그":         "Tig",          # 보조 안정
+    # Phase B EN hold 해소
+    "에슈르":       "Ashur",        # prydwen.gg
+    "코미":         "Kommy",        # prydwen.gg
+    "하이디":       "Heidi",        # prydwen.gg
+    "델리아":       "Delia",        # prydwen.gg
+    "아라그니아":   "Aragnia",      # prydwen.gg
+    "리코타":       "Ricotta",      # prydwen.gg / NamuWiki
+    "시저":         "Caesar",       # prydwen.gg
+    "헤일리":       "Haley",        # prydwen.gg
+    # Phase B KR-only EN 확인
+    "다야":         "Daya",         # prydwen.gg
+    "이프리트":     "Ifrit",        # prydwen.gg
+    "마에스트로 2호": "Maestro MK2", # prydwen.gg
+    "림":           "Rim",          # prydwen.gg
+    "스피키":       "Speaki",       # prydwen.gg
+    "벨벳":         "Velvet",       # prydwen.gg
+    "빅우드":       "Bigwood",      # prydwen.gg
+    "제이드":       "Jade",         # prydwen.gg
+    "벨리타":       "Belita",       # prydwen.gg
 }
 
 # 보조 안정 JA 표기. 헤일리 도 JA 만 추가 (EN Haley 는 보류).
@@ -87,10 +112,12 @@ EXPECTED_COSTUME_ALIASES: dict[str, list[str]] = {
     "헤일리":   ["헤일리(멀쩡)"],
 }
 
-# 본 PR 에서도 여전히 등록 금지인 EN 표기. (회귀 가드)
+# Phase B 이후에도 등록 금지인 잘못된 EN 표기. (회귀 가드)
+# Ashur/Kommy/Heidi/Delia/Aragnia/Ricotta/Caesar/Haley 는 Phase B 에서 해소됨.
 PENDING_EN_NAMES: list[str] = [
-    "Haley", "Eshur", "Asher", "Ashur", "Heidi",
-    "Kommy", "Comi", "Delia", "Aragnia", "Ricotta", "Caesar",
+    "Eshur",   # 에슈르 오표기 (정표기: Ashur)
+    "Asher",   # 에슈르 오표기 (정표기: Ashur)
+    "Comi",    # 코미 오표기 (정표기: Kommy)
 ]
 
 # 중문 alias — 보류 유지.
@@ -498,8 +525,7 @@ class TestCostumeAliasesMapToBaseCanonical:
 
 class TestNegativePendingItems:
     @pytest.mark.parametrize("pending_en", [
-        "Haley", "Eshur", "Asher", "Ashur", "Heidi",
-        "Kommy", "Comi",
+        "Eshur", "Asher", "Comi",
     ])
     def test_pending_en_alias_not_registered(self, conn, pending_en):
         row = conn.execute(

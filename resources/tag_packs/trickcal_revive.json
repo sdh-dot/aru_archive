@@ -1,7 +1,7 @@
 {
   "pack_id": "trickcal_revive",
   "name": "Trickcal Re:VIVE",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "source": "built_in",
   "series": [
     {
@@ -40,8 +40,8 @@
     {
       "canonical": "에슈르",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["에슈르"],
-      "localizations": { "ko": "에슈르" }
+      "aliases": ["에슈르", "Ashur"],
+      "localizations": { "ko": "에슈르", "en": "Ashur" }
     },
     {
       "canonical": "네르",
@@ -58,8 +58,8 @@
     {
       "canonical": "코미",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["코미"],
-      "localizations": { "ko": "코미" }
+      "aliases": ["코미", "Kommy"],
+      "localizations": { "ko": "코미", "en": "Kommy" }
     },
     {
       "canonical": "요미",
@@ -76,20 +76,20 @@
     {
       "canonical": "델리아",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["델리아"],
-      "localizations": { "ko": "델리아" }
+      "aliases": ["델리아", "Delia"],
+      "localizations": { "ko": "델리아", "en": "Delia" }
     },
     {
       "canonical": "아라그니아",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["아라그니아"],
-      "localizations": { "ko": "아라그니아" }
+      "aliases": ["아라그니아", "Aragnia"],
+      "localizations": { "ko": "아라그니아", "en": "Aragnia" }
     },
     {
       "canonical": "리코타",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["리코타"],
-      "localizations": { "ko": "리코타" }
+      "aliases": ["리코타", "Ricotta"],
+      "localizations": { "ko": "리코타", "en": "Ricotta" }
     },
     {
       "canonical": "이드",
@@ -112,20 +112,20 @@
     {
       "canonical": "하이디",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["하이디"],
-      "localizations": { "ko": "하이디" }
+      "aliases": ["하이디", "Heidi"],
+      "localizations": { "ko": "하이디", "en": "Heidi" }
     },
     {
       "canonical": "시저",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["시저"],
-      "localizations": { "ko": "시저" }
+      "aliases": ["시저", "Caesar"],
+      "localizations": { "ko": "시저", "en": "Caesar" }
     },
     {
       "canonical": "헤일리",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["헤일리", "헤일리(멀쩡)", "ヘイリー"],
-      "localizations": { "ko": "헤일리", "ja": "ヘイリー" }
+      "aliases": ["헤일리", "헤일리(멀쩡)", "Haley", "ヘイリー"],
+      "localizations": { "ko": "헤일리", "en": "Haley", "ja": "ヘイリー" }
     },
     {
       "canonical": "아사나",
@@ -142,32 +142,32 @@
     {
       "canonical": "다야",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["다야"],
-      "localizations": { "ko": "다야" }
+      "aliases": ["다야", "Daya"],
+      "localizations": { "ko": "다야", "en": "Daya" }
     },
     {
       "canonical": "이프리트",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["이프리트"],
-      "localizations": { "ko": "이프리트" }
+      "aliases": ["이프리트", "Ifrit"],
+      "localizations": { "ko": "이프리트", "en": "Ifrit" }
     },
     {
       "canonical": "마에스트로 2호",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["마에스트로 2호"],
-      "localizations": { "ko": "마에스트로 2호" }
+      "aliases": ["마에스트로 2호", "Maestro MK2"],
+      "localizations": { "ko": "마에스트로 2호", "en": "Maestro MK2" }
     },
     {
       "canonical": "림",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["림"],
-      "localizations": { "ko": "림" }
+      "aliases": ["림", "Rim"],
+      "localizations": { "ko": "림", "en": "Rim" }
     },
     {
       "canonical": "스피키",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["스피키"],
-      "localizations": { "ko": "스피키" }
+      "aliases": ["스피키", "Speaki"],
+      "localizations": { "ko": "스피키", "en": "Speaki" }
     },
     {
       "canonical": "실라",
@@ -178,26 +178,26 @@
     {
       "canonical": "벨벳",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["벨벳"],
-      "localizations": { "ko": "벨벳" }
+      "aliases": ["벨벳", "Velvet"],
+      "localizations": { "ko": "벨벳", "en": "Velvet" }
     },
     {
       "canonical": "빅우드",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["빅우드"],
-      "localizations": { "ko": "빅우드" }
+      "aliases": ["빅우드", "Bigwood"],
+      "localizations": { "ko": "빅우드", "en": "Bigwood" }
     },
     {
       "canonical": "제이드",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["제이드"],
-      "localizations": { "ko": "제이드" }
+      "aliases": ["제이드", "Jade"],
+      "localizations": { "ko": "제이드", "en": "Jade" }
     },
     {
       "canonical": "벨리타",
       "parent_series": "Trickcal Re:VIVE",
-      "aliases": ["벨리타"],
-      "localizations": { "ko": "벨리타" }
+      "aliases": ["벨리타", "Belita"],
+      "localizations": { "ko": "벨리타", "en": "Belita" }
     },
     {
       "canonical": "벨라",
