@@ -1,7 +1,7 @@
 {
   "pack_id": "blue_archive",
   "name": "Blue Archive",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "source": "built_in",
   "series": [
     {
@@ -1850,6 +1850,134 @@
         "ko": "흥신소68",
         "ja": "便利屋68",
         "en": "Problem Solver 68"
+      }
+    },
+    {
+      "canonical": "ティーパーティー",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "ティーパーティー",
+        "티파티",
+        "Tea Party"
+      ],
+      "localizations": {
+        "ko": "티파티",
+        "ja": "ティーパーティー",
+        "en": "Tea Party"
+      }
+    },
+    {
+      "canonical": "正義実現委員会",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "正義実現委員会",
+        "정의실현부",
+        "Justice Task Force",
+        "Justice Realization Committee"
+      ],
+      "localizations": {
+        "ko": "정의실현부",
+        "ja": "正義実現委員会",
+        "en": "Justice Task Force"
+      }
+    },
+    {
+      "canonical": "補習授業部",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "補習授業部",
+        "보충수업부",
+        "Make-Up Work Club",
+        "Supplementary Lessons Club"
+      ],
+      "localizations": {
+        "ko": "보충수업부",
+        "ja": "補習授業部",
+        "en": "Make-Up Work Club"
+      }
+    },
+    {
+      "canonical": "セミナー",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "セミナー",
+        "세미나",
+        "Seminar"
+      ],
+      "localizations": {
+        "ko": "세미나",
+        "ja": "セミナー",
+        "en": "Seminar"
+      }
+    },
+    {
+      "canonical": "ゲーム開発部",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "ゲーム開発部",
+        "게임개발부",
+        "Game Development Department",
+        "Game Development Club"
+      ],
+      "localizations": {
+        "ko": "게임개발부",
+        "ja": "ゲーム開発部",
+        "en": "Game Development Department"
+      }
+    },
+    {
+      "canonical": "Cleaning&Clearing",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "Cleaning&Clearing",
+        "C&C",
+        "Cleaning & Clearing",
+        "Cleaning and Clearing",
+        "C and C",
+        "클리닝&클리어링"
+      ],
+      "localizations": {
+        "ko": "클리닝&클리어링",
+        "ja": "クリーニング&クリアリング",
+        "en": "Cleaning & Clearing"
+      }
+    },
+    {
+      "canonical": "万魔殿",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "万魔殿",
+        "판데모니움 소사이어티",
+        "Pandemonium Society"
+      ],
+      "localizations": {
+        "ko": "판데모니움 소사이어티",
+        "ja": "万魔殿",
+        "en": "Pandemonium Society"
+      }
+    },
+    {
+      "canonical": "風紀委員会",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "風紀委員会",
+        "게헨나 선도부",
+        "선도부",
+        "Prefect Team",
+        "Disciplinary Committee"
+      ],
+      "localizations": {
+        "ko": "게헨나 선도부",
+        "ja": "風紀委員会",
+        "en": "Prefect Team"
       }
     }
   ]

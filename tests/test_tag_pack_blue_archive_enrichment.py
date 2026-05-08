@@ -13,6 +13,10 @@ Phase A 2차 (28 new characters + 2 existing entry fixes):
     室笠アカネ, 乙花スミレ, 薬師サヤ, 朱城ルミ, 近衛ミナ, 戒野ミサキ,
     秤アツコ, 槌永ヒヨリ, 円堂シミコ, 仲正イチカ, 尾刃カンナ
 
+Phase A 3차 (8 groups — BA 전용 정책):
+  - ティーパーティー, 正義実現委員会, 補習授業部, セミナー,
+    ゲーム開発部, Cleaning&Clearing, 万魔殿, 風紀委員会
+
 alias 충돌 회귀 가드:
   - 三香本ネル 에 "ネル" 단독 alias 금지 (Trickcal Re:VIVE 네르와 충돌)
 """
@@ -432,4 +436,166 @@ class TestPhaseA2CharactersSeeded:
                 (ja,),
             ).fetchone()
             assert row is not None, f"ko localization 미등록: {ja!r}"
+            assert row["display_name"] == ko
+
+
+# ---------------------------------------------------------------------------
+# Phase A 3차 — group/entity 8건 (静的 + DB)
+# ---------------------------------------------------------------------------
+
+# (canonical, ko, en, spot_check_aliases)
+PHASE_A3_GROUPS: list[tuple[str, str, str, list[str]]] = [
+    ("ティーパーティー", "티파티",           "Tea Party",               ["티파티", "Tea Party"]),
+    ("正義実現委員会",   "정의실현부",        "Justice Task Force",       ["정의실현부", "Justice Task Force", "Justice Realization Committee"]),
+    ("補習授業部",       "보충수업부",        "Make-Up Work Club",        ["보충수업부", "Make-Up Work Club", "Supplementary Lessons Club"]),
+    ("セミナー",         "세미나",            "Seminar",                  ["세미나", "Seminar"]),
+    ("ゲーム開発部",     "게임개발부",        "Game Development Department",["게임개발부", "Game Development Department", "Game Development Club"]),
+    ("Cleaning&Clearing","클리닝&클리어링",   "Cleaning & Clearing",      ["C&C", "Cleaning & Clearing", "Cleaning and Clearing", "C and C", "클리닝&클리어링"]),
+    ("万魔殿",           "판데모니움 소사이어티","Pandemonium Society",    ["판데모니움 소사이어티", "Pandemonium Society"]),
+    ("風紀委員会",       "게헨나 선도부",     "Prefect Team",             ["게헨나 선도부", "선도부", "Prefect Team", "Disciplinary Committee"]),
+]
+
+
+class TestPhaseA3GroupPackShape:
+    def test_group_count_at_least_9(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        assert len(pack.get("groups", [])) >= 9, (
+            f"Phase A 3차 후 최소 9개 group 기대, 실제: {len(pack.get('groups', []))}"
+        )
+
+    def test_version_at_least_1_7(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        major, minor, _ = (int(x) for x in pack["version"].split("."))
+        assert (major, minor) >= (1, 7), (
+            f"Phase A 3차 후 version >= 1.7.0 이어야 함: {pack['version']!r}"
+        )
+
+    def test_all_groups_have_kind_group(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        for g in pack["groups"]:
+            assert g.get("kind") == "group", (
+                f"group entry {g['canonical']!r} 에 kind='group' 누락"
+            )
+
+    def test_phase_a3_canonicals_present(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        group_canonicals = {g["canonical"] for g in pack["groups"]}
+        for canonical, ko, en, _ in PHASE_A3_GROUPS:
+            assert canonical in group_canonicals, f"group canonical 누락: {canonical!r}"
+
+    def test_phase_a3_ko_localizations(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        group_by_canonical = {g["canonical"]: g for g in pack["groups"]}
+        for canonical, ko, en, _ in PHASE_A3_GROUPS:
+            g = group_by_canonical[canonical]
+            assert g["localizations"].get("ko") == ko, (
+                f"{canonical!r} ko 불일치: {g['localizations'].get('ko')!r} != {ko!r}"
+            )
+
+    def test_phase_a3_en_localizations(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        group_by_canonical = {g["canonical"]: g for g in pack["groups"]}
+        for canonical, ko, en, _ in PHASE_A3_GROUPS:
+            g = group_by_canonical[canonical]
+            assert g["localizations"].get("en") == en, (
+                f"{canonical!r} en 불일치: {g['localizations'].get('en')!r} != {en!r}"
+            )
+
+    def test_phase_a3_spot_check_aliases(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        group_by_canonical = {g["canonical"]: g for g in pack["groups"]}
+        for canonical, ko, en, spot_aliases in PHASE_A3_GROUPS:
+            g = group_by_canonical[canonical]
+            for alias in spot_aliases:
+                assert alias in g["aliases"], (
+                    f"{canonical!r}: alias {alias!r} 누락"
+                )
+
+    def test_cleaning_clearing_special_char_aliases(self):
+        """C&C 특수문자 alias 전체 확인."""
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        g = next(x for x in pack["groups"] if x["canonical"] == "Cleaning&Clearing")
+        for alias in ["C&C", "Cleaning&Clearing", "Cleaning & Clearing", "Cleaning and Clearing", "C and C"]:
+            assert alias in g["aliases"], f"C&C alias 누락: {alias!r}"
+
+    def test_gehenna_prefect_team_aliases(self):
+        """게헨나 선도부는 '선도부' 단독 alias 도 포함해야 한다."""
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        g = next(x for x in pack["groups"] if x["canonical"] == "風紀委員会")
+        assert "선도부" in g["aliases"]
+        assert "게헨나 선도부" in g["aliases"]
+        assert "Prefect Team" in g["aliases"]
+
+    def test_groups_have_parent_series(self):
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        for g in pack["groups"]:
+            assert g.get("parent_series") == CANONICAL_SERIES, (
+                f"group {g['canonical']!r} parent_series 불일치"
+            )
+
+    def test_characters_unchanged(self):
+        """group 추가가 character 수를 건드리지 않았다."""
+        pack = json.loads(PACK_PATH.read_text(encoding="utf-8"))
+        assert len(pack["characters"]) == 122
+
+
+class TestPhaseA3GroupsSeeded:
+    def test_ko_alias_resolves_to_group(self, conn):
+        """KR alias 가 tag_type='group' 으로 DB에 등록된다."""
+        for canonical, ko, en, _ in PHASE_A3_GROUPS:
+            row = conn.execute(
+                "SELECT canonical, tag_type FROM tag_aliases "
+                "WHERE alias = ? AND tag_type = 'group' AND enabled = 1",
+                (ko,),
+            ).fetchone()
+            assert row is not None, f"group KR alias 미등록: {ko!r}"
+            assert row["canonical"] == canonical
+
+    def test_en_alias_resolves_to_group(self, conn):
+        for canonical, ko, en, _ in PHASE_A3_GROUPS:
+            row = conn.execute(
+                "SELECT canonical FROM tag_aliases "
+                "WHERE alias = ? AND tag_type = 'group' AND enabled = 1",
+                (en,),
+            ).fetchone()
+            assert row is not None, f"group EN alias 미등록: {en!r}"
+            assert row["canonical"] == canonical
+
+    def test_cleaning_clearing_ampersand_alias_in_db(self, conn):
+        """'Cleaning&Clearing' 과 'C&C' 가 DB 에 group 으로 등록된다."""
+        for alias in ["Cleaning&Clearing", "C&C", "Cleaning & Clearing"]:
+            row = conn.execute(
+                "SELECT canonical FROM tag_aliases "
+                "WHERE alias = ? AND tag_type = 'group' AND enabled = 1",
+                (alias,),
+            ).fetchone()
+            assert row is not None, f"C&C alias 미등록: {alias!r}"
+            assert row["canonical"] == "Cleaning&Clearing"
+
+    def test_seminar_registered_as_group_not_character(self, conn):
+        """'세미나' / 'Seminar' 가 group 으로만 등록되고 character 로 등록되지 않는다."""
+        for alias in ["세미나", "Seminar"]:
+            char_row = conn.execute(
+                "SELECT canonical FROM tag_aliases "
+                "WHERE alias = ? AND tag_type = 'character' AND enabled = 1",
+                (alias,),
+            ).fetchone()
+            assert char_row is None, (
+                f"{alias!r} 가 character 로도 등록됨 — group 충돌 위험"
+            )
+            group_row = conn.execute(
+                "SELECT canonical FROM tag_aliases "
+                "WHERE alias = ? AND tag_type = 'group' AND enabled = 1",
+                (alias,),
+            ).fetchone()
+            assert group_row is not None, f"{alias!r} 가 group 으로 미등록"
+
+    def test_ko_localizations_registered(self, conn):
+        for canonical, ko, en, _ in PHASE_A3_GROUPS:
+            row = conn.execute(
+                "SELECT display_name FROM tag_localizations "
+                "WHERE canonical = ? AND tag_type = 'group' AND locale = 'ko'",
+                (canonical,),
+            ).fetchone()
+            assert row is not None, f"group ko localization 미등록: {canonical!r}"
             assert row["display_name"] == ko
