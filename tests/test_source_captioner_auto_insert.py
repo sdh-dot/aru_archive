@@ -352,6 +352,51 @@ class TestMobileWriteInsert:
 # 10. 보안 정책
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 11. 모바일(m.ruliweb.com) content script 주입 커버리지
+# ---------------------------------------------------------------------------
+
+class TestMobileManifestCoverage:
+
+    def test_mobile_write_page_in_matches(self, ff_manifest):
+        """m.ruliweb.com 글쓰기 URL이 content_scripts.matches에 있어야 한다."""
+        scripts = ff_manifest.get("content_scripts", [])
+        assert scripts, "content_scripts 없음"
+        matches = scripts[0].get("matches", [])
+        mobile_write = [m for m in matches if "m.ruliweb.com" in m and "300143" in m]
+        assert mobile_write, (
+            f"m.ruliweb.com board/300143 패턴 없음: {matches}\n"
+            "→ m.ruliweb.com/community/board/300143/write 에서 content script 미주입"
+        )
+
+    def test_mobile_read_page_in_matches(self, ff_manifest):
+        """m.ruliweb.com 댓글 페이지가 content_scripts.matches에 있어야 한다."""
+        scripts = ff_manifest.get("content_scripts", [])
+        matches = scripts[0].get("matches", [])
+        mobile_read = [m for m in matches if "m.ruliweb.com" in m and "/read/" in m]
+        assert mobile_read, f"m.ruliweb.com /read/ 패턴 없음: {matches}"
+
+    def test_mobile_in_host_permissions(self, ff_manifest):
+        """host_permissions에 m.ruliweb.com 항목이 있어야 한다."""
+        hp = ff_manifest.get("host_permissions", [])
+        mobile_hp = [h for h in hp if "m.ruliweb.com" in h]
+        assert mobile_hp, f"host_permissions에 m.ruliweb.com 없음: {hp}"
+
+    def test_desktop_matches_not_removed(self, ff_manifest):
+        """모바일 추가 후 기존 bbs.ruliweb.com matches가 유지되어야 한다."""
+        scripts = ff_manifest.get("content_scripts", [])
+        matches = scripts[0].get("matches", [])
+        bbs = [m for m in matches if "bbs.ruliweb.com" in m]
+        assert len(bbs) >= 2, f"bbs.ruliweb.com 패턴 누락 — 데스크톱 동작 깨짐: {matches}"
+
+    def test_sync_boot_log_present(self, ff_content_js):
+        """동기 boot 로그가 있어야 content script 주입 여부를 즉시 확인할 수 있다."""
+        assert "content script loaded" in ff_content_js, (
+            "[Aru Source Captioner] content script loaded 동기 로그 없음 — "
+            "주입 여부를 async init() 전에 확인할 수 없음"
+        )
+
+
 class TestSecurityPolicy:
 
     def test_no_inner_html(self, ff_content_js):

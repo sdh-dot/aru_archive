@@ -20,6 +20,10 @@
 (function bootstrap() {
   "use strict";
 
+  // 동기 boot 로그 — async init() 이전에 즉시 실행.
+  // Console에 이 로그가 없으면 manifest content_scripts.matches/host_permissions 누락이 원인.
+  console.log("[Aru Source Captioner] content script loaded", { href: location.href });
+
   const DEFAULT_OPTIONS = Object.freeze({
     enabled: true,
     allowHttp: false,

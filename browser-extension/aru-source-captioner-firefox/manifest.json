@@ -8,7 +8,9 @@
   ],
   "host_permissions": [
     "https://bbs.ruliweb.com/community/board/300143/*",
-    "https://bbs.ruliweb.com/community/board/*/read/*"
+    "https://bbs.ruliweb.com/community/board/*/read/*",
+    "https://m.ruliweb.com/community/board/300143/*",
+    "https://m.ruliweb.com/community/board/*/read/*"
   ],
   "icons": {
     "16": "icons/icon16.png",
@@ -34,7 +36,9 @@
     {
       "matches": [
         "https://bbs.ruliweb.com/community/board/300143/*",
-        "https://bbs.ruliweb.com/community/board/*/read/*"
+        "https://bbs.ruliweb.com/community/board/*/read/*",
+        "https://m.ruliweb.com/community/board/300143/*",
+        "https://m.ruliweb.com/community/board/*/read/*"
       ],
       "js": [
         "lib/exifr.full.umd.js",
