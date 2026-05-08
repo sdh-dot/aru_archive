@@ -381,6 +381,12 @@ _NEW_SERIES_CASES = [
         "벽람항로",
         "アズールレーン",
     ),
+    (
+        "wuthering_waves",
+        "Wuthering Waves",
+        "명조",
+        "鳴潮",
+    ),
 ]
 
 
@@ -428,6 +434,7 @@ class TestPackJsonStructure:
     @pytest.mark.parametrize("pack_id", [
         "nikke", "genshin_impact", "honkai_star_rail", "zenless_zone_zero",
         "arknights", "fate_grand_order", "uma_musume", "azur_lane",
+        "wuthering_waves",
     ])
     def test_pack_file_valid_json(self, pack_id):
         path = _PACKS_DIR / f"{pack_id}.json"
@@ -442,6 +449,7 @@ class TestPackJsonStructure:
     @pytest.mark.parametrize("pack_id", [
         "nikke", "genshin_impact", "honkai_star_rail", "zenless_zone_zero",
         "arknights", "fate_grand_order", "uma_musume", "azur_lane",
+        "wuthering_waves",
     ])
     def test_pack_series_has_ko_ja(self, pack_id):
         path = _PACKS_DIR / f"{pack_id}.json"
@@ -457,6 +465,7 @@ class TestPackJsonStructure:
     @pytest.mark.parametrize("pack_id", [
         "nikke", "genshin_impact", "honkai_star_rail", "zenless_zone_zero",
         "arknights", "fate_grand_order", "uma_musume", "azur_lane",
+        "wuthering_waves",
     ])
     def test_pack_seed_is_idempotent(self, pack_id):
         """동일 pack을 두 번 seed해도 충돌 없음."""
