@@ -1,7 +1,7 @@
 {
   "pack_id": "genshin_impact",
   "name": "Genshin Impact",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "source": "built_in",
   "series": [
     {
@@ -9,8 +9,10 @@
       "media_type": "game",
       "aliases": [
         "Genshin Impact",
+        "genshin impact",
         "原神",
         "원신",
+        "겐신",
         "겐신 임팩트",
         "げんしん"
       ],
@@ -21,5 +23,48 @@
       }
     }
   ],
-  "characters": []
+  "characters": [
+    {
+      "canonical": "Hu Tao",
+      "parent_series": "Genshin Impact",
+      "aliases": ["Hu Tao", "胡桃", "호두"],
+      "localizations": { "ko": "호두", "ja": "胡桃", "en": "Hu Tao" }
+    },
+    {
+      "canonical": "Keqing",
+      "parent_series": "Genshin Impact",
+      "aliases": ["Keqing", "刻晴", "각청"],
+      "localizations": { "ko": "각청", "ja": "刻晴", "en": "Keqing" }
+    },
+    {
+      "canonical": "Ganyu",
+      "parent_series": "Genshin Impact",
+      "aliases": ["Ganyu", "甘雨", "감우"],
+      "localizations": { "ko": "감우", "ja": "甘雨", "en": "Ganyu" }
+    },
+    {
+      "canonical": "Zhongli",
+      "parent_series": "Genshin Impact",
+      "aliases": ["Zhongli", "鍾離", "종리"],
+      "localizations": { "ko": "종리", "ja": "鍾離", "en": "Zhongli" }
+    },
+    {
+      "canonical": "Raiden Shogun",
+      "parent_series": "Genshin Impact",
+      "aliases": ["Raiden Shogun", "雷電将軍", "라이덴 쇼군", "Ei", "에이"],
+      "localizations": { "ko": "라이덴 쇼군", "ja": "雷電将軍", "en": "Raiden Shogun" }
+    },
+    {
+      "canonical": "Nahida",
+      "parent_series": "Genshin Impact",
+      "aliases": ["Nahida", "ナヒーダ", "나히다"],
+      "localizations": { "ko": "나히다", "ja": "ナヒーダ", "en": "Nahida" }
+    },
+    {
+      "canonical": "Furina",
+      "parent_series": "Genshin Impact",
+      "aliases": ["Furina", "フリーナ", "후리나", "Focalors", "포칼로스"],
+      "localizations": { "ko": "후리나", "ja": "フリーナ", "en": "Furina" }
+    }
+  ]
 }
