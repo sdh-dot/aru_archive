@@ -381,6 +381,48 @@ _NEW_SERIES_CASES = [
         "벽람항로",
         "アズールレーン",
     ),
+    (
+        "wuthering_waves",
+        "Wuthering Waves",
+        "명조",
+        "鳴潮",
+    ),
+    (
+        "idolmaster_765",
+        "THE iDOLM@STER",
+        "아이돌마스터",
+        "アイドルマスター",
+    ),
+    (
+        "idolmaster_cinderella_girls",
+        "THE iDOLM@STER Cinderella Girls",
+        "신데렐라 걸즈",
+        "シンデレラガールズ",
+    ),
+    (
+        "idolmaster_million_live",
+        "THE iDOLM@STER Million Live!",
+        "밀리언 라이브!",
+        "ミリオンライブ!",
+    ),
+    (
+        "idolmaster_sidem",
+        "THE iDOLM@STER SideM",
+        "사이드M",
+        "アイドルマスター SideM",
+    ),
+    (
+        "idolmaster_shiny_colors",
+        "THE iDOLM@STER Shiny Colors",
+        "샤이니 컬러즈",
+        "シャイニーカラーズ",
+    ),
+    (
+        "idolmaster_gakuen",
+        "Gakuen iDOLM@STER",
+        "학원 아이돌마스터",
+        "学園アイドルマスター",
+    ),
 ]
 
 
@@ -428,6 +470,9 @@ class TestPackJsonStructure:
     @pytest.mark.parametrize("pack_id", [
         "nikke", "genshin_impact", "honkai_star_rail", "zenless_zone_zero",
         "arknights", "fate_grand_order", "uma_musume", "azur_lane",
+        "wuthering_waves",
+        "idolmaster_765", "idolmaster_cinderella_girls", "idolmaster_million_live",
+        "idolmaster_sidem", "idolmaster_shiny_colors", "idolmaster_gakuen",
     ])
     def test_pack_file_valid_json(self, pack_id):
         path = _PACKS_DIR / f"{pack_id}.json"
@@ -442,6 +487,9 @@ class TestPackJsonStructure:
     @pytest.mark.parametrize("pack_id", [
         "nikke", "genshin_impact", "honkai_star_rail", "zenless_zone_zero",
         "arknights", "fate_grand_order", "uma_musume", "azur_lane",
+        "wuthering_waves",
+        "idolmaster_765", "idolmaster_cinderella_girls", "idolmaster_million_live",
+        "idolmaster_sidem", "idolmaster_shiny_colors", "idolmaster_gakuen",
     ])
     def test_pack_series_has_ko_ja(self, pack_id):
         path = _PACKS_DIR / f"{pack_id}.json"
@@ -457,6 +505,9 @@ class TestPackJsonStructure:
     @pytest.mark.parametrize("pack_id", [
         "nikke", "genshin_impact", "honkai_star_rail", "zenless_zone_zero",
         "arknights", "fate_grand_order", "uma_musume", "azur_lane",
+        "wuthering_waves",
+        "idolmaster_765", "idolmaster_cinderella_girls", "idolmaster_million_live",
+        "idolmaster_sidem", "idolmaster_shiny_colors", "idolmaster_gakuen",
     ])
     def test_pack_seed_is_idempotent(self, pack_id):
         """동일 pack을 두 번 seed해도 충돌 없음."""

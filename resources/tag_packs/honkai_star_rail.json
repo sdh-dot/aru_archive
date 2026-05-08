@@ -1,7 +1,7 @@
 {
   "pack_id": "honkai_star_rail",
   "name": "Honkai: Star Rail",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "source": "built_in",
   "series": [
     {
@@ -9,9 +9,11 @@
       "media_type": "game",
       "aliases": [
         "Honkai: Star Rail",
+        "honkai star rail",
         "崩壊：スターレイル",
         "스타레일",
         "붕괴: 스타레일",
+        "붕괴 스타레일",
         "崩壊スターレイル",
         "スターレイル",
         "붕스"
@@ -23,5 +25,36 @@
       }
     }
   ],
-  "characters": []
+  "characters": [
+    {
+      "canonical": "Kafka",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": ["Kafka", "カフカ", "카프카"],
+      "localizations": { "ko": "카프카", "ja": "カフカ", "en": "Kafka" }
+    },
+    {
+      "canonical": "Blade",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": ["Blade", "刃", "블레이드"],
+      "localizations": { "ko": "블레이드", "ja": "刃", "en": "Blade" }
+    },
+    {
+      "canonical": "Bronya",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": ["Bronya", "ブローニャ", "브로냐"],
+      "localizations": { "ko": "브로냐", "ja": "ブローニャ", "en": "Bronya" }
+    },
+    {
+      "canonical": "Black Swan",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": ["Black Swan", "ブラックスワン", "블랙 스완"],
+      "localizations": { "ko": "블랙 스완", "ja": "ブラックスワン", "en": "Black Swan" }
+    },
+    {
+      "canonical": "Jingliu",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": ["Jingliu", "鏡流", "경류"],
+      "localizations": { "ko": "경류", "ja": "鏡流", "en": "Jingliu" }
+    }
+  ]
 }

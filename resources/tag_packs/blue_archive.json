@@ -1,7 +1,7 @@
 {
   "pack_id": "blue_archive",
   "name": "Blue Archive",
-  "version": "1.4.0",
+  "version": "1.7.0",
   "source": "built_in",
   "series": [
     {
@@ -381,13 +381,15 @@
       "parent_series": "Blue Archive",
       "aliases": [
         "佐城トモエ",
+        "사시로 토모에",
+        "Sashiro Tomoe",
         "사죠 토모에",
         "Sajo Tomoe"
       ],
       "localizations": {
-        "ko": "사죠 토모에",
+        "ko": "사시로 토모에",
         "ja": "佐城トモエ",
-        "en": "Sajo Tomoe"
+        "en": "Sashiro Tomoe"
       }
     },
     {
@@ -1264,13 +1266,15 @@
       "parent_series": "Blue Archive",
       "aliases": [
         "鷲見セリナ",
+        "스미 세리나",
+        "Sumi Serina",
         "와시미 세리나",
         "Washimi Serina"
       ],
       "localizations": {
-        "ko": "와시미 세리나",
+        "ko": "스미 세리나",
         "ja": "鷲見セリナ",
-        "en": "Washimi Serina"
+        "en": "Sumi Serina"
       }
     },
     {
@@ -1300,6 +1304,533 @@
         "ja": "黒舘ハルナ",
         "en": "Kurodate Haruna"
       }
+    },
+    {
+      "canonical": "角楯カリン",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "角楯カリン",
+        "カリン",
+        "Kakudate Karin",
+        "Karin",
+        "카쿠다테 카린"
+      ],
+      "localizations": {
+        "ko": "카쿠다테 카린",
+        "ja": "角楯カリン",
+        "en": "Kakudate Karin"
+      }
+    },
+    {
+      "canonical": "白石ウタハ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "白石ウタハ",
+        "ウタハ",
+        "Shiraishi Utaha",
+        "Utaha",
+        "시라이시 우타하"
+      ],
+      "localizations": {
+        "ko": "시라이시 우타하",
+        "ja": "白石ウタハ",
+        "en": "Shiraishi Utaha"
+      }
+    },
+    {
+      "canonical": "三香本ネル",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "三香本ネル",
+        "Mikamo Neru",
+        "Neru",
+        "미카모 네루"
+      ],
+      "localizations": {
+        "ko": "미카모 네루",
+        "ja": "三香本ネル",
+        "en": "Mikamo Neru"
+      }
+    },
+    {
+      "canonical": "白見イオリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "白見イオリ",
+        "イオリ",
+        "Shiromi Iori",
+        "Iori",
+        "시로미 이오리"
+      ],
+      "localizations": {
+        "ko": "시로미 이오리",
+        "ja": "白見イオリ",
+        "en": "Shiromi Iori"
+      }
+    },
+    {
+      "canonical": "連川チェリノ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "連川チェリノ",
+        "チェリノ",
+        "Renkawa Cherino",
+        "Cherino",
+        "렌카와 체리노"
+      ],
+      "localizations": {
+        "ko": "렌카와 체리노",
+        "ja": "連川チェリノ",
+        "en": "Renkawa Cherino"
+      }
+    },
+    {
+      "canonical": "棗イロハ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "棗イロハ",
+        "イロハ",
+        "Natsume Iroha",
+        "Iroha",
+        "나츠메 이로하"
+      ],
+      "localizations": {
+        "ko": "나츠메 이로하",
+        "ja": "棗イロハ",
+        "en": "Natsume Iroha"
+      }
+    },
+    {
+      "canonical": "鬼怒川カスミ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "鬼怒川カスミ",
+        "カスミ",
+        "Kinugawa Kasumi",
+        "Kasumi",
+        "키누가와 카스미"
+      ],
+      "localizations": {
+        "ko": "키누가와 카스미",
+        "ja": "鬼怒川カスミ",
+        "en": "Kinugawa Kasumi"
+      }
+    },
+    {
+      "canonical": "下倉メグ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "下倉メグ",
+        "メグ",
+        "Shimokura Megu",
+        "Megu",
+        "시모쿠라 메구"
+      ],
+      "localizations": {
+        "ko": "시모쿠라 메구",
+        "ja": "下倉メグ",
+        "en": "Shimokura Megu"
+      }
+    },
+    {
+      "canonical": "和楽チセ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "和楽チセ",
+        "チセ",
+        "Waraku Chise",
+        "Chise",
+        "와라쿠 치세"
+      ],
+      "localizations": {
+        "ko": "와라쿠 치세",
+        "ja": "和楽チセ",
+        "en": "Waraku Chise"
+      }
+    },
+    {
+      "canonical": "朝比奈フィーナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "朝比奈フィーナ",
+        "フィーナ",
+        "Asahina Pina",
+        "Pina",
+        "아사히나 피나"
+      ],
+      "localizations": {
+        "ko": "아사히나 피나",
+        "ja": "朝比奈フィーナ",
+        "en": "Asahina Pina"
+      }
+    },
+    {
+      "canonical": "勇美カエデ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "勇美カエデ",
+        "カエデ",
+        "Isami Kaede",
+        "Kaede",
+        "이사미 카에데"
+      ],
+      "localizations": {
+        "ko": "이사미 카에데",
+        "ja": "勇美カエデ",
+        "en": "Isami Kaede"
+      }
+    },
+    {
+      "canonical": "千鳥ミチル",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "千鳥ミチル",
+        "ミチル",
+        "Chidori Michiru",
+        "Michiru",
+        "치도리 미치루"
+      ],
+      "localizations": {
+        "ko": "치도리 미치루",
+        "ja": "千鳥ミチル",
+        "en": "Chidori Michiru"
+      }
+    },
+    {
+      "canonical": "大野ツクヨ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "大野ツクヨ",
+        "ツクヨ",
+        "Oono Tsukuyo",
+        "Tsukuyo",
+        "오노 츠쿠요"
+      ],
+      "localizations": {
+        "ko": "오노 츠쿠요",
+        "ja": "大野ツクヨ",
+        "en": "Oono Tsukuyo"
+      }
+    },
+    {
+      "canonical": "桑上カホ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "桑上カホ",
+        "カホ",
+        "Kuwakami Kaho",
+        "Kaho",
+        "쿠와카미 카호"
+      ],
+      "localizations": {
+        "ko": "쿠와카미 카호",
+        "ja": "桑上カホ",
+        "en": "Kuwakami Kaho"
+      }
+    },
+    {
+      "canonical": "池倉マリナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "池倉マリナ",
+        "マリナ",
+        "Ikekura Marina",
+        "Marina",
+        "이케쿠라 마리나"
+      ],
+      "localizations": {
+        "ko": "이케쿠라 마리나",
+        "ja": "池倉マリナ",
+        "en": "Ikekura Marina"
+      }
+    },
+    {
+      "canonical": "天見ノドカ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "天見ノドカ",
+        "ノドカ",
+        "Amami Nodoka",
+        "Nodoka",
+        "아마미 노도카"
+      ],
+      "localizations": {
+        "ko": "아마미 노도카",
+        "ja": "天見ノドカ",
+        "en": "Amami Nodoka"
+      }
+    },
+    {
+      "canonical": "間宵シグレ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "間宵シグレ",
+        "シグレ",
+        "Mayoi Shigure",
+        "Shigure",
+        "마요이 시구레"
+      ],
+      "localizations": {
+        "ko": "마요이 시구레",
+        "ja": "間宵シグレ",
+        "en": "Mayoi Shigure"
+      }
+    },
+    {
+      "canonical": "安守ミノリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "安守ミノリ",
+        "ミノリ",
+        "Yasumori Minori",
+        "Minori",
+        "야스모리 미노리"
+      ],
+      "localizations": {
+        "ko": "야스모리 미노리",
+        "ja": "安守ミノリ",
+        "en": "Yasumori Minori"
+      }
+    },
+    {
+      "canonical": "姫木メル",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "姫木メル",
+        "メル",
+        "Himeki Meru",
+        "Meru",
+        "히메키 메루"
+      ],
+      "localizations": {
+        "ko": "히메키 메루",
+        "ja": "姫木メル",
+        "en": "Himeki Meru"
+      }
+    },
+    {
+      "canonical": "秋泉モミジ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "秋泉モミジ",
+        "モミジ",
+        "Akiizumi Momiji",
+        "Momiji",
+        "아키이즈미 모미지"
+      ],
+      "localizations": {
+        "ko": "아키이즈미 모미지",
+        "ja": "秋泉モミジ",
+        "en": "Akiizumi Momiji"
+      }
+    },
+    {
+      "canonical": "和泉元エイミ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "和泉元エイミ",
+        "エイミ",
+        "Izumimoto Eimi",
+        "Eimi",
+        "이즈미모토 에이미"
+      ],
+      "localizations": {
+        "ko": "이즈미모토 에이미",
+        "ja": "和泉元エイミ",
+        "en": "Izumimoto Eimi"
+      }
+    },
+    {
+      "canonical": "豊見コトリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "豊見コトリ",
+        "コトリ",
+        "Toyomi Kotori",
+        "Kotori",
+        "토요미 코토리"
+      ],
+      "localizations": {
+        "ko": "토요미 코토리",
+        "ja": "豊見コトリ",
+        "en": "Toyomi Kotori"
+      }
+    },
+    {
+      "canonical": "室笠アカネ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "室笠アカネ",
+        "アカネ",
+        "Murokasa Akane",
+        "Akane",
+        "무로카사 아카네"
+      ],
+      "localizations": {
+        "ko": "무로카사 아카네",
+        "ja": "室笠アカネ",
+        "en": "Murokasa Akane"
+      }
+    },
+    {
+      "canonical": "乙花スミレ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "乙花スミレ",
+        "スミレ",
+        "Otohana Sumire",
+        "Sumire",
+        "오토하나 스미레"
+      ],
+      "localizations": {
+        "ko": "오토하나 스미레",
+        "ja": "乙花スミレ",
+        "en": "Otohana Sumire"
+      }
+    },
+    {
+      "canonical": "薬師サヤ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "薬師サヤ",
+        "サヤ",
+        "Yakushi Saya",
+        "Saya",
+        "야쿠시 사야"
+      ],
+      "localizations": {
+        "ko": "야쿠시 사야",
+        "ja": "薬師サヤ",
+        "en": "Yakushi Saya"
+      }
+    },
+    {
+      "canonical": "朱城ルミ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "朱城ルミ",
+        "ルミ",
+        "Akeshiro Rumi",
+        "Rumi",
+        "아케시로 루미"
+      ],
+      "localizations": {
+        "ko": "아케시로 루미",
+        "ja": "朱城ルミ",
+        "en": "Akeshiro Rumi"
+      }
+    },
+    {
+      "canonical": "近衛ミナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "近衛ミナ",
+        "ミナ",
+        "Konoe Mina",
+        "Mina",
+        "코노에 미나"
+      ],
+      "localizations": {
+        "ko": "코노에 미나",
+        "ja": "近衛ミナ",
+        "en": "Konoe Mina"
+      }
+    },
+    {
+      "canonical": "戒野ミサキ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "戒野ミサキ",
+        "ミサキ",
+        "Imashino Misaki",
+        "Misaki",
+        "이마시노 미사키"
+      ],
+      "localizations": {
+        "ko": "이마시노 미사키",
+        "ja": "戒野ミサキ",
+        "en": "Imashino Misaki"
+      }
+    },
+    {
+      "canonical": "秤アツコ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "秤アツコ",
+        "アツコ",
+        "Hakari Atsuko",
+        "Atsuko",
+        "하카리 아츠코"
+      ],
+      "localizations": {
+        "ko": "하카리 아츠코",
+        "ja": "秤アツコ",
+        "en": "Hakari Atsuko"
+      }
+    },
+    {
+      "canonical": "槌永ヒヨリ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "槌永ヒヨリ",
+        "ヒヨリ",
+        "Tsuchinaga Hiyori",
+        "Hiyori",
+        "츠치나가 히요리"
+      ],
+      "localizations": {
+        "ko": "츠치나가 히요리",
+        "ja": "槌永ヒヨリ",
+        "en": "Tsuchinaga Hiyori"
+      }
+    },
+    {
+      "canonical": "円堂シミコ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "円堂シミコ",
+        "シミコ",
+        "Endo Shimiko",
+        "Shimiko",
+        "엔도우 시미코"
+      ],
+      "localizations": {
+        "ko": "엔도우 시미코",
+        "ja": "円堂シミコ",
+        "en": "Endo Shimiko"
+      }
+    },
+    {
+      "canonical": "仲正イチカ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "仲正イチカ",
+        "イチカ",
+        "Nakamasa Ichika",
+        "Ichika",
+        "나카마사 이치카"
+      ],
+      "localizations": {
+        "ko": "나카마사 이치카",
+        "ja": "仲正イチカ",
+        "en": "Nakamasa Ichika"
+      }
+    },
+    {
+      "canonical": "尾刃カンナ",
+      "parent_series": "Blue Archive",
+      "aliases": [
+        "尾刃カンナ",
+        "カンナ",
+        "Ogata Kanna",
+        "Kanna",
+        "오가타 칸나"
+      ],
+      "localizations": {
+        "ko": "오가타 칸나",
+        "ja": "尾刃カンナ",
+        "en": "Ogata Kanna"
+      }
     }
   ],
   "groups": [
@@ -1319,6 +1850,134 @@
         "ko": "흥신소68",
         "ja": "便利屋68",
         "en": "Problem Solver 68"
+      }
+    },
+    {
+      "canonical": "ティーパーティー",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "ティーパーティー",
+        "티파티",
+        "Tea Party"
+      ],
+      "localizations": {
+        "ko": "티파티",
+        "ja": "ティーパーティー",
+        "en": "Tea Party"
+      }
+    },
+    {
+      "canonical": "正義実現委員会",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "正義実現委員会",
+        "정의실현부",
+        "Justice Task Force",
+        "Justice Realization Committee"
+      ],
+      "localizations": {
+        "ko": "정의실현부",
+        "ja": "正義実現委員会",
+        "en": "Justice Task Force"
+      }
+    },
+    {
+      "canonical": "補習授業部",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "補習授業部",
+        "보충수업부",
+        "Make-Up Work Club",
+        "Supplementary Lessons Club"
+      ],
+      "localizations": {
+        "ko": "보충수업부",
+        "ja": "補習授業部",
+        "en": "Make-Up Work Club"
+      }
+    },
+    {
+      "canonical": "セミナー",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "セミナー",
+        "세미나",
+        "Seminar"
+      ],
+      "localizations": {
+        "ko": "세미나",
+        "ja": "セミナー",
+        "en": "Seminar"
+      }
+    },
+    {
+      "canonical": "ゲーム開発部",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "ゲーム開発部",
+        "게임개발부",
+        "Game Development Department",
+        "Game Development Club"
+      ],
+      "localizations": {
+        "ko": "게임개발부",
+        "ja": "ゲーム開発部",
+        "en": "Game Development Department"
+      }
+    },
+    {
+      "canonical": "Cleaning&Clearing",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "Cleaning&Clearing",
+        "C&C",
+        "Cleaning & Clearing",
+        "Cleaning and Clearing",
+        "C and C",
+        "클리닝&클리어링"
+      ],
+      "localizations": {
+        "ko": "클리닝&클리어링",
+        "ja": "クリーニング&クリアリング",
+        "en": "Cleaning & Clearing"
+      }
+    },
+    {
+      "canonical": "万魔殿",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "万魔殿",
+        "판데모니움 소사이어티",
+        "Pandemonium Society"
+      ],
+      "localizations": {
+        "ko": "판데모니움 소사이어티",
+        "ja": "万魔殿",
+        "en": "Pandemonium Society"
+      }
+    },
+    {
+      "canonical": "風紀委員会",
+      "parent_series": "Blue Archive",
+      "kind": "group",
+      "aliases": [
+        "風紀委員会",
+        "게헨나 선도부",
+        "선도부",
+        "Prefect Team",
+        "Disciplinary Committee"
+      ],
+      "localizations": {
+        "ko": "게헨나 선도부",
+        "ja": "風紀委員会",
+        "en": "Prefect Team"
       }
     }
   ]

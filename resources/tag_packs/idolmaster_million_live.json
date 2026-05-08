@@ -1,0 +1,47 @@
+{
+  "pack_id": "idolmaster_million_live",
+  "name": "THE iDOLM@STER Million Live!",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "THE iDOLM@STER Million Live!",
+      "media_type": "game",
+      "aliases": [
+        "THE iDOLM@STER Million Live!",
+        "Million Live!",
+        "million live",
+        "アイドルマスター ミリオンライブ!",
+        "ミリオンライブ!",
+        "ミリオンライブ",
+        "ミリマス",
+        "밀리언 라이브!",
+        "밀리마스",
+        "ML"
+      ],
+      "localizations": {
+        "ko": "밀리언 라이브!",
+        "ja": "ミリオンライブ!",
+        "en": "Million Live!"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "canonical": "765 MILLIONSTARS",
+      "parent_series": "THE iDOLM@STER Million Live!",
+      "aliases": [
+        "765 MILLIONSTARS",
+        "765 밀리언스타즈",
+        "765ミリオンスターズ",
+        "MILLIONSTARS"
+      ],
+      "localizations": {
+        "ko": "765 밀리언스타즈",
+        "ja": "765ミリオンスターズ",
+        "en": "765 MILLIONSTARS"
+      }
+    }
+  ],
+  "characters": []
+}
