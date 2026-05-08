@@ -192,6 +192,21 @@
         sourceInfo = { status: "error", url: null, reason: "parse_threw" };
       }
       addPendingRecord(file, sourceInfo);
+
+      // 모바일 글쓰기 페이지: 파일 선택 시점에 즉시 출처 삽입.
+      // 데스크톱에서는 MutationObserver가 <img>를 감지한 뒤 삽입하지만,
+      // 모바일 Ruliweb은 에디터 구조가 달라 img.alt 매칭이 작동하지 않는 경우가 있다.
+      // isReadPage()===true인 경우는 hookCommentFileInput()이 처리하므로 제외한다.
+      if (
+        isMobileAutoInsertEnvironment() &&
+        !isReadPage() &&
+        sourceInfo !== null &&
+        sourceInfo !== undefined &&
+        sourceInfo.status === "ok" &&
+        sourceInfo.url
+      ) {
+        tryMobileWriteInsert(sourceInfo.url);
+      }
     }
   }
 
@@ -885,6 +900,81 @@
     return p;
   }
 
+  // ---------------- 모바일 글쓰기 직접 삽입 ----------------
+  //
+  // 데스크톱 글쓰기 페이지는 에디터에 <img alt="파일명">이 삽입되면
+  // MutationObserver가 캡션을 삽입한다. 모바일 Ruliweb은 에디터 구조가 달라
+  // img.alt 매칭이 작동하지 않는 경우가 많다. 모바일에서는 파일 선택 시점에
+  // 즉시 textarea/contenteditable을 찾아 출처 캡션을 직접 삽입한다.
+  //
+  // 우선순위:
+  //   1. 기존 EDITOR_ROOT_SELECTORS (CKEditor/Froala contenteditable)
+  //   2. 화면에 보이는 textarea 중 댓글·답글 이름 패턴이 아닌 것
+  //
+  // 찾지 못하면 예외 throw 없이 console.warn만 남기고 no-op.
+
+  const WRITE_TEXTAREA_EXCLUDE_PATTERN = /comment|reply|re_comment/i;
+
+  function findMobileWriteArea() {
+    // 1순위: 기존 editor selector (contenteditable, CKEditor, Froala)
+    for (const sel of EDITOR_ROOT_SELECTORS) {
+      const el = document.querySelector(sel);
+      if (el instanceof HTMLElement) return el;
+    }
+    // 2순위: 화면에 보이는 textarea 중 댓글 계열 제외
+    const textareas = document.querySelectorAll("textarea");
+    for (const ta of textareas) {
+      if (!(ta instanceof HTMLTextAreaElement)) continue;
+      if (ta.offsetParent === null) continue;  // hidden
+      const nameId = (ta.name || "") + " " + (ta.id || "");
+      if (WRITE_TEXTAREA_EXCLUDE_PATTERN.test(nameId)) continue;
+      return ta;
+    }
+    return null;
+  }
+
+  function tryMobileWriteInsert(rawUrl) {
+    const effectiveConfig = cachedConfig || { ...DEFAULT_OPTIONS };
+    const safeUrl = sanitizeSourceUrl(rawUrl, effectiveConfig);
+    if (!safeUrl) {
+      console.debug("[Aru Source Captioner] mobile write: URL rejected by sanitizer");
+      return;
+    }
+
+    const target = findMobileWriteArea();
+    if (!target) {
+      console.warn("[Aru Source Captioner] mobile write: no write area found — no-op");
+      return;
+    }
+
+    // textarea 경로: 댓글 페이지의 insertSourceIntoCommentTextarea 재사용.
+    // 중복 감지(동일 줄 이미 존재 / maxLength 초과)는 함수 내부에서 처리한다.
+    if (target instanceof HTMLTextAreaElement) {
+      const sourceText = buildCommentSourceText(safeUrl);
+      const result = insertSourceIntoCommentTextarea(target, sourceText);
+      console.log("[Aru Source Captioner] mobile write: textarea insert result =", result);
+      return;
+    }
+
+    // contenteditable 경로: 이미 동일 URL이 있으면 skip, 없으면 캡션 <p> 삽입.
+    if (target.isContentEditable) {
+      if ((target.textContent || "").includes(safeUrl)) {
+        console.log("[Aru Source Captioner] mobile write: caption already in editor");
+        return;
+      }
+      try {
+        const caption = createSourceCaption(safeUrl);
+        target.appendChild(caption);
+        console.log("[Aru Source Captioner] mobile write: inserted caption into contenteditable");
+      } catch (err) {
+        console.debug("[Aru Source Captioner] mobile write: contenteditable insert failed:", err);
+      }
+      return;
+    }
+
+    console.warn("[Aru Source Captioner] mobile write: target is neither textarea nor contenteditable — no-op");
+  }
+
   // ---------------- 페이지 종류 감지 ----------------
   //
   // 글쓰기 페이지(write)와 일반 게시글 조회 페이지(read)는 manifest matches가 모두
@@ -977,6 +1067,12 @@
   // 캐시한다 (DEFAULT_OPTIONS와 동일한 shape — sanitizeSourceUrl이 사용하는
   // allowHttp / strictAllowlist / allowedHosts만 의미가 있다).
   let readPageConfig = null;
+
+  // init()에서 로드한 config를 캐시한다.
+  // 글쓰기 페이지의 파일 change 이벤트는 attachFileInputListeners(config) 클로저 안에
+  // config를 가지지만, 모바일 직접 삽입 경로는 handleSelectedImageFiles 스코프에서
+  // config가 필요하다. 여기에 캐시해 두어 항상 유효한 config를 참조할 수 있게 한다.
+  let cachedConfig = null;
 
   // textarea로부터 외곽 wrapper(.common_img_button을 sibling으로 가진 컨테이너)를
   // 우선순위대로 단계별 closest()로 찾는다. closest()를 OR로 묶으면 .common_input_wrapper
@@ -1479,6 +1575,7 @@
     });
 
     const config = await loadConfig();
+    cachedConfig = config;
 
     if (!config.enabled) {
       console.info("[Aru Source Captioner] disabled — skipping content script");

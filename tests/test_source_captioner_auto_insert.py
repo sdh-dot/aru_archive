@@ -293,6 +293,65 @@ class TestFilenameFallbackPreserved:
 # 8. Firefox content.js — XSS / 보안 정책
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 9. Firefox content.js — 모바일 글쓰기 직접 삽입
+# ---------------------------------------------------------------------------
+
+class TestMobileWriteInsert:
+
+    def test_find_mobile_write_area_defined(self, ff_content_js):
+        assert "findMobileWriteArea" in ff_content_js
+
+    def test_try_mobile_write_insert_defined(self, ff_content_js):
+        assert "tryMobileWriteInsert" in ff_content_js
+
+    def test_write_textarea_exclude_pattern_defined(self, ff_content_js):
+        """댓글/답글 textarea를 제외하는 패턴이 있어야 한다."""
+        assert "WRITE_TEXTAREA_EXCLUDE_PATTERN" in ff_content_js
+
+    def test_cached_config_defined(self, ff_content_js):
+        """cachedConfig 모듈 변수가 정의되어 있어야 한다."""
+        assert "cachedConfig" in ff_content_js
+
+    def test_mobile_write_insert_called_on_file_select(self, ff_content_js):
+        """handleSelectedImageFiles에서 모바일 조건 하에 tryMobileWriteInsert를 호출해야 한다."""
+        assert "tryMobileWriteInsert(" in ff_content_js
+        assert "isMobileAutoInsertEnvironment()" in ff_content_js
+        assert "!isReadPage()" in ff_content_js
+
+    def test_mobile_insert_uses_sanitize_url(self, ff_content_js):
+        """tryMobileWriteInsert 내부에서 sanitizeSourceUrl을 호출해야 한다."""
+        pattern = re.compile(
+            r"function tryMobileWriteInsert\([\s\S]{0,600}?sanitizeSourceUrl",
+            re.MULTILINE
+        )
+        assert pattern.search(ff_content_js), (
+            "tryMobileWriteInsert에서 sanitizeSourceUrl 호출 없음"
+        )
+
+    def test_mobile_insert_no_op_when_no_target(self, ff_content_js):
+        """write area를 찾지 못하면 warn만 남기고 no-op 해야 한다."""
+        assert "no write area found" in ff_content_js or "no-op" in ff_content_js
+
+    def test_mobile_insert_textarea_path_reuses_insert_function(self, ff_content_js):
+        """textarea인 경우 insertSourceIntoCommentTextarea를 재사용해야 한다."""
+        pattern = re.compile(
+            r"function tryMobileWriteInsert\([\s\S]{0,800}?insertSourceIntoCommentTextarea",
+            re.MULTILINE
+        )
+        assert pattern.search(ff_content_js), (
+            "tryMobileWriteInsert에서 insertSourceIntoCommentTextarea 재사용 없음"
+        )
+
+    def test_mobile_insert_contenteditable_duplicate_guard(self, ff_content_js):
+        """contenteditable 경로에서 이미 URL이 있으면 skip 해야 한다."""
+        assert "already in editor" in ff_content_js or "caption already" in ff_content_js
+
+
+# ---------------------------------------------------------------------------
+# 10. 보안 정책
+# ---------------------------------------------------------------------------
+
 class TestSecurityPolicy:
 
     def test_no_inner_html(self, ff_content_js):
