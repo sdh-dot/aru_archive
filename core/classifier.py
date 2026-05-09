@@ -696,6 +696,9 @@ def build_classify_preview(
     _legacy_fallback_used: bool = False
     _debug_classify_input: list[str] = []
     _classify_evidence: list[dict] = []
+    _mixed_post_debug: dict = {"detected": False}
+    _post_level_candidates: dict = {"series": [], "characters": []}
+    _image_level_decision: dict = {"status": "confirmed", "series": [], "characters": []}
 
     if _series_only_mode:
         _debug_source_used = "series_only_resolver"
@@ -782,9 +785,94 @@ def build_classify_preview(
                     if _ec and _eps:
                         _char_parent_series.setdefault(_ec, _eps)
 
+                # === #133: Pixiv mixed-post detection ===
+                _is_pixiv = (group_dict_for_build.get("source_site") or "pixiv") == "pixiv"
+                _post_series = list(_new_series)
+                _post_chars  = list(_new_chars)
+                _char_parent_vals = {
+                    _char_parent_series.get(c, "")
+                    for c in _post_chars
+                    if _char_parent_series.get(c)
+                }
+                _mixed_post_detected = False
+                _mixed_post_reason = ""
+                if _is_pixiv and len(_char_parent_vals) >= 2:
+                    _mixed_post_detected = True
+                    _mixed_post_reason = (
+                        "multiple characters from different series "
+                        "in Pixiv post-level tags"
+                    )
+
+                # Image-level clue extraction (artwork_title only for now)
+                _image_clue_text = ""
+                if _mixed_post_detected:
+                    _title_val = (group_dict_for_build.get("artwork_title") or "").strip()
+                    if _title_val:
+                        _image_clue_text = _title_val.lower()
+
+                # Identify characters confirmed by image-level evidence
+                _image_confirmed_chars: list[str] = []
+                if _mixed_post_detected and _image_clue_text:
+                    for _ev in _ev_data.get("characters", []):
+                        _ec  = _ev.get("canonical", "")
+                        _raw = _ev.get("matched_raw_tag", "")
+                        if (_ec and _ec.lower() in _image_clue_text) or \
+                           (_raw and _raw.lower() in _image_clue_text):
+                            if _ec not in _image_confirmed_chars:
+                                _image_confirmed_chars.append(_ec)
+
+                # Derive confirmed series from confirmed chars
+                _image_confirmed_series: list[str] = []
+                for _cc in _image_confirmed_chars:
+                    _ps = _char_parent_series.get(_cc, "")
+                    if _ps and _ps not in _image_confirmed_series:
+                        _image_confirmed_series.append(_ps)
+
+                # Apply mixed-post narrowing to final series/chars
+                _mixed_post_needs_review = False
+                if _mixed_post_detected:
+                    if _image_confirmed_chars:
+                        _new_chars  = _image_confirmed_chars
+                        _new_series = (
+                            _image_confirmed_series if _image_confirmed_series
+                            else _new_series
+                        )
+                    else:
+                        _mixed_post_needs_review = True
+                        _new_series = []
+                        _new_chars  = []
+
+                # Build mixed-post debug structures
+                _mixed_post_debug = {"detected": _mixed_post_detected}
+                if _mixed_post_detected:
+                    _mixed_post_debug["reason"]               = _mixed_post_reason
+                    _mixed_post_debug["series_candidates"]    = _post_series
+                    _mixed_post_debug["character_candidates"] = _post_chars
+                _post_level_candidates = {
+                    "series":     _post_series,
+                    "characters": _post_chars,
+                }
+                _image_level_status = (
+                    "needs_review" if _mixed_post_needs_review else "confirmed"
+                )
+                _image_level_decision = {
+                    "status":     _image_level_status,
+                    "series":     list(_new_series),
+                    "characters": list(_new_chars),
+                }
+                if _mixed_post_detected:
+                    _image_level_decision["reason"] = (
+                        "no image-level evidence available"
+                        if _mixed_post_needs_review
+                        else "image-level evidence confirmed: "
+                             + ", ".join(_image_confirmed_chars)
+                    )
+
                 # Series: canonical-normalised result; fall back to existing when empty.
                 group_dict_for_build["series_tags_json"] = json.dumps(
-                    _new_series if _new_series else _existing_series,
+                    _new_series if _new_series else (
+                        _existing_series if not _mixed_post_needs_review else []
+                    ),
                     ensure_ascii=False,
                 )
                 # Source priority: trust fresh classifier result when raw source available.
@@ -793,14 +881,15 @@ def build_classify_preview(
                     group_dict_for_build["character_tags_json"] = json.dumps(
                         _new_chars, ensure_ascii=False
                     )
-                elif not _raw_only_tags:
+                elif not _raw_only_tags and not _mixed_post_needs_review:
                     # Legacy row: no raw tags → preserve existing chars to avoid data loss.
                     _legacy_fallback_used = True
                     group_dict_for_build["character_tags_json"] = json.dumps(
                         list(dict.fromkeys([*_new_chars, *_existing_chars])),
                         ensure_ascii=False,
                     )
-                # else: had raw tags, classifier found no characters → empty (correct)
+                else:
+                    group_dict_for_build["character_tags_json"] = "[]"
             except Exception:
                 pass  # DB 값 유지 — 분류 실패해도 preview 흐름이 끊기지 않도록
 
@@ -978,6 +1067,10 @@ def build_classify_preview(
                     for b in _blocked
                 ],
             },
+            "metadata_scope":       {"pixiv_tags": "post_level"},
+            "mixed_post":           _mixed_post_debug,
+            "post_level_candidates": _post_level_candidates,
+            "image_level_decision": _image_level_decision,
         },
     }
 
