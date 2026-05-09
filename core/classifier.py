@@ -489,7 +489,8 @@ def _build_destinations(
                             _cross_series_blocked.append({
                                 "series": series,
                                 "character": char,
-                                "char_parent_series": _cps,
+                                "character_parent_series": _cps,
+                                "reason": "character belongs to different series",
                             })
                         continue
                 c_display, c_fb = _display(char, "character", series)
@@ -758,10 +759,21 @@ def build_classify_preview(
 
                 # Collect evidence for debug output
                 _ev_data = _result.get("evidence", {})
-                _classify_evidence = (
-                    [{"kind": "series",    **e} for e in _ev_data.get("series", [])] +
-                    [{"kind": "character", **e} for e in _ev_data.get("characters", [])]
-                )
+                _classify_evidence = []
+                for _e in _ev_data.get("series", []):
+                    _classify_evidence.append({
+                        "candidate_type": "series",
+                        "candidate":      _e.get("canonical", ""),
+                        "source":         _debug_source_used,
+                        "matched_alias":  _e.get("matched_raw_tag", ""),
+                    })
+                for _e in _ev_data.get("characters", []):
+                    _classify_evidence.append({
+                        "candidate_type": "character",
+                        "candidate":      _e.get("canonical", ""),
+                        "source":         _debug_source_used,
+                        "matched_alias":  _e.get("matched_raw_tag", ""),
+                    })
 
                 # Extract character→parent_series mapping for cross-series guard
                 for _ev in _ev_data.get("characters", []):
@@ -954,8 +966,18 @@ def build_classify_preview(
                 "series":     _parse_json_list(group_dict_for_build.get("series_tags_json")),
                 "characters": _parse_json_list(group_dict_for_build.get("character_tags_json")),
             },
-            "evidence":             _classify_evidence,
-            "cross_series_blocked": _blocked,
+            "evidence": _classify_evidence,
+            "blocked": {
+                "cross_series": [
+                    {
+                        "series":                  b["series"],
+                        "character":               b["character"],
+                        "character_parent_series": b["character_parent_series"],
+                        "reason":                  b["reason"],
+                    }
+                    for b in _blocked
+                ],
+            },
         },
     }
 

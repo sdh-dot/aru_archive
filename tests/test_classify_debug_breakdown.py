@@ -116,7 +116,7 @@ class TestClassificationDebugBreakdown:
         preview = build_classify_preview(db, gid, {"classified_dir": str(tmp_path / "c"), "classification": {}})
         assert preview is not None
         dbg = preview.get("classification_debug", {})
-        blocked = dbg.get("cross_series_blocked", [])
+        blocked = dbg.get("blocked", {}).get("cross_series", [])
         assert any(
             b["series"] == "Blue Archive" and b["character"] == "Hu Tao"
             for b in blocked
