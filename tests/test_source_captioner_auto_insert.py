@@ -60,7 +60,7 @@ class TestFirefoxAndroidManifest:
     def test_gecko_id(self, ff_manifest):
         bss = ff_manifest["browser_specific_settings"]
         gecko = bss.get("gecko", {})
-        assert gecko.get("id") == "aru-source-captioner@sdh-dot.github.io"
+        assert gecko.get("id") == "aru-source-captioner-firefox@sdh-dot.github.io"
 
     def test_gecko_strict_min_version(self, ff_manifest):
         bss = ff_manifest["browser_specific_settings"]
