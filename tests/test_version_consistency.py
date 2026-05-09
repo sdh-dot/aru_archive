@@ -18,9 +18,27 @@ def _read_source(rel_path: str) -> str:
 
 
 def test_app_version_matches_release_tag():
-    """APP_VERSION should match the latest release tag (v0.6.3)."""
-    assert APP_VERSION == "0.6.3", (
-        f"APP_VERSION={APP_VERSION!r} does not match release tag v0.6.3. "
+    """APP_VERSION should match the git release tag when HEAD is a tagged release.
+
+    During development (HEAD not tagged), this test is skipped automatically.
+    """
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--exact-match", "--match", "v*", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        import pytest
+        pytest.skip("git not available — version match check skipped")
+        return
+    if result.returncode != 0:
+        import pytest
+        pytest.skip("HEAD is not a release tag — version match check skipped in development")
+        return
+    tag = result.stdout.strip().lstrip("v")
+    assert APP_VERSION == tag, (
+        f"APP_VERSION={APP_VERSION!r} does not match current git tag v{tag}. "
         "Update core/version.py when bumping the release."
     )
 
