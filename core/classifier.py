@@ -691,8 +691,13 @@ def build_classify_preview(
         for t in _parse_json_list(group_dict_for_build.get(_f))
     ] + tag_table_ctx["raw_tags"]))
     _char_parent_series: dict[str, str] = {}
+    _debug_source_used: str = "none"
+    _legacy_fallback_used: bool = False
+    _debug_classify_input: list[str] = []
+    _classify_evidence: list[dict] = []
 
     if _series_only_mode:
+        _debug_source_used = "series_only_resolver"
         # series-only: merged source を _resolve_series_only_inputs() に渡す.
         # group_dict_for_build["series_tags_json"] は上書きしない — resolver が
         # explicit vs inferred series の distinction を内部で保持するため.
@@ -740,6 +745,8 @@ def build_classify_preview(
         # 사용해 character_tags_json / series_tags_json 피드백 루프를 차단한다.
         # series-only 모드는 resolver 가 내부에서 처리하므로 이 블록 제외.
         _classify_source = _raw_only_tags if _raw_only_tags else _source_tags
+        _debug_source_used = "raw_tags" if _raw_only_tags else "legacy_fallback"
+        _debug_classify_input = list(_classify_source)
         if _classify_source:
             try:
                 from core.tag_classifier import classify_pixiv_tags as _cls_fn
@@ -749,8 +756,15 @@ def build_classify_preview(
                 _new_series = _result.get("series_tags", [])
                 _new_chars  = _result.get("character_tags", [])
 
+                # Collect evidence for debug output
+                _ev_data = _result.get("evidence", {})
+                _classify_evidence = (
+                    [{"kind": "series",    **e} for e in _ev_data.get("series", [])] +
+                    [{"kind": "character", **e} for e in _ev_data.get("characters", [])]
+                )
+
                 # Extract character→parent_series mapping for cross-series guard
-                for _ev in _result.get("evidence", {}).get("characters", []):
+                for _ev in _ev_data.get("characters", []):
                     _ec = _ev.get("canonical", "")
                     _eps = _ev.get("parent_series", "")
                     if _ec and _eps:
@@ -769,6 +783,7 @@ def build_classify_preview(
                     )
                 elif not _raw_only_tags:
                     # Legacy row: no raw tags → preserve existing chars to avoid data loss.
+                    _legacy_fallback_used = True
                     group_dict_for_build["character_tags_json"] = json.dumps(
                         list(dict.fromkeys([*_new_chars, *_existing_chars])),
                         ensure_ascii=False,
@@ -931,6 +946,17 @@ def build_classify_preview(
         "deduped_destinations":      len(dests),
         "inferred_series_evidence":  inferred_series_evidence,
         "cross_series_blocked":      _blocked,
+        "classification_debug": {
+            "source_used":          _debug_source_used,
+            "legacy_fallback_used": _legacy_fallback_used,
+            "classify_input_tags":  _debug_classify_input,
+            "selected": {
+                "series":     _parse_json_list(group_dict_for_build.get("series_tags_json")),
+                "characters": _parse_json_list(group_dict_for_build.get("character_tags_json")),
+            },
+            "evidence":             _classify_evidence,
+            "cross_series_blocked": _blocked,
+        },
     }
 
 
