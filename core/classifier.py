@@ -408,6 +408,8 @@ def _build_destinations(
     conn: Optional[sqlite3.Connection] = None,
     *,
     series_only_mode: bool = False,
+    char_parent_series: Optional[dict] = None,
+    _cross_series_blocked: Optional[list] = None,
 ) -> list[dict]:
     """
     그룹·파일 정보를 바탕으로 복사 목적지 목록을 만든다.
@@ -480,6 +482,16 @@ def _build_destinations(
             s_display, s_fb = _display(series, "series")
             s = sanitize_path_component(s_display)
             for char in char_tags:
+                if char_parent_series:
+                    _cps = char_parent_series.get(char, "")
+                    if _cps and _cps != series:
+                        if _cross_series_blocked is not None:
+                            _cross_series_blocked.append({
+                                "series": series,
+                                "character": char,
+                                "char_parent_series": _cps,
+                            })
+                        continue
                 c_display, c_fb = _display(char, "character", series)
                 c = sanitize_path_component(c_display)
                 extra = {
@@ -672,6 +684,14 @@ def build_classify_preview(
     if tag_table_ctx["raw_tags"]:
         _source_tags = list(dict.fromkeys([*_source_tags, *tag_table_ctx["raw_tags"]]))
 
+    # Raw-only source: raw_tags_json + tags_json only (avoids feedback loop from stale
+    # character_tags_json / series_tags_json which are classification outputs, not inputs)
+    _raw_only_tags: list[str] = list(dict.fromkeys([
+        t for _f in ("raw_tags_json", "tags_json")
+        for t in _parse_json_list(group_dict_for_build.get(_f))
+    ] + tag_table_ctx["raw_tags"]))
+    _char_parent_series: dict[str, str] = {}
+
     if _series_only_mode:
         # series-only: merged source を _resolve_series_only_inputs() に渡す.
         # group_dict_for_build["series_tags_json"] は上書きしない — resolver が
@@ -716,38 +736,53 @@ def build_classify_preview(
                 _build_series_only_mode = False
 
     else:
-        # PR #128: non-series-only 모드 — merged source 기반으로 재분류해
-        # _build_destinations 에 전달할 series/character 를 갱신한다.
+        # PR #128 + source priority fix: raw_tags_json + tags_json 를 primary input 으로
+        # 사용해 character_tags_json / series_tags_json 피드백 루프를 차단한다.
         # series-only 모드는 resolver 가 내부에서 처리하므로 이 블록 제외.
-        if _source_tags:
+        _classify_source = _raw_only_tags if _raw_only_tags else _source_tags
+        if _classify_source:
             try:
                 from core.tag_classifier import classify_pixiv_tags as _cls_fn
-                _result = _cls_fn(_source_tags, conn=conn)
+                _result = _cls_fn(_classify_source, conn=conn)
                 _existing_series = _parse_json_list(group_dict_for_build.get("series_tags_json"))
                 _existing_chars  = _parse_json_list(group_dict_for_build.get("character_tags_json"))
                 _new_series = _result.get("series_tags", [])
                 _new_chars  = _result.get("character_tags", [])
-                # Series: use canonical-normalised result (resolves aliases like
-                # ブルーアーカイブ → Blue Archive). Fall back to existing only
-                # when classifier found nothing from the merged source.
+
+                # Extract character→parent_series mapping for cross-series guard
+                for _ev in _result.get("evidence", {}).get("characters", []):
+                    _ec = _ev.get("canonical", "")
+                    _eps = _ev.get("parent_series", "")
+                    if _ec and _eps:
+                        _char_parent_series.setdefault(_ec, _eps)
+
+                # Series: canonical-normalised result; fall back to existing when empty.
                 group_dict_for_build["series_tags_json"] = json.dumps(
                     _new_series if _new_series else _existing_series,
                     ensure_ascii=False,
                 )
-                # Characters: union of new + existing.  The classifier may not
-                # recognise tags that are only in tag_localizations (not in
-                # tag_aliases), so we preserve existing chars even when the
-                # classifier returns an empty list.
-                group_dict_for_build["character_tags_json"] = json.dumps(
-                    list(dict.fromkeys([*_new_chars, *_existing_chars])),
-                    ensure_ascii=False,
-                )
+                # Source priority: trust fresh classifier result when raw source available.
+                # Only fall back to existing chars for legacy rows (no raw_tags_json).
+                if _new_chars:
+                    group_dict_for_build["character_tags_json"] = json.dumps(
+                        _new_chars, ensure_ascii=False
+                    )
+                elif not _raw_only_tags:
+                    # Legacy row: no raw tags → preserve existing chars to avoid data loss.
+                    group_dict_for_build["character_tags_json"] = json.dumps(
+                        list(dict.fromkeys([*_new_chars, *_existing_chars])),
+                        ensure_ascii=False,
+                    )
+                # else: had raw tags, classifier found no characters → empty (correct)
             except Exception:
                 pass  # DB 값 유지 — 분류 실패해도 preview 흐름이 끊기지 않도록
 
+    _blocked: list[dict] = []
     dests = _build_destinations(
         group_dict_for_build, source, classified_dir, cfg, conn=conn,
         series_only_mode=_build_series_only_mode,
+        char_parent_series=_char_parent_series,
+        _cross_series_blocked=_blocked,
     )
 
     # series-only ready 케이스: 각 destination 에 resolver rule 메타를 부착해
@@ -895,6 +930,7 @@ def build_classify_preview(
         "classification_info":       classification_info,
         "deduped_destinations":      len(dests),
         "inferred_series_evidence":  inferred_series_evidence,
+        "cross_series_blocked":      _blocked,
     }
 
 
