@@ -461,10 +461,11 @@ class TestBlueArchiveFullExpansionStructure:
         assert offenders == [], f"variant token in P2 entry: {offenders}"
 
     def test_p2_aliases_have_at_most_three_full_names(self, pack_data) -> None:
-        """확장 분 entry 는 jp/ko/en full name 만, 정확히 3개 alias.
+        """확장 분 entry 는 jp/ko/en full name + 단축 alias 포함 최대 5개.
 
-        canonical 이 ja localization 과 동일하면 dedup 후 3 alias.
-        canonical != ja (예: mascot 의 single-name) 도 허용.
+        canonical 이 ja localization 과 동일하면 기본 3개 (jp/ko/en).
+        단축 first-name alias (jp_short, en_short, ko_short) 는 매칭 목적으로
+        허용되어 최대 5개까지 가능. 대체 독음(alternative romanization) 은 금지.
         """
         builtin_pre_p2_canon = {
             "伊落マリー", "水羽ミモリ", "陸八魔アル", "天童アリス",
@@ -475,8 +476,8 @@ class TestBlueArchiveFullExpansionStructure:
             if c["canonical"] in builtin_pre_p2_canon:
                 continue
             n = len(c.get("aliases", []))
-            assert 2 <= n <= 4, (
-                f"{c['canonical']}: expected 2-4 full-name aliases, got {n}: {c.get('aliases')}"
+            assert 2 <= n <= 5, (
+                f"{c['canonical']}: expected 2-5 aliases, got {n}: {c.get('aliases')}"
             )
 
 
