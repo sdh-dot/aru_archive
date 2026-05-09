@@ -64,7 +64,8 @@ lint 통과 확인 후 AMO 제출 진행.
 
 ### 글쓰기 페이지 테스트
 
-1. [ ] 루리웹 글쓰기 페이지 접속 (`bbs.ruliweb.com/community/board/300143/...`)
+1. [ ] 루리웹 모바일 글쓰기 페이지 접속: `https://m.ruliweb.com/community/board/300143/write`
+   - 데스크톱 URL `bbs.ruliweb.com` 과 다름 — 모바일은 반드시 `m.ruliweb.com` 사용
 2. [ ] Aru Archive로 처리한 PNG 이미지 첨부 (Aru Archive 메타데이터 포함)
 3. [ ] 이미지 선택 직후 자동으로 출처 캡션이 에디터에 삽입되는지 확인
 4. [ ] Pixiv 파일명 패턴 이미지 첨부 (예: `88908024_p0_master1200.jpg`)
@@ -74,24 +75,36 @@ lint 통과 확인 후 AMO 제출 진행.
 
 ### 댓글 작성 페이지 테스트
 
-8. [ ] 루리웹 게시글 읽기 페이지 접속 (`bbs.ruliweb.com/community/board/.../read/...`)
+8. [ ] 루리웹 모바일 게시글 읽기 페이지 접속: `https://m.ruliweb.com/community/board/.../read/...`
 9. [ ] 댓글 이미지 첨부 기능 접근 (`input.common_img_input` 또는 `input[type=file]`)
 10. [ ] 이미지 선택 직후 댓글 textarea에 출처 텍스트 자동 삽입 확인
 11. [ ] 동일 출처 중복 삽입 방지 확인
 
 ### 모바일 UI 확인
 
-12. [ ] 화면 회전 (세로/가로) 후 기능 정상 동작 확인
-13. [ ] "출처 추가" 버튼이 기본으로 노출되지 않음 확인
-14. [ ] 에디터 selector 미탐지 시 오류 없이 종료 확인 (console warning 정도만)
-15. [ ] `about:debugging` 또는 `adb logcat`에서 `[Aru Source Captioner]` 로그 확인
+12. [ ] 이미지 선택 후 출처가 정확히 **1회만** 삽입되는지 확인 (중복 삽입 없음)
+13. [ ] 동일 이미지 재선택 시 `skip processed file` 로그 → 중복 삽입 없음 확인
+14. [ ] 화면 회전 (세로/가로) 후 기능 정상 동작 확인
+15. [ ] "출처 추가" 버튼이 기본으로 노출되지 않음 확인
+16. [ ] 에디터 selector 미탐지 시 오류 없이 종료 확인 (console warning 정도만)
+17. [ ] `about:debugging` 또는 `adb logcat`에서 `[Aru Source Captioner]` 로그 확인
 
-### 실패 시 확인 사항
+### 실패 시 로그 기반 진단
 
-- Firefox Browser Console: `about:debugging → 검사 → Console` 탭
-- `[Aru Source Captioner] content loaded` 로그 확인
-- `auto-insert mode active` 로그 및 `mobile: true` 여부 확인
-- `exifr.parse failed` 이후 `filename_fallback` 경로 진입 여부 확인
+Firefox Browser Console: `about:debugging → 검사 → Console` 탭
+
+| 관찰 | 원인 | 조치 |
+|---|---|---|
+| `content script loaded` 로그 **없음** | manifest `content_scripts.matches` 또는 `host_permissions` 누락 | manifest 확인 후 확장 재설치 |
+| `content script loaded` 있음, `auto-insert mode active` 없음 | `init()` async 실패 또는 `config.enabled = false` | Console 오류 확인 |
+| `auto-insert mode active` 있음, `tryMobileWriteInsert` 없음 | file input change 이벤트 미탐지 | `attachFileInputListeners` 동작 확인 |
+| `tryMobileWriteInsert` 있음, `no write area found` 있음 | 에디터 selector 불일치 | `EDITOR_ROOT_SELECTORS` 업데이트 필요 |
+| `textarea insert result =` 있음 | 삽입 완료 — 결과값(ok/duplicate 등) 확인 | - |
+
+추가 확인:
+- `[Aru Source Captioner] content loaded` (async init 시작)
+- `auto-insert mode active` 및 `mobile: true` 여부
+- `exifr.parse failed` 이후 `filename_fallback` 경로 진입 여부
 - `skipping already-processed file` 로그로 중복 방지 동작 확인
 
 ---

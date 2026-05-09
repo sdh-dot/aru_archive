@@ -88,6 +88,44 @@ class TestFirefoxManifest:
         perms = self.data.get("permissions", [])
         assert "storage" in perms
 
+    def test_content_scripts_includes_mobile_write_page(self):
+        """m.ruliweb.com board/300143/* 패턴이 있어야 모바일 글쓰기 페이지에서 content script가 실행된다."""
+        scripts = self.data.get("content_scripts", [])
+        matches = scripts[0].get("matches", [])
+        mobile_write = [m for m in matches if "m.ruliweb.com" in m and "300143" in m]
+        assert mobile_write, (
+            f"m.ruliweb.com board/300143 패턴 없음: {matches}\n"
+            "→ 모바일 글쓰기 페이지(m.ruliweb.com/community/board/300143/write)에 content script가 주입되지 않음"
+        )
+
+    def test_content_scripts_includes_mobile_read_page(self):
+        """m.ruliweb.com board/*/read/* 패턴이 있어야 모바일 댓글 페이지에서 content script가 실행된다."""
+        scripts = self.data.get("content_scripts", [])
+        matches = scripts[0].get("matches", [])
+        mobile_read = [m for m in matches if "m.ruliweb.com" in m and "/read/" in m]
+        assert mobile_read, (
+            f"m.ruliweb.com /read/ 패턴 없음: {matches}\n"
+            "→ 모바일 댓글 페이지에 content script가 주입되지 않음"
+        )
+
+    def test_host_permissions_includes_mobile(self):
+        """host_permissions에 m.ruliweb.com이 포함되어야 한다."""
+        hp = self.data.get("host_permissions", [])
+        mobile_hp = [h for h in hp if "m.ruliweb.com" in h]
+        assert mobile_hp, (
+            f"host_permissions에 m.ruliweb.com 없음: {hp}\n"
+            "→ 모바일 페이지에서 storage 접근 실패 가능"
+        )
+
+    def test_desktop_matches_preserved(self):
+        """기존 bbs.ruliweb.com matches가 모바일 추가 후에도 유지되어야 한다."""
+        scripts = self.data.get("content_scripts", [])
+        matches = scripts[0].get("matches", [])
+        bbs_write = [m for m in matches if "bbs.ruliweb.com" in m and "300143" in m]
+        bbs_read = [m for m in matches if "bbs.ruliweb.com" in m and "/read/" in m]
+        assert bbs_write, "bbs.ruliweb.com board/300143 패턴 누락 — 데스크톱 글쓰기 페이지 깨짐"
+        assert bbs_read, "bbs.ruliweb.com /read/ 패턴 누락 — 데스크톱 댓글 페이지 깨짐"
+
 
 # ---------------------------------------------------------------------------
 # 2. manifest.json (Chrome용) 구조 검증
