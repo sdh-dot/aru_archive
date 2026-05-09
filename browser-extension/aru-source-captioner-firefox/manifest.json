@@ -56,7 +56,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "aru-source-captioner@sdh-dot.github.io",
+      "id": "aru-source-captioner-firefox@sdh-dot.github.io",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": ["none"]
