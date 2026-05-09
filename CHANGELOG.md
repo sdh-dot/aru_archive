@@ -5,6 +5,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.6.4] — 2026-05-09
+
+### Added
+
+**Source Captioner: Firefox Android 지원 및 자동 출처 삽입 모드 (PR #feat/source-captioner-auto-insert)**
+- `aru-source-captioner-firefox` 패키지에 `gecko_android` 설정 추가(`strict_min_version=142.0`) — Firefox for Android(Fenix) 에서 확장 설치 가능.
+- `isMobileAutoInsertEnvironment()` — Android UA + coarse pointer 조합으로 모바일 환경 판별.
+- 모바일 환경에서 파일 선택 시 자동으로 출처 캡션 삽입 ("출처 추가" 버튼 비활성화).
+- `processedFileKeys` / `makeFileKey` 로 중복 삽입 방지.
+- `docs/android-testing.md` 신규 — Android 테스트 절차 문서화.
+
+### Fixed
+
+**Source Captioner: 모바일 글쓰기 직접 삽입 경로 (ad3eadb)**
+- `findMobileWriteArea()` / `tryMobileWriteInsert()` 추가 — MutationObserver 없이 파일 선택 즉시 삽입.
+- `cachedConfig` 패턴으로 설정 캐시, 매 이벤트마다 storage 조회 제거.
+
+**Source Captioner: m.ruliweb.com content script 미주입 수정 (c6bbf68)**
+- `manifest.json`의 `content_scripts.matches` 및 `host_permissions`에 `*://m.ruliweb.com/*` 패턴 추가.
+- 동기 boot 로그 추가로 주입 확인 가능.
+
+**Source Captioner: 모바일 중복 삽입 방지 (d31b641)**
+- `tryMobileWriteInsert` boolean 반환 + pending record 즉시 소비로 MutationObserver 2차 삽입 차단.
+- `pendingFileKeys` Set / `handledFileEvents` WeakSet 추가.
+- contenteditable 중복 감지 강화 (공백 정규화).
+
+**Source Captioner: AMO id 수정 및 exifr lint 경고 억제 (ba01c61)**
+- Firefox Add-on 등록을 위한 AMO `browser_specific_settings.gecko.id` 업데이트.
+- `exifr` 관련 ESLint 경고 억제.
+
+### Notes
+
+- Firefox for Android 지원은 Firefox 142.0 이상에서만 동작.
+- Ruliweb 모바일(`m.ruliweb.com`) write page 전용 경로 — PC 동작에는 영향 없음.
+
+---
+
 ## [0.6.3] — 2026-05-02
 
 ### Added
