@@ -1,31 +1,13 @@
 {
   "pack_id": "idolmaster_gakuen",
   "name": "Gakuen iDOLM@STER",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "source": "built_in",
-  "series": [
-    {
-      "canonical": "Gakuen iDOLM@STER",
-      "media_type": "game",
-      "aliases": [
-        "Gakuen iDOLM@STER",
-        "gakuen idolmaster",
-        "学園アイドルマスター",
-        "学マス",
-        "학원 아이돌마스터",
-        "학마스"
-      ],
-      "localizations": {
-        "ko": "학원 아이돌마스터",
-        "ja": "学園アイドルマスター",
-        "en": "Gakuen iDOLM@STER"
-      }
-    }
-  ],
+  "series": [],
   "groups": [
     {
       "canonical": "Hatsuboshi Gakuen",
-      "parent_series": "Gakuen iDOLM@STER",
+      "parent_series": "Idolmaster",
       "aliases": [
         "Hatsuboshi Gakuen",
         "초성학원",

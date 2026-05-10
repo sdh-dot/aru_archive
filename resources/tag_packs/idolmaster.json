@@ -1,0 +1,58 @@
+{
+  "pack_id": "idolmaster",
+  "name": "Idolmaster",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Idolmaster",
+      "media_type": "game",
+      "aliases": [
+        "Idolmaster",
+        "THE iDOLM@STER",
+        "THE IDOLMASTER",
+        "iDOLM@STER",
+        "アイドルマスター",
+        "アイマス",
+        "아이돌 마스터",
+        "아이돌마스터",
+        "Cinderella Girls",
+        "THE iDOLM@STER Cinderella Girls",
+        "シンデレラガールズ",
+        "デレマス",
+        "신데렐라 걸즈",
+        "데레마스",
+        "Million Live!",
+        "THE iDOLM@STER Million Live!",
+        "ミリオンライブ",
+        "ミリマス",
+        "밀리언 라이브!",
+        "밀리마스",
+        "SideM",
+        "THE iDOLM@STER SideM",
+        "アイドルマスター SideM",
+        "사이드M",
+        "사이드엠",
+        "Shiny Colors",
+        "THE iDOLM@STER Shiny Colors",
+        "シャイニーカラーズ",
+        "シャニマス",
+        "샤이니 컬러즈",
+        "샤니마스",
+        "Gakuen iDOLM@STER",
+        "Gakuen Idolmaster",
+        "学園アイドルマスター",
+        "학원 아이돌마스터",
+        "学マス",
+        "학마스"
+      ],
+      "localizations": {
+        "ko": "아이돌 마스터",
+        "ja": "アイドルマスター",
+        "en": "THE iDOLM@STER"
+      }
+    }
+  ],
+  "groups": [],
+  "characters": []
+}
