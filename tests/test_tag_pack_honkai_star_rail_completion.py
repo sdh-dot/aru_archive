@@ -1,16 +1,18 @@
 """Honkai: Star Rail tag pack 정책 검증 테스트.
 
 Phase B1 seed: Astral Express 5 + Belobog 10 = 15인 (기존 5인 포함 총 20인)
+Phase B2 seed: Xianzhou Luofu 10 + Misc 9 = 19인 (총 39인)
 
 검증 범위:
 1. series ko display → "붕괴: 스타레일"
-2. 15 seeded chars ko display_name 등록
-3. 15 seeded chars parent_series = "Honkai: Star Rail"
-4. 삼칠이 / 단항 alias resolve
+2. seeded chars ko display_name 등록 (B1 15인 + B2 19인)
+3. seeded chars parent_series = "Honkai: Star Rail"
+4. 삼칠이 / 단항 / 음월 alias resolve
 5. 훅(Hook) 1음절 KO → aliases 미포함, localizations.ko에만 보존
 6. Trailblazer(개척자) 미 seed 확인
 7. 비캐릭터 태그가 character alias로 등록되지 않음
-8. JSON 구조: 캐릭터 20인, version 1.2.0
+8. JSON 구조: 캐릭터 39인, version 1.3.0
+9. Dan Heng · Imbibitor Lunae (음월) 별도 캐릭터 등록
 """
 from __future__ import annotations
 
@@ -33,8 +35,23 @@ ASTRAL_SEEDED_CANONICAL = ["March 7th", "Dan Heng", "Himeko", "Welt", "Asta"]
 BELOBOG_SEEDED_KO = ["게파르트", "펠라", "세르발", "나타샤", "삼포", "루카", "수상", "아를란", "린스"]
 BELOBOG_SEEDED_CANONICAL = ["Gepard", "Pela", "Serval", "Natasha", "Sampo", "Luka", "Sushang", "Arlan", "Lynx"]
 
-ALL_SEEDED_KO = ASTRAL_SEEDED_KO + BELOBOG_SEEDED_KO
-ALL_SEEDED_CANONICAL = ASTRAL_SEEDED_CANONICAL + BELOBOG_SEEDED_CANONICAL
+XIANZHOU_SEEDED_KO = ["연경", "백로", "청작", "정운", "유공", "부현", "한야", "설의", "활활", "음월"]
+XIANZHOU_SEEDED_CANONICAL = [
+    "Yanqing", "Bailu", "Qingque", "Tingyun", "Yukong",
+    "Fu Xuan", "Hanya", "Xueyi", "Huohuo", "Dan Heng · Imbibitor Lunae",
+]
+
+MISC_SEEDED_KO = ["아르젠티", "완매", "스파클", "미샤", "로빈", "부트힐", "아케론", "아벤투린", "갤러거"]
+MISC_SEEDED_CANONICAL = [
+    "Argenti", "Ruan Mei", "Sparkle", "Misha", "Robin",
+    "Boothill", "Acheron", "Aventurine", "Gallagher",
+]
+
+ALL_SEEDED_KO = ASTRAL_SEEDED_KO + BELOBOG_SEEDED_KO + XIANZHOU_SEEDED_KO + MISC_SEEDED_KO
+ALL_SEEDED_CANONICAL = (
+    ASTRAL_SEEDED_CANONICAL + BELOBOG_SEEDED_CANONICAL
+    + XIANZHOU_SEEDED_CANONICAL + MISC_SEEDED_CANONICAL
+)
 
 NON_CHARACTER_TAGS = [
     "붕괴: 스타레일",
@@ -42,6 +59,9 @@ NON_CHARACTER_TAGS = [
     "스타레일",
     "Astral Express",
     "Belobog",
+    "Xianzhou Luofu",
+    "Penacony",
+    "Galaxy Rangers",
 ]
 
 
@@ -168,18 +188,51 @@ def test_non_character_tags_not_in_character_aliases(db, non_char_tag):
 
 # ---------- 8. JSON 구조 검증 ----------
 
-def test_hsr_pack_has_20_characters():
-    """honkai_star_rail.json에는 캐릭터가 정확히 20명이어야 한다."""
+def test_hsr_pack_has_39_characters():
+    """honkai_star_rail.json에는 캐릭터가 정확히 39명이어야 한다."""
     data = json.loads(HSR_PACK.read_text(encoding="utf-8"))
-    assert len(data.get("characters", [])) == 20, (
+    assert len(data.get("characters", [])) == 39, (
         f"캐릭터 수 불일치: {len(data.get('characters', []))}"
     )
 
 
 def test_hsr_pack_version():
-    """honkai_star_rail.json version은 1.2.0이어야 한다."""
+    """honkai_star_rail.json version은 1.3.0이어야 한다."""
     data = json.loads(HSR_PACK.read_text(encoding="utf-8"))
-    assert data["version"] == "1.2.0", f"version 불일치: {data['version']!r}"
+    assert data["version"] == "1.3.0", f"version 불일치: {data['version']!r}"
+
+
+def test_imbibitor_lunae_ko_alias_resolves(db):
+    """'음월' alias는 canonical='Dan Heng · Imbibitor Lunae'로 resolve되어야 한다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='음월' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'음월' alias 없음"
+    assert row[0] == "Dan Heng · Imbibitor Lunae", f"alias '음월' → {row[0]!r}"
+
+
+def test_imbibitor_lunae_is_separate_from_dan_heng(db):
+    """Dan Heng · Imbibitor Lunae는 Dan Heng과 별도 canonical로 등록되어야 한다."""
+    row_dh = db.execute(
+        "SELECT canonical FROM tag_aliases WHERE canonical='Dan Heng' AND tag_type='character' AND enabled=1 LIMIT 1",
+    ).fetchone()
+    row_il = db.execute(
+        "SELECT canonical FROM tag_aliases WHERE canonical='Dan Heng · Imbibitor Lunae' AND tag_type='character' AND enabled=1 LIMIT 1",
+    ).fetchone()
+    assert row_dh is not None, "Dan Heng canonical 없음"
+    assert row_il is not None, "Dan Heng · Imbibitor Lunae canonical 없음"
+    assert row_dh[0] != row_il[0], "두 캐릭터가 동일 canonical로 merge됨"
+
+
+def test_ruan_mei_ko_alias_resolves(db):
+    """'완매' alias는 canonical='Ruan Mei'로 resolve되어야 한다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='완매' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'완매' alias 없음"
+    assert row[0] == "Ruan Mei", f"alias '완매' → {row[0]!r}"
 
 
 def test_hook_aliases_exclude_ko_in_json():
