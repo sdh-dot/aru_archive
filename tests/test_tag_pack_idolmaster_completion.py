@@ -266,3 +266,79 @@ def test_765_twins_have_no_single_name_alias():
             assert not overlap, (
                 f"{char['canonical']} aliases에 단일명 포함됨: {overlap}"
             )
+
+
+# ---------- Gakuen 5인 + Shiny Colors 6인 seed 검증 ----------
+
+CHARS_GAKUEN_KO = [
+    "하나미 사키", "츠키무라 테마리", "후지타 코토네", "아리무라 마오", "카츠라기 릴리야",
+]
+
+CHARS_GAKUEN_CANONICAL = [
+    "花海咲季", "月村手毬", "藤田ことね", "有村麻央", "葛城リーリヤ",
+]
+
+CHARS_SHINY_KO = [
+    "사쿠라기 마노", "카자노 히오리", "하치미야 메구루",
+    "츠키오카 코가네", "타나카 마미미", "시라세 사쿠야",
+]
+
+CHARS_SHINY_CANONICAL = [
+    "櫻木真乃", "風野灯織", "八宮めぐる", "月岡恋鐘", "田中摩美々", "白瀬咲耶",
+]
+
+
+def test_gakuen_pack_has_5_characters():
+    """idolmaster_gakuen.json에는 캐릭터가 정확히 5명이어야 한다."""
+    data = json.loads((PACK_DIR / "idolmaster_gakuen.json").read_text(encoding="utf-8"))
+    assert len(data.get("characters", [])) == 5
+
+
+def test_shiny_colors_pack_has_6_characters():
+    """idolmaster_shiny_colors.json에는 캐릭터가 6명이어야 한다."""
+    data = json.loads((PACK_DIR / "idolmaster_shiny_colors.json").read_text(encoding="utf-8"))
+    assert len(data.get("characters", [])) == 6
+
+
+@pytest.mark.parametrize("ko_name", CHARS_GAKUEN_KO)
+def test_gakuen_character_ko_display(db, ko_name):
+    """Gakuen 캐릭터가 ko locale에서 display_name으로 등록되어야 한다."""
+    row = db.execute(
+        "SELECT display_name FROM tag_localizations WHERE display_name=? AND locale='ko'",
+        (ko_name,),
+    ).fetchone()
+    assert row is not None, f"ko display_name {ko_name!r} 가 tag_localizations에 없음"
+
+
+@pytest.mark.parametrize("char_canonical", CHARS_GAKUEN_CANONICAL)
+def test_gakuen_character_parent_series(db, char_canonical):
+    """Gakuen 캐릭터의 parent_series는 Idolmaster여야 한다."""
+    row = db.execute(
+        "SELECT parent_series FROM tag_aliases "
+        "WHERE canonical=? AND tag_type='character' AND enabled=1 LIMIT 1",
+        (char_canonical,),
+    ).fetchone()
+    assert row is not None, f"{char_canonical!r} 가 tag_aliases에 없음"
+    assert row[0] == CANONICAL_SERIES
+
+
+@pytest.mark.parametrize("ko_name", CHARS_SHINY_KO)
+def test_shiny_colors_character_ko_display(db, ko_name):
+    """Shiny Colors 캐릭터가 ko locale에서 display_name으로 등록되어야 한다."""
+    row = db.execute(
+        "SELECT display_name FROM tag_localizations WHERE display_name=? AND locale='ko'",
+        (ko_name,),
+    ).fetchone()
+    assert row is not None, f"ko display_name {ko_name!r} 가 tag_localizations에 없음"
+
+
+@pytest.mark.parametrize("char_canonical", CHARS_SHINY_CANONICAL)
+def test_shiny_colors_character_parent_series(db, char_canonical):
+    """Shiny Colors 캐릭터의 parent_series는 Idolmaster여야 한다."""
+    row = db.execute(
+        "SELECT parent_series FROM tag_aliases "
+        "WHERE canonical=? AND tag_type='character' AND enabled=1 LIMIT 1",
+        (char_canonical,),
+    ).fetchone()
+    assert row is not None, f"{char_canonical!r} 가 tag_aliases에 없음"
+    assert row[0] == CANONICAL_SERIES

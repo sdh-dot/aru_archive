@@ -1,7 +1,7 @@
 {
   "pack_id": "idolmaster_shiny_colors",
   "name": "THE iDOLM@STER Shiny Colors",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "source": "built_in",
   "series": [],
   "groups": [
@@ -22,5 +22,42 @@
       }
     }
   ],
-  "characters": []
+  "characters": [
+    {
+      "canonical": "櫻木真乃",
+      "parent_series": "Idolmaster",
+      "aliases": ["櫻木真乃", "Mano Sakuragi", "사쿠라기 마노"],
+      "localizations": {"ko": "사쿠라기 마노", "ja": "櫻木真乃", "en": "Mano Sakuragi"}
+    },
+    {
+      "canonical": "風野灯織",
+      "parent_series": "Idolmaster",
+      "aliases": ["風野灯織", "Hiori Kazano", "카자노 히오리"],
+      "localizations": {"ko": "카자노 히오리", "ja": "風野灯織", "en": "Hiori Kazano"}
+    },
+    {
+      "canonical": "八宮めぐる",
+      "parent_series": "Idolmaster",
+      "aliases": ["八宮めぐる", "Meguru Hachimiya", "하치미야 메구루"],
+      "localizations": {"ko": "하치미야 메구루", "ja": "八宮めぐる", "en": "Meguru Hachimiya"}
+    },
+    {
+      "canonical": "月岡恋鐘",
+      "parent_series": "Idolmaster",
+      "aliases": ["月岡恋鐘", "Kogane Tsukioka", "츠키오카 코가네"],
+      "localizations": {"ko": "츠키오카 코가네", "ja": "月岡恋鐘", "en": "Kogane Tsukioka"}
+    },
+    {
+      "canonical": "田中摩美々",
+      "parent_series": "Idolmaster",
+      "aliases": ["田中摩美々", "Mamimi Tanaka", "타나카 마미미"],
+      "localizations": {"ko": "타나카 마미미", "ja": "田中摩美々", "en": "Mamimi Tanaka"}
+    },
+    {
+      "canonical": "白瀬咲耶",
+      "parent_series": "Idolmaster",
+      "aliases": ["白瀬咲耶", "Sakuya Shirase", "시라세 사쿠야"],
+      "localizations": {"ko": "시라세 사쿠야", "ja": "白瀬咲耶", "en": "Sakuya Shirase"}
+    }
+  ]
 }

@@ -128,15 +128,23 @@ class TestPackFileStructure:
         data = _load("idolmaster_765")
         assert len(data.get("characters", [])) == 13
 
+    def test_gakuen_has_5_characters(self):
+        """idolmaster_gakuen.json에는 캐릭터가 정확히 5명이어야 한다."""
+        data = _load("idolmaster_gakuen")
+        assert len(data.get("characters", [])) == 5
+
+    def test_shiny_colors_has_6_characters(self):
+        """idolmaster_shiny_colors.json에는 캐릭터가 6명이어야 한다 (초기 seed)."""
+        data = _load("idolmaster_shiny_colors")
+        assert len(data.get("characters", [])) == 6
+
     @pytest.mark.parametrize("pack_id", [
         "idolmaster_cinderella_girls",
         "idolmaster_million_live",
         "idolmaster_sidem",
-        "idolmaster_shiny_colors",
-        "idolmaster_gakuen",
     ])
     def test_non_765_characters_array_empty(self, pack_id):
-        """765 외 brand 파일은 아직 캐릭터를 추가하지 않는다."""
+        """CG/ML/SideM brand 파일은 아직 캐릭터를 추가하지 않는다."""
         data = _load(pack_id)
         assert data.get("characters", []) == [], (
             f"{pack_id} has characters — 검수 완료 후 단계적 seed 예정"
