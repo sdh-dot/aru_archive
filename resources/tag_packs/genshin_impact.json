@@ -1,7 +1,7 @@
 {
   "pack_id": "genshin_impact",
   "name": "Genshin Impact",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "source": "built_in",
   "series": [
     {
@@ -375,6 +375,401 @@
         "ko": "알베도",
         "ja": "アルベド",
         "en": "Albedo"
+      }
+    },
+    {
+      "canonical": "Beidou",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Beidou",
+        "北斗",
+        "북두"
+      ],
+      "localizations": {
+        "ko": "북두",
+        "ja": "北斗",
+        "en": "Beidou"
+      }
+    },
+    {
+      "canonical": "Chongyun",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Chongyun",
+        "重雲",
+        "충운"
+      ],
+      "localizations": {
+        "ko": "충운",
+        "ja": "重雲",
+        "en": "Chongyun"
+      }
+    },
+    {
+      "canonical": "Ningguang",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Ningguang",
+        "凝光",
+        "응광"
+      ],
+      "localizations": {
+        "ko": "응광",
+        "ja": "凝光",
+        "en": "Ningguang"
+      }
+    },
+    {
+      "canonical": "Qiqi",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Qiqi",
+        "七七",
+        "칠칠"
+      ],
+      "localizations": {
+        "ko": "칠칠",
+        "ja": "七七",
+        "en": "Qiqi"
+      }
+    },
+    {
+      "canonical": "Shenhe",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Shenhe",
+        "申鶴",
+        "신학"
+      ],
+      "localizations": {
+        "ko": "신학",
+        "ja": "申鶴",
+        "en": "Shenhe"
+      }
+    },
+    {
+      "canonical": "Xiangling",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Xiangling",
+        "香菱",
+        "향릉"
+      ],
+      "localizations": {
+        "ko": "향릉",
+        "ja": "香菱",
+        "en": "Xiangling"
+      }
+    },
+    {
+      "canonical": "Xingqiu",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Xingqiu",
+        "行秋",
+        "행추"
+      ],
+      "localizations": {
+        "ko": "행추",
+        "ja": "行秋",
+        "en": "Xingqiu"
+      }
+    },
+    {
+      "canonical": "Xinyan",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Xinyan",
+        "辛焱",
+        "신염"
+      ],
+      "localizations": {
+        "ko": "신염",
+        "ja": "辛焱",
+        "en": "Xinyan"
+      }
+    },
+    {
+      "canonical": "Yanfei",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Yanfei",
+        "煙緋",
+        "연비"
+      ],
+      "localizations": {
+        "ko": "연비",
+        "ja": "煙緋",
+        "en": "Yanfei"
+      }
+    },
+    {
+      "canonical": "Yaoyao",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Yaoyao",
+        "瑤瑤",
+        "요요"
+      ],
+      "localizations": {
+        "ko": "요요",
+        "ja": "瑤瑤",
+        "en": "Yaoyao"
+      }
+    },
+    {
+      "canonical": "Yelan",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Yelan",
+        "夜蘭",
+        "엽란"
+      ],
+      "localizations": {
+        "ko": "엽란",
+        "ja": "夜蘭",
+        "en": "Yelan"
+      }
+    },
+    {
+      "canonical": "Yun Jin",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Yun Jin",
+        "云堇",
+        "운금"
+      ],
+      "localizations": {
+        "ko": "운금",
+        "ja": "云堇",
+        "en": "Yun Jin"
+      }
+    },
+    {
+      "canonical": "Baizhu",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Baizhu",
+        "白术",
+        "백출"
+      ],
+      "localizations": {
+        "ko": "백출",
+        "ja": "白术",
+        "en": "Baizhu"
+      }
+    },
+    {
+      "canonical": "Kaedehara Kazuha",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Kaedehara Kazuha",
+        "楓原万葉",
+        "카에다하라 카즈하"
+      ],
+      "localizations": {
+        "ko": "카에다하라 카즈하",
+        "ja": "楓原万葉",
+        "en": "Kaedehara Kazuha"
+      }
+    },
+    {
+      "canonical": "Kamisato Ayaka",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Kamisato Ayaka",
+        "神里綾華",
+        "카미사토 아야카"
+      ],
+      "localizations": {
+        "ko": "카미사토 아야카",
+        "ja": "神里綾華",
+        "en": "Kamisato Ayaka"
+      }
+    },
+    {
+      "canonical": "Kamisato Ayato",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Kamisato Ayato",
+        "神里綾人",
+        "카미사토 아야토"
+      ],
+      "localizations": {
+        "ko": "카미사토 아야토",
+        "ja": "神里綾人",
+        "en": "Kamisato Ayato"
+      }
+    },
+    {
+      "canonical": "Thoma",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Thoma",
+        "トーマ",
+        "토마"
+      ],
+      "localizations": {
+        "ko": "토마",
+        "ja": "トーマ",
+        "en": "Thoma"
+      }
+    },
+    {
+      "canonical": "Sayu",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Sayu",
+        "早柚",
+        "사유"
+      ],
+      "localizations": {
+        "ko": "사유",
+        "ja": "早柚",
+        "en": "Sayu"
+      }
+    },
+    {
+      "canonical": "Gorou",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Gorou",
+        "ゴロー",
+        "고로"
+      ],
+      "localizations": {
+        "ko": "고로",
+        "ja": "ゴロー",
+        "en": "Gorou"
+      }
+    },
+    {
+      "canonical": "Sangonomiya Kokomi",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Sangonomiya Kokomi",
+        "珊瑚宮心海",
+        "산고노미야 코코미"
+      ],
+      "localizations": {
+        "ko": "산고노미야 코코미",
+        "ja": "珊瑚宮心海",
+        "en": "Sangonomiya Kokomi"
+      }
+    },
+    {
+      "canonical": "Yoimiya",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Yoimiya",
+        "宵宮",
+        "요이미야"
+      ],
+      "localizations": {
+        "ko": "요이미야",
+        "ja": "宵宮",
+        "en": "Yoimiya"
+      }
+    },
+    {
+      "canonical": "Kuki Shinobu",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Kuki Shinobu",
+        "久岐忍",
+        "쿠키 시노부"
+      ],
+      "localizations": {
+        "ko": "쿠키 시노부",
+        "ja": "久岐忍",
+        "en": "Kuki Shinobu"
+      }
+    },
+    {
+      "canonical": "Arataki Itto",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Arataki Itto",
+        "荒瀧一斗",
+        "아라타키 이토"
+      ],
+      "localizations": {
+        "ko": "아라타키 이토",
+        "ja": "荒瀧一斗",
+        "en": "Arataki Itto"
+      }
+    },
+    {
+      "canonical": "Shikanoin Heizou",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Shikanoin Heizou",
+        "鹿野院平蔵",
+        "시카노인 헤이조"
+      ],
+      "localizations": {
+        "ko": "시카노인 헤이조",
+        "ja": "鹿野院平蔵",
+        "en": "Shikanoin Heizou"
+      }
+    },
+    {
+      "canonical": "Yae Miko",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Yae Miko",
+        "八重神子",
+        "야에 미코"
+      ],
+      "localizations": {
+        "ko": "야에 미코",
+        "ja": "八重神子",
+        "en": "Yae Miko"
+      }
+    },
+    {
+      "canonical": "Kujou Sara",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Kujou Sara",
+        "九条裟羅",
+        "쿠조 사라"
+      ],
+      "localizations": {
+        "ko": "쿠조 사라",
+        "ja": "九条裟羅",
+        "en": "Kujou Sara"
+      }
+    },
+    {
+      "canonical": "Wanderer",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Wanderer",
+        "流浪者",
+        "방랑자",
+        "Scaramouche",
+        "스카라무슈",
+        "散兵"
+      ],
+      "localizations": {
+        "ko": "방랑자",
+        "ja": "流浪者",
+        "en": "Wanderer"
+      }
+    },
+    {
+      "canonical": "Kirara",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Kirara",
+        "キラライア",
+        "키라라"
+      ],
+      "localizations": {
+        "ko": "키라라",
+        "ja": "キラライア",
+        "en": "Kirara"
       }
     }
   ]
