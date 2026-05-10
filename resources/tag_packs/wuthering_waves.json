@@ -1,7 +1,7 @@
 {
   "pack_id": "wuthering_waves",
   "name": "Wuthering Waves",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "source": "built_in",
   "series": [
     {
@@ -28,170 +28,465 @@
     {
       "canonical": "Yangyang",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Yangyang", "秧秧", "양양"],
-      "localizations": { "ko": "양양", "ja": "秧秧", "en": "Yangyang" }
+      "aliases": [
+        "Yangyang",
+        "秧秧",
+        "양양"
+      ],
+      "localizations": {
+        "ko": "양양",
+        "ja": "秧秧",
+        "en": "Yangyang"
+      }
     },
     {
       "canonical": "Chixia",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Chixia", "熾霞", "치샤"],
-      "localizations": { "ko": "치샤", "ja": "熾霞", "en": "Chixia" }
+      "aliases": [
+        "Chixia",
+        "熾霞",
+        "치샤"
+      ],
+      "localizations": {
+        "ko": "치샤",
+        "ja": "熾霞",
+        "en": "Chixia"
+      }
     },
     {
       "canonical": "Baizhi",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Baizhi", "白芷", "백지"],
-      "localizations": { "ko": "백지", "ja": "白芷", "en": "Baizhi" }
+      "aliases": [
+        "Baizhi",
+        "白芷",
+        "백지"
+      ],
+      "localizations": {
+        "ko": "백지",
+        "ja": "白芷",
+        "en": "Baizhi"
+      }
     },
     {
       "canonical": "Jiyan",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Jiyan", "忌炎", "기염"],
-      "localizations": { "ko": "기염", "ja": "忌炎", "en": "Jiyan" }
+      "aliases": [
+        "Jiyan",
+        "忌炎",
+        "기염"
+      ],
+      "localizations": {
+        "ko": "기염",
+        "ja": "忌炎",
+        "en": "Jiyan"
+      }
     },
     {
       "canonical": "Verina",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Verina", "ヴェリーナ", "벨리나"],
-      "localizations": { "ko": "벨리나", "ja": "ヴェリーナ", "en": "Verina" }
+      "aliases": [
+        "Verina",
+        "ヴェリーナ",
+        "벨리나"
+      ],
+      "localizations": {
+        "ko": "벨리나",
+        "ja": "ヴェリーナ",
+        "en": "Verina"
+      }
     },
     {
       "canonical": "Encore",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Encore", "アンコ", "앙코"],
-      "localizations": { "ko": "앙코", "ja": "アンコ", "en": "Encore" }
+      "aliases": [
+        "Encore",
+        "アンコ",
+        "앙코"
+      ],
+      "localizations": {
+        "ko": "앙코",
+        "ja": "アンコ",
+        "en": "Encore"
+      }
     },
     {
       "canonical": "Calcharo",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Calcharo", "カカロ", "카카루"],
-      "localizations": { "ko": "카카루", "ja": "カカロ", "en": "Calcharo" }
+      "aliases": [
+        "Calcharo",
+        "カカロ",
+        "카카루"
+      ],
+      "localizations": {
+        "ko": "카카루",
+        "ja": "カカロ",
+        "en": "Calcharo"
+      }
     },
     {
       "canonical": "Yinlin",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Yinlin", "吟霖", "음림"],
-      "localizations": { "ko": "음림", "ja": "吟霖", "en": "Yinlin" }
+      "aliases": [
+        "Yinlin",
+        "吟霖",
+        "음림"
+      ],
+      "localizations": {
+        "ko": "음림",
+        "ja": "吟霖",
+        "en": "Yinlin"
+      }
     },
     {
       "canonical": "Jianxin",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Jianxin", "鑑心", "감심"],
-      "localizations": { "ko": "감심", "ja": "鑑心", "en": "Jianxin" }
+      "aliases": [
+        "Jianxin",
+        "鑑心",
+        "감심"
+      ],
+      "localizations": {
+        "ko": "감심",
+        "ja": "鑑心",
+        "en": "Jianxin"
+      }
     },
     {
       "canonical": "Lingyang",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Lingyang", "凌陽", "능양"],
-      "localizations": { "ko": "능양", "ja": "凌陽", "en": "Lingyang" }
+      "aliases": [
+        "Lingyang",
+        "凌陽",
+        "능양"
+      ],
+      "localizations": {
+        "ko": "능양",
+        "ja": "凌陽",
+        "en": "Lingyang"
+      }
     },
     {
       "canonical": "Sanhua",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Sanhua", "散華", "산화"],
-      "localizations": { "ko": "산화", "ja": "散華", "en": "Sanhua" }
+      "aliases": [
+        "Sanhua",
+        "散華",
+        "산화"
+      ],
+      "localizations": {
+        "ko": "산화",
+        "ja": "散華",
+        "en": "Sanhua"
+      }
     },
     {
       "canonical": "Mortefi",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Mortefi", "モルトフィー", "모르테피"],
-      "localizations": { "ko": "모르테피", "ja": "モルトフィー", "en": "Mortefi" }
+      "aliases": [
+        "Mortefi",
+        "モルトフィー",
+        "모르테피"
+      ],
+      "localizations": {
+        "ko": "모르테피",
+        "ja": "モルトフィー",
+        "en": "Mortefi"
+      }
     },
     {
       "canonical": "Danjin",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Danjin", "丹瑾", "단근"],
-      "localizations": { "ko": "단근", "ja": "丹瑾", "en": "Danjin" }
+      "aliases": [
+        "Danjin",
+        "丹瑾",
+        "단근"
+      ],
+      "localizations": {
+        "ko": "단근",
+        "ja": "丹瑾",
+        "en": "Danjin"
+      }
     },
     {
       "canonical": "Aalto",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Aalto", "アールト", "알토"],
-      "localizations": { "ko": "알토", "ja": "アールト", "en": "Aalto" }
+      "aliases": [
+        "Aalto",
+        "アールト",
+        "알토"
+      ],
+      "localizations": {
+        "ko": "알토",
+        "ja": "アールト",
+        "en": "Aalto"
+      }
     },
     {
       "canonical": "Taoqi",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Taoqi", "桃祈", "도기"],
-      "localizations": { "ko": "도기", "ja": "桃祈", "en": "Taoqi" }
+      "aliases": [
+        "Taoqi",
+        "桃祈",
+        "도기"
+      ],
+      "localizations": {
+        "ko": "도기",
+        "ja": "桃祈",
+        "en": "Taoqi"
+      }
     },
     {
       "canonical": "Yuanwu",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Yuanwu", "淵武", "연무"],
-      "localizations": { "ko": "연무", "ja": "淵武", "en": "Yuanwu" }
+      "aliases": [
+        "Yuanwu",
+        "淵武",
+        "연무"
+      ],
+      "localizations": {
+        "ko": "연무",
+        "ja": "淵武",
+        "en": "Yuanwu"
+      }
     },
     {
       "canonical": "Jinhsi",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Jinhsi", "今汐", "금희"],
-      "localizations": { "ko": "금희", "ja": "今汐", "en": "Jinhsi" }
+      "aliases": [
+        "Jinhsi",
+        "今汐",
+        "금희"
+      ],
+      "localizations": {
+        "ko": "금희",
+        "ja": "今汐",
+        "en": "Jinhsi"
+      }
     },
     {
       "canonical": "Changli",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Changli", "長離", "장리"],
-      "localizations": { "ko": "장리", "ja": "長離", "en": "Changli" }
+      "aliases": [
+        "Changli",
+        "長離",
+        "장리"
+      ],
+      "localizations": {
+        "ko": "장리",
+        "ja": "長離",
+        "en": "Changli"
+      }
     },
     {
       "canonical": "Zhezhi",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Zhezhi", "折枝", "절지"],
-      "localizations": { "ko": "절지", "ja": "折枝", "en": "Zhezhi" }
+      "aliases": [
+        "Zhezhi",
+        "折枝",
+        "절지"
+      ],
+      "localizations": {
+        "ko": "절지",
+        "ja": "折枝",
+        "en": "Zhezhi"
+      }
     },
     {
       "canonical": "Xiangli Yao",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Xiangli Yao", "相里要", "상리요"],
-      "localizations": { "ko": "상리요", "ja": "相里要", "en": "Xiangli Yao" }
+      "aliases": [
+        "Xiangli Yao",
+        "相里要",
+        "상리요"
+      ],
+      "localizations": {
+        "ko": "상리요",
+        "ja": "相里要",
+        "en": "Xiangli Yao"
+      }
     },
     {
       "canonical": "Shorekeeper",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Shorekeeper", "ショアキーパー", "파수인"],
-      "localizations": { "ko": "파수인", "ja": "ショアキーパー", "en": "Shorekeeper" }
+      "aliases": [
+        "Shorekeeper",
+        "ショアキーパー",
+        "파수인"
+      ],
+      "localizations": {
+        "ko": "파수인",
+        "ja": "ショアキーパー",
+        "en": "Shorekeeper"
+      }
     },
     {
       "canonical": "Camellya",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Camellya", "ツバキ", "カメリア", "카멜리아"],
-      "localizations": { "ko": "카멜리아", "ja": "ツバキ", "en": "Camellya" }
+      "aliases": [
+        "Camellya",
+        "ツバキ",
+        "カメリア",
+        "카멜리아"
+      ],
+      "localizations": {
+        "ko": "카멜리아",
+        "ja": "ツバキ",
+        "en": "Camellya"
+      }
     },
     {
       "canonical": "Lumi",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Lumi", "ルミ", "루미"],
-      "localizations": { "ko": "루미", "ja": "ルミ", "en": "Lumi" }
+      "aliases": [
+        "Lumi",
+        "ルミ",
+        "루미"
+      ],
+      "localizations": {
+        "ko": "루미",
+        "ja": "ルミ",
+        "en": "Lumi"
+      }
     },
     {
       "canonical": "Carlotta",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Carlotta", "カルロッタ", "카를로타"],
-      "localizations": { "ko": "카를로타", "ja": "カルロッタ", "en": "Carlotta" }
+      "aliases": [
+        "Carlotta",
+        "カルロッタ",
+        "카를로타"
+      ],
+      "localizations": {
+        "ko": "카를로타",
+        "ja": "カルロッタ",
+        "en": "Carlotta"
+      }
     },
     {
       "canonical": "Phoebe",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Phoebe", "フィービー", "피비"],
-      "localizations": { "ko": "피비", "ja": "フィービー", "en": "Phoebe" }
+      "aliases": [
+        "Phoebe",
+        "フィービー",
+        "피비"
+      ],
+      "localizations": {
+        "ko": "피비",
+        "ja": "フィービー",
+        "en": "Phoebe"
+      }
     },
     {
       "canonical": "Cantarella",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Cantarella", "カンタレラ", "칸타렐라"],
-      "localizations": { "ko": "칸타렐라", "ja": "カンタレラ", "en": "Cantarella" }
+      "aliases": [
+        "Cantarella",
+        "カンタレラ",
+        "칸타렐라"
+      ],
+      "localizations": {
+        "ko": "칸타렐라",
+        "ja": "カンタレラ",
+        "en": "Cantarella"
+      }
     },
     {
       "canonical": "Cartethyia",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Cartethyia", "カルテジア", "카르테시아"],
-      "localizations": { "ko": "카르테시아", "ja": "カルテジア", "en": "Cartethyia" }
+      "aliases": [
+        "Cartethyia",
+        "カルテジア",
+        "카르테시아"
+      ],
+      "localizations": {
+        "ko": "카르테시아",
+        "ja": "カルテジア",
+        "en": "Cartethyia"
+      }
     },
     {
       "canonical": "Lupa",
       "parent_series": "Wuthering Waves",
-      "aliases": ["Lupa", "ルパ", "루파"],
-      "localizations": { "ko": "루파", "ja": "ルパ", "en": "Lupa" }
+      "aliases": [
+        "Lupa",
+        "ルパ",
+        "루파"
+      ],
+      "localizations": {
+        "ko": "루파",
+        "ja": "ルパ",
+        "en": "Lupa"
+      }
+    },
+    {
+      "canonical": "Youhu",
+      "parent_series": "Wuthering Waves",
+      "aliases": [
+        "Youhu",
+        "釉瑚",
+        "유호"
+      ],
+      "localizations": {
+        "ko": "유호",
+        "ja": "釉瑚",
+        "en": "Youhu"
+      }
+    },
+    {
+      "canonical": "Roccia",
+      "parent_series": "Wuthering Waves",
+      "aliases": [
+        "Roccia",
+        "ロココ",
+        "로코코"
+      ],
+      "localizations": {
+        "ko": "로코코",
+        "ja": "ロココ",
+        "en": "Roccia"
+      }
+    },
+    {
+      "canonical": "Brant",
+      "parent_series": "Wuthering Waves",
+      "aliases": [
+        "Brant",
+        "ブラント",
+        "브렌트"
+      ],
+      "localizations": {
+        "ko": "브렌트",
+        "ja": "ブラント",
+        "en": "Brant"
+      }
+    },
+    {
+      "canonical": "Zani",
+      "parent_series": "Wuthering Waves",
+      "aliases": [
+        "Zani",
+        "ザンニー",
+        "젠니"
+      ],
+      "localizations": {
+        "ko": "젠니",
+        "ja": "ザンニー",
+        "en": "Zani"
+      }
+    },
+    {
+      "canonical": "Ciaccona",
+      "parent_series": "Wuthering Waves",
+      "aliases": [
+        "Ciaccona",
+        "シャコンヌ",
+        "샤콘"
+      ],
+      "localizations": {
+        "ko": "샤콘",
+        "ja": "シャコンヌ",
+        "en": "Ciaccona"
+      }
     }
   ]
 }
