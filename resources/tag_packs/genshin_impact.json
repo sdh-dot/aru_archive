@@ -1,7 +1,7 @@
 {
   "pack_id": "genshin_impact",
   "name": "Genshin Impact",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "source": "built_in",
   "series": [
     {
@@ -770,6 +770,216 @@
         "ko": "키라라",
         "ja": "キラライア",
         "en": "Kirara"
+      }
+    },
+    {
+      "canonical": "Tighnari",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Tighnari",
+        "ティナリ",
+        "티그나리"
+      ],
+      "localizations": {
+        "ko": "티그나리",
+        "ja": "ティナリ",
+        "en": "Tighnari"
+      }
+    },
+    {
+      "canonical": "Collei",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Collei",
+        "コレイ",
+        "콜레이"
+      ],
+      "localizations": {
+        "ko": "콜레이",
+        "ja": "コレイ",
+        "en": "Collei"
+      }
+    },
+    {
+      "canonical": "Nilou",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Nilou",
+        "ニィロウ",
+        "니루"
+      ],
+      "localizations": {
+        "ko": "니루",
+        "ja": "ニィロウ",
+        "en": "Nilou"
+      }
+    },
+    {
+      "canonical": "Faruzan",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Faruzan",
+        "ファルザン",
+        "파루잔"
+      ],
+      "localizations": {
+        "ko": "파루잔",
+        "ja": "ファルザン",
+        "en": "Faruzan"
+      }
+    },
+    {
+      "canonical": "Kaveh",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Kaveh",
+        "カーヴェ",
+        "카베"
+      ],
+      "localizations": {
+        "ko": "카베",
+        "ja": "カーヴェ",
+        "en": "Kaveh"
+      }
+    },
+    {
+      "canonical": "Layla",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Layla",
+        "レイラ",
+        "레이라"
+      ],
+      "localizations": {
+        "ko": "레이라",
+        "ja": "レイラ",
+        "en": "Layla"
+      }
+    },
+    {
+      "canonical": "Wriothesley",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Wriothesley",
+        "ライオスリ",
+        "리오슬리"
+      ],
+      "localizations": {
+        "ko": "리오슬리",
+        "ja": "ライオスリ",
+        "en": "Wriothesley"
+      }
+    },
+    {
+      "canonical": "Charlotte",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Charlotte",
+        "シャルロット",
+        "샬럿"
+      ],
+      "localizations": {
+        "ko": "샬럿",
+        "ja": "シャルロット",
+        "en": "Charlotte"
+      }
+    },
+    {
+      "canonical": "Freminet",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Freminet",
+        "フレミネ",
+        "프레미네"
+      ],
+      "localizations": {
+        "ko": "프레미네",
+        "ja": "フレミネ",
+        "en": "Freminet"
+      }
+    },
+    {
+      "canonical": "Lyney",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Lyney",
+        "リネ",
+        "리니"
+      ],
+      "localizations": {
+        "ko": "리니",
+        "ja": "リネ",
+        "en": "Lyney"
+      }
+    },
+    {
+      "canonical": "Lynette",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Lynette",
+        "リネット",
+        "리네트"
+      ],
+      "localizations": {
+        "ko": "리네트",
+        "ja": "リネット",
+        "en": "Lynette"
+      }
+    },
+    {
+      "canonical": "Navia",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Navia",
+        "ナヴィア",
+        "나비아"
+      ],
+      "localizations": {
+        "ko": "나비아",
+        "ja": "ナヴィア",
+        "en": "Navia"
+      }
+    },
+    {
+      "canonical": "Clorinde",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Clorinde",
+        "クロリンド",
+        "클로린드"
+      ],
+      "localizations": {
+        "ko": "클로린드",
+        "ja": "クロリンド",
+        "en": "Clorinde"
+      }
+    },
+    {
+      "canonical": "Emilie",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Emilie",
+        "エミリエ",
+        "에밀리"
+      ],
+      "localizations": {
+        "ko": "에밀리",
+        "ja": "エミリエ",
+        "en": "Emilie"
+      }
+    },
+    {
+      "canonical": "Arlecchino",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Arlecchino",
+        "アルレッキーノ",
+        "아를레치노"
+      ],
+      "localizations": {
+        "ko": "아를레치노",
+        "ja": "アルレッキーノ",
+        "en": "Arlecchino"
       }
     }
   ]

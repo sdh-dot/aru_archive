@@ -8,11 +8,15 @@
 5. Liyue 13인 parent_series = Genshin Impact
 6. Inazuma 15인 ko locale resolve 정확성
 7. Inazuma 15인 parent_series = Genshin Impact
-8. 단일명 alias 전역 미등록 (Jean '진', Xiao '소')
-9. 원소/무기/지역명은 character로 등록되지 않음
-10. hold/needs_review 항목(Xiao)은 seed에 없음
-11. JSON 파일에 character 수가 53개임 (기존 7 + Mondstadt 18 + Liyue 13 + Inazuma 15)
-12. Wanderer Scaramouche alias 동작
+8. Sumeru 6인 ko locale resolve 정확성
+9. Sumeru 6인 parent_series = Genshin Impact
+10. Fontaine 9인 ko locale resolve 정확성
+11. Fontaine 9인 parent_series = Genshin Impact
+12. 단일명 alias 전역 미등록 (Jean '진', Xiao '소')
+13. 원소/무기/지역명은 character로 등록되지 않음
+14. hold/needs_review 항목(Xiao)은 seed에 없음
+15. JSON 파일에 character 수가 68개임
+16. Wanderer Scaramouche alias 동작
 """
 from __future__ import annotations
 
@@ -62,6 +66,18 @@ INAZUMA_CANONICAL = [
     "Sayu", "Gorou", "Sangonomiya Kokomi", "Yoimiya", "Kuki Shinobu",
     "Arataki Itto", "Shikanoin Heizou", "Yae Miko", "Kujou Sara",
     "Wanderer", "Kirara",
+]
+
+SUMERU_KO = ["티그나리", "콜레이", "니루", "파루잔", "카베", "레이라"]
+SUMERU_CANONICAL = ["Tighnari", "Collei", "Nilou", "Faruzan", "Kaveh", "Layla"]
+
+FONTAINE_KO = [
+    "리오슬리", "샬럿", "프레미네", "리니", "리네트",
+    "나비아", "클로린드", "에밀리", "아를레치노",
+]
+FONTAINE_CANONICAL = [
+    "Wriothesley", "Charlotte", "Freminet", "Lyney", "Lynette",
+    "Navia", "Clorinde", "Emilie", "Arlecchino",
 ]
 
 # 단일명 alias가 등록되어선 안 되는 값들
@@ -217,7 +233,57 @@ def test_inazuma_character_parent_series(db, canonical):
     assert row[0] == CANONICAL_SERIES
 
 
-# ---------- 12. Wanderer Scaramouche alias ----------
+# ---------- 8-9. Sumeru 6인 ----------
+
+@pytest.mark.parametrize("ko_name", SUMERU_KO)
+def test_sumeru_character_ko_display(db, ko_name):
+    """Sumeru 캐릭터가 ko locale에서 display_name으로 등록되어야 한다."""
+    row = db.execute(
+        "SELECT display_name FROM tag_localizations "
+        "WHERE display_name=? AND locale='ko'",
+        (ko_name,),
+    ).fetchone()
+    assert row is not None, f"ko display_name {ko_name!r} 가 tag_localizations에 없음"
+
+
+@pytest.mark.parametrize("canonical", SUMERU_CANONICAL)
+def test_sumeru_character_parent_series(db, canonical):
+    """Sumeru 캐릭터의 parent_series는 Genshin Impact여야 한다."""
+    row = db.execute(
+        "SELECT parent_series FROM tag_aliases "
+        "WHERE canonical=? AND tag_type='character' AND enabled=1 LIMIT 1",
+        (canonical,),
+    ).fetchone()
+    assert row is not None, f"{canonical!r} 가 tag_aliases에 없음"
+    assert row[0] == CANONICAL_SERIES
+
+
+# ---------- 10-11. Fontaine 9인 ----------
+
+@pytest.mark.parametrize("ko_name", FONTAINE_KO)
+def test_fontaine_character_ko_display(db, ko_name):
+    """Fontaine 캐릭터가 ko locale에서 display_name으로 등록되어야 한다."""
+    row = db.execute(
+        "SELECT display_name FROM tag_localizations "
+        "WHERE display_name=? AND locale='ko'",
+        (ko_name,),
+    ).fetchone()
+    assert row is not None, f"ko display_name {ko_name!r} 가 tag_localizations에 없음"
+
+
+@pytest.mark.parametrize("canonical", FONTAINE_CANONICAL)
+def test_fontaine_character_parent_series(db, canonical):
+    """Fontaine 캐릭터의 parent_series는 Genshin Impact여야 한다."""
+    row = db.execute(
+        "SELECT parent_series FROM tag_aliases "
+        "WHERE canonical=? AND tag_type='character' AND enabled=1 LIMIT 1",
+        (canonical,),
+    ).fetchone()
+    assert row is not None, f"{canonical!r} 가 tag_aliases에 없음"
+    assert row[0] == CANONICAL_SERIES
+
+
+# ---------- 16. Wanderer Scaramouche alias ----------
 
 @pytest.mark.parametrize("alias", ["Scaramouche", "스카라무슈", "散兵"])
 def test_wanderer_scaramouche_alias(db, alias):
@@ -243,18 +309,18 @@ def test_wanderer_ko_display(db):
 
 # ---------- 11. JSON 파일 character 수 검증 ----------
 
-def test_genshin_pack_has_53_characters():
-    """genshin_impact.json에는 53명이어야 한다 (기존 7 + Mondstadt 18 + Liyue 13 + Inazuma 15)."""
+def test_genshin_pack_has_68_characters():
+    """genshin_impact.json에는 68명이어야 한다 (7+Mondstadt 18+Liyue 13+Inazuma 15+Sumeru 6+Fontaine 9)."""
     data = json.loads(GENSHIN_PACK.read_text(encoding="utf-8"))
-    assert len(data.get("characters", [])) == 53, (
-        f"character 수 불일치: {len(data.get('characters', []))} (기대값 53)"
+    assert len(data.get("characters", [])) == 68, (
+        f"character 수 불일치: {len(data.get('characters', []))} (기대값 68)"
     )
 
 
 def test_genshin_pack_version():
-    """genshin_impact.json 버전은 1.3.0이어야 한다."""
+    """genshin_impact.json 버전은 1.4.0이어야 한다."""
     data = json.loads(GENSHIN_PACK.read_text(encoding="utf-8"))
-    assert data["version"] == "1.3.0"
+    assert data["version"] == "1.4.0"
 
 
 def test_jean_ko_in_localizations_not_aliases():
