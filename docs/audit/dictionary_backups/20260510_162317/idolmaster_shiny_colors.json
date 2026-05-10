@@ -1,0 +1,47 @@
+{
+  "pack_id": "idolmaster_shiny_colors",
+  "name": "THE iDOLM@STER Shiny Colors",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "THE iDOLM@STER Shiny Colors",
+      "media_type": "game",
+      "aliases": [
+        "THE iDOLM@STER Shiny Colors",
+        "Shiny Colors",
+        "shiny colors",
+        "アイドルマスター シャイニーカラーズ",
+        "シャイニーカラーズ",
+        "シャニマス",
+        "샤이니 컬러즈",
+        "샤니마스",
+        "283"
+      ],
+      "localizations": {
+        "ko": "샤이니 컬러즈",
+        "ja": "シャイニーカラーズ",
+        "en": "Shiny Colors"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "canonical": "283PRO",
+      "parent_series": "THE iDOLM@STER Shiny Colors",
+      "aliases": [
+        "283PRO",
+        "283프로",
+        "283プロ",
+        "283プロダクション",
+        "283 Production"
+      ],
+      "localizations": {
+        "ko": "283프로",
+        "ja": "283プロ",
+        "en": "283PRO"
+      }
+    }
+  ],
+  "characters": []
+}

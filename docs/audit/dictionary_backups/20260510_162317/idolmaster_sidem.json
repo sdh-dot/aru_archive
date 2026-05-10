@@ -1,0 +1,46 @@
+{
+  "pack_id": "idolmaster_sidem",
+  "name": "THE iDOLM@STER SideM",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "THE iDOLM@STER SideM",
+      "media_type": "game",
+      "aliases": [
+        "THE iDOLM@STER SideM",
+        "SideM",
+        "sidem",
+        "アイドルマスター SideM",
+        "アイドルマスター サイドM",
+        "사이드M",
+        "사이드엠",
+        "315"
+      ],
+      "localizations": {
+        "ko": "사이드M",
+        "ja": "アイドルマスター SideM",
+        "en": "THE iDOLM@STER SideM"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "canonical": "315PRO",
+      "parent_series": "THE iDOLM@STER SideM",
+      "aliases": [
+        "315PRO",
+        "315프로",
+        "315プロ",
+        "315プロダクション",
+        "315 Production"
+      ],
+      "localizations": {
+        "ko": "315프로",
+        "ja": "315プロ",
+        "en": "315PRO"
+      }
+    }
+  ],
+  "characters": []
+}

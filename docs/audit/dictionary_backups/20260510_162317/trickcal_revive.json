@@ -1,0 +1,215 @@
+{
+  "pack_id": "trickcal_revive",
+  "name": "Trickcal Re:VIVE",
+  "version": "1.2.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Trickcal Re:VIVE",
+      "media_type": "game",
+      "aliases": [
+        "Trickcal Re:VIVE",
+        "Trickcal: Re:VIVE",
+        "Trickcal Re:vive",
+        "Trickcal Revive",
+        "trickcal revive",
+        "Trickcal",
+        "trickcal",
+        "Trickcal: Chibi Go",
+        "Trickcal Chibi Go",
+        "트릭컬 리바이브",
+        "트릭컬 RE:VIVE",
+        "트릭컬",
+        "トリッカル・もちもちほっペ大作戦",
+        "トリッカル"
+      ],
+      "localizations": {
+        "ko": "트릭컬 리바이브",
+        "ja": "トリッカル・もちもちほっペ大作戦",
+        "en": "Trickcal Re:VIVE"
+      }
+    }
+  ],
+  "characters": [
+    {
+      "canonical": "에르핀",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["에르핀", "에르핀(왕도)", "Erpin", "エルフィン"],
+      "localizations": { "ko": "에르핀", "en": "Erpin", "ja": "エルフィン" }
+    },
+    {
+      "canonical": "에슈르",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["에슈르", "Ashur"],
+      "localizations": { "ko": "에슈르", "en": "Ashur" }
+    },
+    {
+      "canonical": "네르",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["네르", "네르(빡침)", "Ner", "ネル"],
+      "localizations": { "ko": "네르", "en": "Ner", "ja": "ネル" }
+    },
+    {
+      "canonical": "버터",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["버터", "Butter", "バター"],
+      "localizations": { "ko": "버터", "en": "Butter", "ja": "バター" }
+    },
+    {
+      "canonical": "코미",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["코미", "Kommy"],
+      "localizations": { "ko": "코미", "en": "Kommy" }
+    },
+    {
+      "canonical": "요미",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["요미", "Yomi", "ヨミ"],
+      "localizations": { "ko": "요미", "en": "Yomi", "ja": "ヨミ" }
+    },
+    {
+      "canonical": "클로에",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["클로에", "Chloe", "クロエ"],
+      "localizations": { "ko": "클로에", "en": "Chloe", "ja": "クロエ" }
+    },
+    {
+      "canonical": "델리아",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["델리아", "Delia"],
+      "localizations": { "ko": "델리아", "en": "Delia" }
+    },
+    {
+      "canonical": "아라그니아",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["아라그니아", "Aragnia"],
+      "localizations": { "ko": "아라그니아", "en": "Aragnia" }
+    },
+    {
+      "canonical": "리코타",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["리코타", "Ricotta"],
+      "localizations": { "ko": "리코타", "en": "Ricotta" }
+    },
+    {
+      "canonical": "이드",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["이드", "イード"],
+      "localizations": { "ko": "이드", "ja": "イード" }
+    },
+    {
+      "canonical": "아멜리아",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["아멜리아", "아멜리아(R41)", "Amelia", "アメリア"],
+      "localizations": { "ko": "아멜리아", "en": "Amelia", "ja": "アメリア" }
+    },
+    {
+      "canonical": "티그",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["티그", "티그(Hero)", "Tig", "ティグ"],
+      "localizations": { "ko": "티그", "en": "Tig", "ja": "ティグ" }
+    },
+    {
+      "canonical": "하이디",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["하이디", "Heidi"],
+      "localizations": { "ko": "하이디", "en": "Heidi" }
+    },
+    {
+      "canonical": "시저",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["시저", "Caesar"],
+      "localizations": { "ko": "시저", "en": "Caesar" }
+    },
+    {
+      "canonical": "헤일리",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["헤일리", "헤일리(멀쩡)", "Haley", "ヘイリー"],
+      "localizations": { "ko": "헤일리", "en": "Haley", "ja": "ヘイリー" }
+    },
+    {
+      "canonical": "아사나",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["아사나", "Asana"],
+      "localizations": { "ko": "아사나", "en": "Asana" }
+    },
+    {
+      "canonical": "뮤트",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["뮤트", "Mute"],
+      "localizations": { "ko": "뮤트", "en": "Mute" }
+    },
+    {
+      "canonical": "다야",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["다야", "Daya"],
+      "localizations": { "ko": "다야", "en": "Daya" }
+    },
+    {
+      "canonical": "이프리트",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["이프리트", "Ifrit"],
+      "localizations": { "ko": "이프리트", "en": "Ifrit" }
+    },
+    {
+      "canonical": "마에스트로 2호",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["마에스트로 2호", "Maestro MK2"],
+      "localizations": { "ko": "마에스트로 2호", "en": "Maestro MK2" }
+    },
+    {
+      "canonical": "림",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["림", "Rim"],
+      "localizations": { "ko": "림", "en": "Rim" }
+    },
+    {
+      "canonical": "스피키",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["스피키", "Speaki"],
+      "localizations": { "ko": "스피키", "en": "Speaki" }
+    },
+    {
+      "canonical": "실라",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["실라"],
+      "localizations": { "ko": "실라" }
+    },
+    {
+      "canonical": "벨벳",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["벨벳", "Velvet"],
+      "localizations": { "ko": "벨벳", "en": "Velvet" }
+    },
+    {
+      "canonical": "빅우드",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["빅우드", "Bigwood"],
+      "localizations": { "ko": "빅우드", "en": "Bigwood" }
+    },
+    {
+      "canonical": "제이드",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["제이드", "Jade"],
+      "localizations": { "ko": "제이드", "en": "Jade" }
+    },
+    {
+      "canonical": "벨리타",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["벨리타", "Belita"],
+      "localizations": { "ko": "벨리타", "en": "Belita" }
+    },
+    {
+      "canonical": "벨라",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["벨라"],
+      "localizations": { "ko": "벨라" }
+    },
+    {
+      "canonical": "교주",
+      "parent_series": "Trickcal Re:VIVE",
+      "aliases": ["교주"],
+      "localizations": { "ko": "교주" }
+    }
+  ]
+}
