@@ -1,31 +1,13 @@
 {
   "pack_id": "idolmaster_gakuen",
   "name": "Gakuen iDOLM@STER",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "source": "built_in",
-  "series": [
-    {
-      "canonical": "Gakuen iDOLM@STER",
-      "media_type": "game",
-      "aliases": [
-        "Gakuen iDOLM@STER",
-        "gakuen idolmaster",
-        "学園アイドルマスター",
-        "学マス",
-        "학원 아이돌마스터",
-        "학마스"
-      ],
-      "localizations": {
-        "ko": "학원 아이돌마스터",
-        "ja": "学園アイドルマスター",
-        "en": "Gakuen iDOLM@STER"
-      }
-    }
-  ],
+  "series": [],
   "groups": [
     {
       "canonical": "Hatsuboshi Gakuen",
-      "parent_series": "Gakuen iDOLM@STER",
+      "parent_series": "Idolmaster",
       "aliases": [
         "Hatsuboshi Gakuen",
         "초성학원",
@@ -39,5 +21,36 @@
       }
     }
   ],
-  "characters": []
+  "characters": [
+    {
+      "canonical": "花海咲季",
+      "parent_series": "Idolmaster",
+      "aliases": ["花海咲季", "Saki Hanami", "하나미 사키"],
+      "localizations": {"ko": "하나미 사키", "ja": "花海咲季", "en": "Saki Hanami"}
+    },
+    {
+      "canonical": "月村手毬",
+      "parent_series": "Idolmaster",
+      "aliases": ["月村手毬", "Temari Tsukimura", "츠키무라 테마리"],
+      "localizations": {"ko": "츠키무라 테마리", "ja": "月村手毬", "en": "Temari Tsukimura"}
+    },
+    {
+      "canonical": "藤田ことね",
+      "parent_series": "Idolmaster",
+      "aliases": ["藤田ことね", "Kotone Fujita", "후지타 코토네"],
+      "localizations": {"ko": "후지타 코토네", "ja": "藤田ことね", "en": "Kotone Fujita"}
+    },
+    {
+      "canonical": "有村麻央",
+      "parent_series": "Idolmaster",
+      "aliases": ["有村麻央", "Mao Arimura", "아리무라 마오"],
+      "localizations": {"ko": "아리무라 마오", "ja": "有村麻央", "en": "Mao Arimura"}
+    },
+    {
+      "canonical": "葛城リーリヤ",
+      "parent_series": "Idolmaster",
+      "aliases": ["葛城リーリヤ", "Lilja Katsuragi", "카츠라기 릴리야"],
+      "localizations": {"ko": "카츠라기 릴리야", "ja": "葛城リーリヤ", "en": "Lilja Katsuragi"}
+    }
+  ]
 }

@@ -1,0 +1,47 @@
+{
+  "pack_id": "idolmaster_765",
+  "name": "THE iDOLM@STER",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "THE iDOLM@STER",
+      "media_type": "game",
+      "aliases": [
+        "THE iDOLM@STER",
+        "THE IDOLMASTER",
+        "idolmaster",
+        "アイドルマスター",
+        "아이돌마스터",
+        "im@s",
+        "imas",
+        "アイマス",
+        "765"
+      ],
+      "localizations": {
+        "ko": "아이돌마스터",
+        "ja": "アイドルマスター",
+        "en": "THE iDOLM@STER"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "canonical": "765PRO",
+      "parent_series": "THE iDOLM@STER",
+      "aliases": [
+        "765PRO",
+        "765프로",
+        "765プロ",
+        "765プロダクション",
+        "765 Production"
+      ],
+      "localizations": {
+        "ko": "765프로",
+        "ja": "765プロ",
+        "en": "765PRO"
+      }
+    }
+  ],
+  "characters": []
+}

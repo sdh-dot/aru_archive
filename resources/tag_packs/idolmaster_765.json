@@ -1,34 +1,13 @@
 {
   "pack_id": "idolmaster_765",
-  "name": "THE iDOLM@STER",
-  "version": "1.0.0",
+  "name": "THE iDOLM@STER (765PRO)",
+  "version": "1.1.0",
   "source": "built_in",
-  "series": [
-    {
-      "canonical": "THE iDOLM@STER",
-      "media_type": "game",
-      "aliases": [
-        "THE iDOLM@STER",
-        "THE IDOLMASTER",
-        "idolmaster",
-        "アイドルマスター",
-        "아이돌마스터",
-        "im@s",
-        "imas",
-        "アイマス",
-        "765"
-      ],
-      "localizations": {
-        "ko": "아이돌마스터",
-        "ja": "アイドルマスター",
-        "en": "THE iDOLM@STER"
-      }
-    }
-  ],
+  "series": [],
   "groups": [
     {
       "canonical": "765PRO",
-      "parent_series": "THE iDOLM@STER",
+      "parent_series": "Idolmaster",
       "aliases": [
         "765PRO",
         "765프로",
@@ -43,5 +22,84 @@
       }
     }
   ],
-  "characters": []
+  "characters": [
+    {
+      "canonical": "天海春香",
+      "parent_series": "Idolmaster",
+      "aliases": ["天海春香", "Amami Haruka", "아마미 하루카"],
+      "localizations": { "ko": "아마미 하루카", "ja": "天海春香", "en": "Amami Haruka" }
+    },
+    {
+      "canonical": "如月千早",
+      "parent_series": "Idolmaster",
+      "aliases": ["如月千早", "Kisaragi Chihaya", "키사라기 치하야"],
+      "localizations": { "ko": "키사라기 치하야", "ja": "如月千早", "en": "Kisaragi Chihaya" }
+    },
+    {
+      "canonical": "星井美希",
+      "parent_series": "Idolmaster",
+      "aliases": ["星井美希", "Hoshii Miki", "호시이 미키"],
+      "localizations": { "ko": "호시이 미키", "ja": "星井美希", "en": "Hoshii Miki" }
+    },
+    {
+      "canonical": "高槻やよい",
+      "parent_series": "Idolmaster",
+      "aliases": ["高槻やよい", "Takatsuki Yayoi", "타카츠키 야요이"],
+      "localizations": { "ko": "타카츠키 야요이", "ja": "高槻やよい", "en": "Takatsuki Yayoi" }
+    },
+    {
+      "canonical": "水瀬伊織",
+      "parent_series": "Idolmaster",
+      "aliases": ["水瀬伊織", "Minase Iori", "미나세 이오리"],
+      "localizations": { "ko": "미나세 이오리", "ja": "水瀬伊織", "en": "Minase Iori" }
+    },
+    {
+      "canonical": "菊地真",
+      "parent_series": "Idolmaster",
+      "aliases": ["菊地真", "Kikuchi Makoto", "키쿠치 마코토"],
+      "localizations": { "ko": "키쿠치 마코토", "ja": "菊地真", "en": "Kikuchi Makoto" }
+    },
+    {
+      "canonical": "萩原雪歩",
+      "parent_series": "Idolmaster",
+      "aliases": ["萩原雪歩", "Hagiwara Yukiho", "하기와라 유키호"],
+      "localizations": { "ko": "하기와라 유키호", "ja": "萩原雪歩", "en": "Hagiwara Yukiho" }
+    },
+    {
+      "canonical": "双海亜美",
+      "parent_series": "Idolmaster",
+      "aliases": ["双海亜美", "Futami Ami", "후타미 아미"],
+      "localizations": { "ko": "후타미 아미", "ja": "双海亜美", "en": "Futami Ami" }
+    },
+    {
+      "canonical": "双海真美",
+      "parent_series": "Idolmaster",
+      "aliases": ["双海真美", "Futami Mami", "후타미 마미"],
+      "localizations": { "ko": "후타미 마미", "ja": "双海真美", "en": "Futami Mami" }
+    },
+    {
+      "canonical": "三浦あずさ",
+      "parent_series": "Idolmaster",
+      "aliases": ["三浦あずさ", "Miura Azusa", "미우라 아즈사"],
+      "localizations": { "ko": "미우라 아즈사", "ja": "三浦あずさ", "en": "Miura Azusa" }
+    },
+    {
+      "canonical": "秋月律子",
+      "parent_series": "Idolmaster",
+      "aliases": ["秋月律子", "Akizuki Ritsuko", "아키즈키 리츠코"],
+      "localizations": { "ko": "아키즈키 리츠코", "ja": "秋月律子", "en": "Akizuki Ritsuko" }
+    },
+    {
+      "canonical": "四条貴音",
+      "parent_series": "Idolmaster",
+      "aliases": ["四条貴音", "Shijo Takane", "시죠 타카네"],
+      "localizations": { "ko": "시죠 타카네", "ja": "四条貴音", "en": "Shijo Takane" }
+    },
+    {
+      "canonical": "我那覇響",
+      "parent_series": "Idolmaster",
+      "aliases": ["我那覇響", "Ganaha Hibiki", "가나하 히비키"],
+      "localizations": { "ko": "가나하 히비키", "ja": "我那覇響", "en": "Ganaha Hibiki" }
+    }
+  ]
 }

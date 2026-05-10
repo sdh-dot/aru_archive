@@ -1,7 +1,7 @@
 {
   "pack_id": "honkai_star_rail",
   "name": "Honkai: Star Rail",
-  "version": "1.1.0",
+  "version": "1.3.0",
   "source": "built_in",
   "series": [
     {
@@ -29,32 +29,547 @@
     {
       "canonical": "Kafka",
       "parent_series": "Honkai: Star Rail",
-      "aliases": ["Kafka", "カフカ", "카프카"],
-      "localizations": { "ko": "카프카", "ja": "カフカ", "en": "Kafka" }
+      "aliases": [
+        "Kafka",
+        "カフカ",
+        "카프카"
+      ],
+      "localizations": {
+        "ko": "카프카",
+        "ja": "カフカ",
+        "en": "Kafka"
+      }
     },
     {
       "canonical": "Blade",
       "parent_series": "Honkai: Star Rail",
-      "aliases": ["Blade", "刃", "블레이드"],
-      "localizations": { "ko": "블레이드", "ja": "刃", "en": "Blade" }
+      "aliases": [
+        "Blade",
+        "刃",
+        "블레이드"
+      ],
+      "localizations": {
+        "ko": "블레이드",
+        "ja": "刃",
+        "en": "Blade"
+      }
     },
     {
       "canonical": "Bronya",
       "parent_series": "Honkai: Star Rail",
-      "aliases": ["Bronya", "ブローニャ", "브로냐"],
-      "localizations": { "ko": "브로냐", "ja": "ブローニャ", "en": "Bronya" }
+      "aliases": [
+        "Bronya",
+        "ブローニャ",
+        "브로냐"
+      ],
+      "localizations": {
+        "ko": "브로냐",
+        "ja": "ブローニャ",
+        "en": "Bronya"
+      }
     },
     {
       "canonical": "Black Swan",
       "parent_series": "Honkai: Star Rail",
-      "aliases": ["Black Swan", "ブラックスワン", "블랙 스완"],
-      "localizations": { "ko": "블랙 스완", "ja": "ブラックスワン", "en": "Black Swan" }
+      "aliases": [
+        "Black Swan",
+        "ブラックスワン",
+        "블랙 스완"
+      ],
+      "localizations": {
+        "ko": "블랙 스완",
+        "ja": "ブラックスワン",
+        "en": "Black Swan"
+      }
     },
     {
       "canonical": "Jingliu",
       "parent_series": "Honkai: Star Rail",
-      "aliases": ["Jingliu", "鏡流", "경류"],
-      "localizations": { "ko": "경류", "ja": "鏡流", "en": "Jingliu" }
+      "aliases": [
+        "Jingliu",
+        "鏡流",
+        "경류"
+      ],
+      "localizations": {
+        "ko": "경류",
+        "ja": "鏡流",
+        "en": "Jingliu"
+      }
+    },
+    {
+      "canonical": "March 7th",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "March 7th",
+        "三月七",
+        "삼칠이"
+      ],
+      "localizations": {
+        "ko": "삼칠이",
+        "ja": "三月七",
+        "en": "March 7th"
+      }
+    },
+    {
+      "canonical": "Dan Heng",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Dan Heng",
+        "丹恒",
+        "단항"
+      ],
+      "localizations": {
+        "ko": "단항",
+        "ja": "丹恒",
+        "en": "Dan Heng"
+      }
+    },
+    {
+      "canonical": "Himeko",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Himeko",
+        "姫子",
+        "히메코"
+      ],
+      "localizations": {
+        "ko": "히메코",
+        "ja": "姫子",
+        "en": "Himeko"
+      }
+    },
+    {
+      "canonical": "Welt",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Welt",
+        "ヴェルト",
+        "웰트"
+      ],
+      "localizations": {
+        "ko": "웰트",
+        "ja": "ヴェルト",
+        "en": "Welt"
+      }
+    },
+    {
+      "canonical": "Asta",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Asta",
+        "アスタ",
+        "아스타"
+      ],
+      "localizations": {
+        "ko": "아스타",
+        "ja": "アスタ",
+        "en": "Asta"
+      }
+    },
+    {
+      "canonical": "Gepard",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Gepard",
+        "ゲパルト",
+        "게파르트"
+      ],
+      "localizations": {
+        "ko": "게파르트",
+        "ja": "ゲパルト",
+        "en": "Gepard"
+      }
+    },
+    {
+      "canonical": "Pela",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Pela",
+        "ペラ",
+        "펠라"
+      ],
+      "localizations": {
+        "ko": "펠라",
+        "ja": "ペラ",
+        "en": "Pela"
+      }
+    },
+    {
+      "canonical": "Serval",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Serval",
+        "セルバル",
+        "세르발"
+      ],
+      "localizations": {
+        "ko": "세르발",
+        "ja": "セルバル",
+        "en": "Serval"
+      }
+    },
+    {
+      "canonical": "Natasha",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Natasha",
+        "ナターシャ",
+        "나타샤"
+      ],
+      "localizations": {
+        "ko": "나타샤",
+        "ja": "ナターシャ",
+        "en": "Natasha"
+      }
+    },
+    {
+      "canonical": "Hook",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Hook",
+        "フック"
+      ],
+      "localizations": {
+        "ko": "훅",
+        "ja": "フック",
+        "en": "Hook"
+      }
+    },
+    {
+      "canonical": "Sampo",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Sampo",
+        "サンポ",
+        "삼포"
+      ],
+      "localizations": {
+        "ko": "삼포",
+        "ja": "サンポ",
+        "en": "Sampo"
+      }
+    },
+    {
+      "canonical": "Luka",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Luka",
+        "ルカ",
+        "루카"
+      ],
+      "localizations": {
+        "ko": "루카",
+        "ja": "ルカ",
+        "en": "Luka"
+      }
+    },
+    {
+      "canonical": "Sushang",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Sushang",
+        "素裳",
+        "수상"
+      ],
+      "localizations": {
+        "ko": "수상",
+        "ja": "素裳",
+        "en": "Sushang"
+      }
+    },
+    {
+      "canonical": "Arlan",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Arlan",
+        "アーラン",
+        "아를란"
+      ],
+      "localizations": {
+        "ko": "아를란",
+        "ja": "アーラン",
+        "en": "Arlan"
+      }
+    },
+    {
+      "canonical": "Lynx",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Lynx",
+        "リンクス",
+        "린스"
+      ],
+      "localizations": {
+        "ko": "린스",
+        "ja": "リンクス",
+        "en": "Lynx"
+      }
+    },
+    {
+      "canonical": "Yanqing",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Yanqing",
+        "彦卿",
+        "연경"
+      ],
+      "localizations": {
+        "ko": "연경",
+        "ja": "彦卿",
+        "en": "Yanqing"
+      }
+    },
+    {
+      "canonical": "Bailu",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Bailu",
+        "白露",
+        "백로"
+      ],
+      "localizations": {
+        "ko": "백로",
+        "ja": "白露",
+        "en": "Bailu"
+      }
+    },
+    {
+      "canonical": "Qingque",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Qingque",
+        "青雀",
+        "청작"
+      ],
+      "localizations": {
+        "ko": "청작",
+        "ja": "青雀",
+        "en": "Qingque"
+      }
+    },
+    {
+      "canonical": "Tingyun",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Tingyun",
+        "停云",
+        "정운"
+      ],
+      "localizations": {
+        "ko": "정운",
+        "ja": "停云",
+        "en": "Tingyun"
+      }
+    },
+    {
+      "canonical": "Yukong",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Yukong",
+        "驭空",
+        "유공"
+      ],
+      "localizations": {
+        "ko": "유공",
+        "ja": "驭空",
+        "en": "Yukong"
+      }
+    },
+    {
+      "canonical": "Fu Xuan",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Fu Xuan",
+        "符玄",
+        "부현"
+      ],
+      "localizations": {
+        "ko": "부현",
+        "ja": "符玄",
+        "en": "Fu Xuan"
+      }
+    },
+    {
+      "canonical": "Hanya",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Hanya",
+        "寒鴉",
+        "한야"
+      ],
+      "localizations": {
+        "ko": "한야",
+        "ja": "寒鴉",
+        "en": "Hanya"
+      }
+    },
+    {
+      "canonical": "Xueyi",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Xueyi",
+        "雪儀",
+        "설의"
+      ],
+      "localizations": {
+        "ko": "설의",
+        "ja": "雪儀",
+        "en": "Xueyi"
+      }
+    },
+    {
+      "canonical": "Huohuo",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Huohuo",
+        "貂鼠",
+        "활활"
+      ],
+      "localizations": {
+        "ko": "활활",
+        "ja": "貂鼠",
+        "en": "Huohuo"
+      }
+    },
+    {
+      "canonical": "Dan Heng · Imbibitor Lunae",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Dan Heng · Imbibitor Lunae",
+        "丹恒飲月",
+        "음월"
+      ],
+      "localizations": {
+        "ko": "음월",
+        "ja": "丹恒飲月",
+        "en": "Dan Heng · Imbibitor Lunae"
+      }
+    },
+    {
+      "canonical": "Argenti",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Argenti",
+        "アルジェンティ",
+        "아르젠티"
+      ],
+      "localizations": {
+        "ko": "아르젠티",
+        "ja": "アルジェンティ",
+        "en": "Argenti"
+      }
+    },
+    {
+      "canonical": "Ruan Mei",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Ruan Mei",
+        "阮梅",
+        "완매"
+      ],
+      "localizations": {
+        "ko": "완매",
+        "ja": "阮梅",
+        "en": "Ruan Mei"
+      }
+    },
+    {
+      "canonical": "Sparkle",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Sparkle",
+        "スパークル",
+        "스파클"
+      ],
+      "localizations": {
+        "ko": "스파클",
+        "ja": "スパークル",
+        "en": "Sparkle"
+      }
+    },
+    {
+      "canonical": "Misha",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Misha",
+        "ミーシャ",
+        "미샤"
+      ],
+      "localizations": {
+        "ko": "미샤",
+        "ja": "ミーシャ",
+        "en": "Misha"
+      }
+    },
+    {
+      "canonical": "Robin",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Robin",
+        "ロビン",
+        "로빈"
+      ],
+      "localizations": {
+        "ko": "로빈",
+        "ja": "ロビン",
+        "en": "Robin"
+      }
+    },
+    {
+      "canonical": "Boothill",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Boothill",
+        "ブートヒル",
+        "부트힐"
+      ],
+      "localizations": {
+        "ko": "부트힐",
+        "ja": "ブートヒル",
+        "en": "Boothill"
+      }
+    },
+    {
+      "canonical": "Acheron",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Acheron",
+        "アチェロン",
+        "아케론"
+      ],
+      "localizations": {
+        "ko": "아케론",
+        "ja": "アチェロン",
+        "en": "Acheron"
+      }
+    },
+    {
+      "canonical": "Aventurine",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Aventurine",
+        "アベンチュリン",
+        "아벤투린"
+      ],
+      "localizations": {
+        "ko": "아벤투린",
+        "ja": "アベンチュリン",
+        "en": "Aventurine"
+      }
+    },
+    {
+      "canonical": "Gallagher",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Gallagher",
+        "ギャラガー",
+        "갤러거"
+      ],
+      "localizations": {
+        "ko": "갤러거",
+        "ja": "ギャラガー",
+        "en": "Gallagher"
+      }
     }
   ]
 }

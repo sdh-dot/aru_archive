@@ -1,0 +1,48 @@
+{
+  "pack_id": "idolmaster_cinderella_girls",
+  "name": "THE iDOLM@STER Cinderella Girls",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "THE iDOLM@STER Cinderella Girls",
+      "media_type": "game",
+      "aliases": [
+        "THE iDOLM@STER Cinderella Girls",
+        "Cinderella Girls",
+        "cinderella girls",
+        "アイドルマスター シンデレラガールズ",
+        "シンデレラガールズ",
+        "デレマス",
+        "데레마스",
+        "신데렐라 걸즈",
+        "CG",
+        "346"
+      ],
+      "localizations": {
+        "ko": "신데렐라 걸즈",
+        "ja": "シンデレラガールズ",
+        "en": "Cinderella Girls"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "canonical": "346PRO",
+      "parent_series": "THE iDOLM@STER Cinderella Girls",
+      "aliases": [
+        "346PRO",
+        "346프로",
+        "346プロ",
+        "346プロダクション",
+        "346 Production"
+      ],
+      "localizations": {
+        "ko": "346프로",
+        "ja": "346プロ",
+        "en": "346PRO"
+      }
+    }
+  ],
+  "characters": []
+}

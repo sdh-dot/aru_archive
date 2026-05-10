@@ -1,23 +1,21 @@
-"""Phase D: Idolmaster tag pack skeleton enrichment tests.
+"""Phase D / Option B: Idolmaster tag pack 구조 회귀 테스트.
 
-Phase D 목표: 구조 설계 + CSV 후보 정리. 대량 캐릭터 applied 금지.
-
-대상 pack 파일 (skeleton, 각 v1.0.0):
-  - idolmaster_765:              THE iDOLM@STER        + 765PRO agency
-  - idolmaster_cinderella_girls: Cinderella Girls      + 346PRO agency
-  - idolmaster_million_live:     Million Live!         + 765 MILLIONSTARS agency
-  - idolmaster_sidem:            SideM                 + 315PRO agency
-  - idolmaster_shiny_colors:     Shiny Colors          + 283PRO agency
-  - idolmaster_gakuen:           Gakuen iDOLM@STER     + Hatsuboshi Gakuen agency
+Phase D skeleton → Option B 정규화 후 구조:
+  - idolmaster.json:         대표 IP 단일 series (canonical='Idolmaster')
+  - idolmaster_765:          series=[], 765PRO group, 765 원조 캐릭터 13명
+  - idolmaster_cinderella_girls: series=[], 346PRO group
+  - idolmaster_million_live:     series=[], 765 MILLIONSTARS group
+  - idolmaster_sidem:            series=[], 315PRO group
+  - idolmaster_shiny_colors:     series=[], 283PRO group
+  - idolmaster_gakuen:           series=[], Hatsuboshi Gakuen group
 
 검증 범위:
-  - 모든 pack 파일 존재 + 유효 JSON
-  - series ko/ja localization 정확성
-  - groups 배열 구조 (canonical, parent_series, aliases, localizations)
-  - characters 배열 빔 (Phase D는 캐릭터 미추가)
-  - 대표 alias 해소 (시리즈 별칭 / 에이전시 한국어·일본어)
-  - 로케일 불일치 없음 (ko=한글, ja=CJK/가나)
+  - 모든 brand pack 파일 존재 + 유효 JSON
+  - brand pack은 series 배열이 비어 있어야 한다 (Option B 정책)
+  - groups 배열 구조 (canonical, parent_series=Idolmaster, aliases, localizations)
+  - agency localization (ko/ja)
   - 멱등 seed
+  - 대표 series alias 해소는 test_tag_pack_idolmaster_completion.py에서 검증
 """
 from __future__ import annotations
 
@@ -41,16 +39,6 @@ BRANDS = [
     "idolmaster_gakuen",
 ]
 
-# pack_id → (series_canonical, ko, ja)
-SERIES_LOCALIZATIONS = {
-    "idolmaster_765":              ("THE iDOLM@STER",                 "아이돌마스터",      "アイドルマスター"),
-    "idolmaster_cinderella_girls": ("THE iDOLM@STER Cinderella Girls", "신데렐라 걸즈",    "シンデレラガールズ"),
-    "idolmaster_million_live":     ("THE iDOLM@STER Million Live!",    "밀리언 라이브!",   "ミリオンライブ!"),
-    "idolmaster_sidem":            ("THE iDOLM@STER SideM",           "사이드M",          "アイドルマスター SideM"),
-    "idolmaster_shiny_colors":     ("THE iDOLM@STER Shiny Colors",    "샤이니 컬러즈",   "シャイニーカラーズ"),
-    "idolmaster_gakuen":           ("Gakuen iDOLM@STER",              "학원 아이돌마스터","学園アイドルマスター"),
-}
-
 # pack_id → (agency_canonical, ko, ja, en)
 AGENCY_LOCALIZATIONS = {
     "idolmaster_765":              ("765PRO",             "765프로",           "765プロ",           "765PRO"),
@@ -61,21 +49,27 @@ AGENCY_LOCALIZATIONS = {
     "idolmaster_gakuen":           ("Hatsuboshi Gakuen",  "하츠보시 학원",    "初星学園",          "Hatsuboshi Gakuen"),
 }
 
+IDOLMASTER_CANONICAL = "Idolmaster"
+
 
 def _load(pack_id: str) -> dict:
     with open(_PACKS_DIR / f"{pack_id}.json", encoding="utf-8") as f:
         return json.load(f)
 
 
-def _make_db(pack_id: str):
+def _make_db(*pack_ids: str):
+    """idolmaster.json + 지정 brand pack들을 함께 seed한 DB를 반환한다."""
     td = tempfile.mkdtemp()
-    c = initialize_database(str(Path(td) / f"{pack_id}.db"))
-    seed_tag_pack(c, load_tag_pack(_PACKS_DIR / f"{pack_id}.json"))
+    c = initialize_database(str(Path(td) / "test.db"))
+    # 대표 IP series를 먼저 seed
+    seed_tag_pack(c, load_tag_pack(_PACKS_DIR / "idolmaster.json"))
+    for pid in pack_ids:
+        seed_tag_pack(c, load_tag_pack(_PACKS_DIR / f"{pid}.json"))
     return c
 
 
 # ---------------------------------------------------------------------------
-# Pack 파일 구조 검증
+# Pack 파일 구조 검증 (Option B 기준)
 # ---------------------------------------------------------------------------
 
 class TestPackFileStructure:
@@ -88,28 +82,16 @@ class TestPackFileStructure:
     def test_pack_valid_json(self, pack_id):
         data = _load(pack_id)
         assert data["pack_id"] == pack_id
-        assert data["version"] == "1.0.0"
         assert data["source"] == "built_in"
+        assert data["version"]  # version 존재만 확인 (값은 고정하지 않음)
 
     @pytest.mark.parametrize("pack_id", BRANDS)
-    def test_series_has_one_entry(self, pack_id):
+    def test_brand_pack_series_is_empty(self, pack_id):
+        """Option B: brand 파일은 series 배열이 비어 있어야 한다."""
         data = _load(pack_id)
-        assert len(data["series"]) == 1
-
-    @pytest.mark.parametrize("pack_id", BRANDS)
-    def test_series_ko_ja_en(self, pack_id):
-        data = _load(pack_id)
-        locs = data["series"][0]["localizations"]
-        assert "ko" in locs and locs["ko"]
-        assert "ja" in locs and locs["ja"]
-        assert "en" in locs and locs["en"]
-
-    @pytest.mark.parametrize("pack_id", BRANDS)
-    def test_characters_array_empty(self, pack_id):
-        """Phase D에서는 캐릭터를 추가하지 않는다."""
-        data = _load(pack_id)
-        assert data.get("characters", []) == [], (
-            f"{pack_id} has characters — Phase D forbids bulk character seeding"
+        assert data.get("series", []) == [], (
+            f"{pack_id} 에 series entry가 남아 있음 — "
+            "Idolmaster 단일 canonical 정책(Option B) 위반"
         )
 
     @pytest.mark.parametrize("pack_id", BRANDS)
@@ -124,6 +106,16 @@ class TestPackFileStructure:
             assert "localizations" in g
 
     @pytest.mark.parametrize("pack_id", BRANDS)
+    def test_groups_parent_series_is_idolmaster(self, pack_id):
+        """Option B: 모든 group의 parent_series는 Idolmaster여야 한다."""
+        data = _load(pack_id)
+        for g in data.get("groups", []):
+            assert g["parent_series"] == IDOLMASTER_CANONICAL, (
+                f"{pack_id} group '{g['canonical']}' parent_series="
+                f"{g['parent_series']!r} — Idolmaster여야 함"
+            )
+
+    @pytest.mark.parametrize("pack_id", BRANDS)
     def test_groups_ko_ja(self, pack_id):
         data = _load(pack_id)
         for g in data.get("groups", []):
@@ -131,27 +123,32 @@ class TestPackFileStructure:
             assert "ko" in locs and locs["ko"], f"{pack_id} group '{g.get('canonical')}' ko 없음"
             assert "ja" in locs and locs["ja"], f"{pack_id} group '{g.get('canonical')}' ja 없음"
 
+    def test_765_has_13_characters(self):
+        """idolmaster_765.json에는 캐릭터가 정확히 13명이어야 한다."""
+        data = _load("idolmaster_765")
+        assert len(data.get("characters", [])) == 13
 
-# ---------------------------------------------------------------------------
-# Series localization 정확성
-# ---------------------------------------------------------------------------
+    def test_gakuen_has_5_characters(self):
+        """idolmaster_gakuen.json에는 캐릭터가 정확히 5명이어야 한다."""
+        data = _load("idolmaster_gakuen")
+        assert len(data.get("characters", [])) == 5
 
-@pytest.mark.parametrize("pack_id,canonical,expected_ko,expected_ja", [
-    (pid, c, ko, ja) for pid, (c, ko, ja) in SERIES_LOCALIZATIONS.items()
-])
-def test_series_ko_localization(pack_id, canonical, expected_ko, expected_ja):
-    data = _load(pack_id)
-    locs = data["series"][0]["localizations"]
-    assert locs["ko"] == expected_ko, f"{pack_id} ko: {locs['ko']!r} != {expected_ko!r}"
+    def test_shiny_colors_has_6_characters(self):
+        """idolmaster_shiny_colors.json에는 캐릭터가 6명이어야 한다 (초기 seed)."""
+        data = _load("idolmaster_shiny_colors")
+        assert len(data.get("characters", [])) == 6
 
-
-@pytest.mark.parametrize("pack_id,canonical,expected_ko,expected_ja", [
-    (pid, c, ko, ja) for pid, (c, ko, ja) in SERIES_LOCALIZATIONS.items()
-])
-def test_series_ja_localization(pack_id, canonical, expected_ko, expected_ja):
-    data = _load(pack_id)
-    locs = data["series"][0]["localizations"]
-    assert locs["ja"] == expected_ja, f"{pack_id} ja: {locs['ja']!r} != {expected_ja!r}"
+    @pytest.mark.parametrize("pack_id", [
+        "idolmaster_cinderella_girls",
+        "idolmaster_million_live",
+        "idolmaster_sidem",
+    ])
+    def test_non_765_characters_array_empty(self, pack_id):
+        """CG/ML/SideM brand 파일은 아직 캐릭터를 추가하지 않는다."""
+        data = _load(pack_id)
+        assert data.get("characters", []) == [], (
+            f"{pack_id} has characters — 검수 완료 후 단계적 seed 예정"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +176,7 @@ def test_agency_ja(pack_id, canonical, ko, ja, en):
 
 
 # ---------------------------------------------------------------------------
-# Locale-mismatch safety
+# Locale-mismatch safety (groups only — series는 idolmaster.json에서 검증)
 # ---------------------------------------------------------------------------
 
 class TestNoLocaleMismatch:
@@ -201,18 +198,6 @@ class TestNoLocaleMismatch:
             or "･" <= c <= "ﾟ"
         )
         return n / len(s)
-
-    @pytest.mark.parametrize("pack_id", BRANDS)
-    def test_series_ko_is_hangul(self, pack_id):
-        data = _load(pack_id)
-        ko = data["series"][0]["localizations"]["ko"]
-        assert self._hangul_ratio(ko) >= 0.3, f"{pack_id} series ko={ko!r} hangul<30%"
-
-    @pytest.mark.parametrize("pack_id", BRANDS)
-    def test_series_ja_is_cjk_kana(self, pack_id):
-        data = _load(pack_id)
-        ja = data["series"][0]["localizations"]["ja"]
-        assert self._cjk_kana_ratio(ja) >= 0.3, f"{pack_id} series ja={ja!r} CJK/kana<30%"
 
     @pytest.mark.parametrize("pack_id", BRANDS)
     def test_groups_ko_is_hangul(self, pack_id):
@@ -242,18 +227,6 @@ class TestIdolmasterDB:
     @pytest.mark.parametrize("pack_id,canonical,ko,ja,en", [
         (pid, c, ko, ja, en) for pid, (c, ko, ja, en) in AGENCY_LOCALIZATIONS.items()
     ])
-    def test_series_alias_resolves(self, pack_id, canonical, ko, ja, en):
-        c = _make_db(pack_id)
-        series_canonical, _, _ = SERIES_LOCALIZATIONS[pack_id]
-        for alias in (series_canonical,):
-            cur = c.execute("SELECT canonical FROM tag_aliases WHERE alias=?", (alias,))
-            row = cur.fetchone()
-            assert row is not None, f"{pack_id} series alias '{alias}' not in DB"
-        c.close()
-
-    @pytest.mark.parametrize("pack_id,canonical,ko,ja,en", [
-        (pid, c, ko, ja, en) for pid, (c, ko, ja, en) in AGENCY_LOCALIZATIONS.items()
-    ])
     def test_agency_ko_alias_in_db(self, pack_id, canonical, ko, ja, en):
         c = _make_db(pack_id)
         cur = c.execute("SELECT canonical FROM tag_aliases WHERE alias=?", (ko,))
@@ -277,6 +250,7 @@ class TestIdolmasterDB:
     def test_seed_is_idempotent(self, pack_id):
         with tempfile.TemporaryDirectory() as td:
             c = initialize_database(str(Path(td) / f"{pack_id}.db"))
+            seed_tag_pack(c, load_tag_pack(_PACKS_DIR / "idolmaster.json"))
             seed_tag_pack(c, load_tag_pack(_PACKS_DIR / f"{pack_id}.json"))
             r2 = seed_tag_pack(c, load_tag_pack(_PACKS_DIR / f"{pack_id}.json"))
             c.close()
@@ -284,7 +258,6 @@ class TestIdolmasterDB:
         assert r2["series_aliases"] == 0
 
     @pytest.mark.parametrize("pack_id,pack_alias", [
-        ("idolmaster_765",              "imas"),
         ("idolmaster_765",              "아이돌마스터"),
         ("idolmaster_cinderella_girls", "デレマス"),
         ("idolmaster_cinderella_girls", "신데렐라 걸즈"),
@@ -296,9 +269,16 @@ class TestIdolmasterDB:
         ("idolmaster_gakuen",           "学マス"),
         ("idolmaster_gakuen",           "학원 아이돌마스터"),
     ])
-    def test_series_nickname_alias(self, pack_id, pack_alias):
+    def test_series_nickname_alias_resolves_to_idolmaster(self, pack_id, pack_alias):
+        """Option B: 하위 브랜드 별칭은 Idolmaster canonical로 resolve된다."""
         c = _make_db(pack_id)
-        cur = c.execute("SELECT canonical FROM tag_aliases WHERE alias=?", (pack_alias,))
+        cur = c.execute(
+            "SELECT canonical FROM tag_aliases WHERE alias=? AND tag_type='series'",
+            (pack_alias,),
+        )
         row = cur.fetchone()
-        assert row is not None, f"alias '{pack_alias}' not in {pack_id} DB"
+        assert row is not None, f"alias '{pack_alias}' not in DB (idolmaster.json + {pack_id} seeded)"
+        assert row[0] == IDOLMASTER_CANONICAL, (
+            f"alias '{pack_alias}' → {row[0]!r}, 기대값={IDOLMASTER_CANONICAL!r}"
+        )
         c.close()

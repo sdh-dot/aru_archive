@@ -1,7 +1,7 @@
 {
   "pack_id": "zenless_zone_zero",
   "name": "Zenless Zone Zero",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "source": "built_in",
   "series": [
     {
@@ -27,26 +27,310 @@
     {
       "canonical": "Nicole Demara",
       "parent_series": "Zenless Zone Zero",
-      "aliases": ["Nicole Demara", "ニコル・デマーラ", "니콜 드마라", "Nicole"],
-      "localizations": { "ko": "니콜 드마라", "ja": "ニコル・デマーラ", "en": "Nicole Demara" }
+      "aliases": [
+        "Nicole Demara",
+        "ニコル・デマーラ",
+        "니콜 드마라"
+      ],
+      "localizations": {
+        "ko": "니콜 드마라",
+        "ja": "ニコル・デマーラ",
+        "en": "Nicole Demara"
+      }
     },
     {
       "canonical": "Ellen Joe",
       "parent_series": "Zenless Zone Zero",
-      "aliases": ["Ellen Joe", "エレン・ジョー", "엘런 조", "Ellen"],
-      "localizations": { "ko": "엘런 조", "ja": "エレン・ジョー", "en": "Ellen Joe" }
+      "aliases": [
+        "Ellen Joe",
+        "エレン・ジョー",
+        "엘런 조"
+      ],
+      "localizations": {
+        "ko": "엘런 조",
+        "ja": "エレン・ジョー",
+        "en": "Ellen Joe"
+      }
     },
     {
       "canonical": "Yanagi",
       "parent_series": "Zenless Zone Zero",
-      "aliases": ["Yanagi", "柳", "야나기"],
-      "localizations": { "ko": "야나기", "ja": "柳", "en": "Yanagi" }
+      "aliases": [
+        "Yanagi",
+        "柳",
+        "야나기"
+      ],
+      "localizations": {
+        "ko": "야나기",
+        "ja": "柳",
+        "en": "Yanagi"
+      }
     },
     {
       "canonical": "Jane Doe",
       "parent_series": "Zenless Zone Zero",
-      "aliases": ["Jane Doe", "ジェーン", "제인", "Jane"],
-      "localizations": { "ko": "제인", "ja": "ジェーン", "en": "Jane Doe" }
+      "aliases": [
+        "Jane Doe",
+        "ジェーン",
+        "제인"
+      ],
+      "localizations": {
+        "ko": "제인",
+        "ja": "ジェーン",
+        "en": "Jane Doe"
+      }
+    },
+    {
+      "canonical": "Anby Demara",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Anby Demara",
+        "アンビー・デマーラ",
+        "엔비 데마라"
+      ],
+      "localizations": {
+        "ko": "엔비 데마라",
+        "ja": "アンビー・デマーラ",
+        "en": "Anby Demara"
+      }
+    },
+    {
+      "canonical": "Billy Kid",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Billy Kid",
+        "ビリー・キッド",
+        "빌리 키드"
+      ],
+      "localizations": {
+        "ko": "빌리 키드",
+        "ja": "ビリー・キッド",
+        "en": "Billy Kid"
+      }
+    },
+    {
+      "canonical": "Corin Wickes",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Corin Wickes",
+        "カリン・ウィックス",
+        "코린 위크스"
+      ],
+      "localizations": {
+        "ko": "코린 위크스",
+        "ja": "カリン・ウィックス",
+        "en": "Corin Wickes"
+      }
+    },
+    {
+      "canonical": "Ben Bigger",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Ben Bigger",
+        "ベン・ビガー",
+        "벤 비거"
+      ],
+      "localizations": {
+        "ko": "벤 비거",
+        "ja": "ベン・ビガー",
+        "en": "Ben Bigger"
+      }
+    },
+    {
+      "canonical": "Grace Howard",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Grace Howard",
+        "グレース・ハワード",
+        "그레이스 하워드"
+      ],
+      "localizations": {
+        "ko": "그레이스 하워드",
+        "ja": "グレース・ハワード",
+        "en": "Grace Howard"
+      }
+    },
+    {
+      "canonical": "Anton Ivanov",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Anton Ivanov",
+        "アントン・イヴァノフ",
+        "앤톤 이바노프"
+      ],
+      "localizations": {
+        "ko": "앤톤 이바노프",
+        "ja": "アントン・イヴァノフ",
+        "en": "Anton Ivanov"
+      }
+    },
+    {
+      "canonical": "Zhu Yuan",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Zhu Yuan",
+        "朱鳶",
+        "주연"
+      ],
+      "localizations": {
+        "ko": "주연",
+        "ja": "朱鳶",
+        "en": "Zhu Yuan"
+      }
+    },
+    {
+      "canonical": "Von Lycaon",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Von Lycaon",
+        "フォン・リカオン",
+        "본 리카온"
+      ],
+      "localizations": {
+        "ko": "본 리카온",
+        "ja": "フォン・リカオン",
+        "en": "Von Lycaon"
+      }
+    },
+    {
+      "canonical": "Seth Lowell",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Seth Lowell",
+        "セス・ロウエル",
+        "세스 로웰"
+      ],
+      "localizations": {
+        "ko": "세스 로웰",
+        "ja": "セス・ロウエル",
+        "en": "Seth Lowell"
+      }
+    },
+    {
+      "canonical": "Qingyi",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Qingyi",
+        "青依",
+        "청의"
+      ],
+      "localizations": {
+        "ko": "청의",
+        "ja": "青依",
+        "en": "Qingyi"
+      }
+    },
+    {
+      "canonical": "Soukaku",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Soukaku",
+        "蒼角",
+        "소우카쿠"
+      ],
+      "localizations": {
+        "ko": "소우카쿠",
+        "ja": "蒼角",
+        "en": "Soukaku"
+      }
+    },
+    {
+      "canonical": "Burnice White",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Burnice White",
+        "バーニス・ホワイト",
+        "버니스 화이트"
+      ],
+      "localizations": {
+        "ko": "버니스 화이트",
+        "ja": "バーニス・ホワイト",
+        "en": "Burnice White"
+      }
+    },
+    {
+      "canonical": "Caesar King",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Caesar King",
+        "シーザー・キング",
+        "카이사르 킹"
+      ],
+      "localizations": {
+        "ko": "카이사르 킹",
+        "ja": "シーザー・キング",
+        "en": "Caesar King"
+      }
+    },
+    {
+      "canonical": "Lighter",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Lighter",
+        "ライター",
+        "라이터"
+      ],
+      "localizations": {
+        "ko": "라이터",
+        "ja": "ライター",
+        "en": "Lighter"
+      }
+    },
+    {
+      "canonical": "Miyabi",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Miyabi",
+        "星見雅",
+        "호시미 미야비"
+      ],
+      "localizations": {
+        "ko": "호시미 미야비",
+        "ja": "星見雅",
+        "en": "Miyabi"
+      }
+    },
+    {
+      "canonical": "Harumasa",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Harumasa",
+        "悠真",
+        "아사바 하루마사"
+      ],
+      "localizations": {
+        "ko": "아사바 하루마사",
+        "ja": "悠真",
+        "en": "Harumasa"
+      }
+    },
+    {
+      "canonical": "Astra Yao",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Astra Yao",
+        "アストラ・ヤオ",
+        "아스트라 야오"
+      ],
+      "localizations": {
+        "ko": "아스트라 야오",
+        "ja": "アストラ・ヤオ",
+        "en": "Astra Yao"
+      }
+    },
+    {
+      "canonical": "Evelyn Chevalier",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Evelyn Chevalier",
+        "イヴリン",
+        "이블린 슈발리에"
+      ],
+      "localizations": {
+        "ko": "이블린 슈발리에",
+        "ja": "イヴリン",
+        "en": "Evelyn Chevalier"
+      }
     }
   ]
 }

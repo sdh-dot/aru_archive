@@ -1,0 +1,25 @@
+{
+  "pack_id": "arknights",
+  "name": "Arknights",
+  "version": "1.0.0",
+  "source": "built_in",
+  "series": [
+    {
+      "canonical": "Arknights",
+      "media_type": "game",
+      "aliases": [
+        "Arknights",
+        "アークナイツ",
+        "명일방주",
+        "明日方舟",
+        "아크나이츠"
+      ],
+      "localizations": {
+        "ko": "명일방주",
+        "ja": "アークナイツ",
+        "en": "Arknights"
+      }
+    }
+  ],
+  "characters": []
+}
