@@ -36,7 +36,7 @@ EXISTING_SEEDED_KO = [
     "산화", "모르테피", "단근", "알토", "도기",
     "연무", "금희", "장리", "절지", "상리요",
     "파수인", "카멜리아", "루미", "카를로타", "피비",
-    "칸타렐라", "카르테시아", "루파",
+    "칸타렐라", "카르티시아", "루파",
 ]
 EXISTING_SEEDED_CANONICAL = [
     "Yangyang", "Chixia", "Baizhi", "Jiyan", "Verina",
@@ -211,3 +211,35 @@ def test_rover_not_seeded(db):
             (alias,),
         ).fetchone()
         assert row is None, f"Rover alias {alias!r} 가 등록됨"
+
+
+# ---------- Phase 2: Cartethyia KO 교정 ----------
+
+def test_cartethyia_ko_display_is_kartisia(db):
+    """'카르티시아'(교정된 나무위키 표기)가 Cartethyia의 ko display_name이어야 한다."""
+    row = db.execute(
+        "SELECT display_name FROM tag_localizations "
+        "WHERE canonical='Cartethyia' AND locale='ko'",
+    ).fetchone()
+    assert row is not None, "Cartethyia ko localization 없음"
+    assert row[0] == "카르티시아", f"Cartethyia ko display={row[0]!r}, 기대값='카르티시아'"
+
+
+def test_cartethyia_old_ko_alias_preserved(db):
+    """'카르테시아'(구 표기)는 하위 호환 alias로 Cartethyia에 계속 resolve되어야 한다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='카르테시아' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'카르테시아' 하위 호환 alias 없음"
+    assert row[0] == "Cartethyia", f"alias '카르테시아' → {row[0]!r}"
+
+
+def test_cartethyia_new_ko_alias_resolves(db):
+    """'카르티시아' alias는 canonical='Cartethyia'로 resolve되어야 한다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='카르티시아' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'카르티시아' alias 없음"
+    assert row[0] == "Cartethyia", f"alias '카르티시아' → {row[0]!r}"
