@@ -1,7 +1,7 @@
 {
   "pack_id": "honkai_star_rail",
   "name": "Honkai: Star Rail",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "source": "built_in",
   "series": [
     {
@@ -569,6 +569,160 @@
         "ko": "갤러거",
         "ja": "ギャラガー",
         "en": "Gallagher"
+      }
+    },
+    {
+      "canonical": "Seele",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Seele",
+        "ジール",
+        "제레"
+      ],
+      "localizations": {
+        "ko": "제레",
+        "ja": "ジール",
+        "en": "Seele"
+      }
+    },
+    {
+      "canonical": "Firefly",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Firefly",
+        "ホタル",
+        "반디"
+      ],
+      "localizations": {
+        "ko": "반디",
+        "ja": "ホタル",
+        "en": "Firefly"
+      }
+    },
+    {
+      "canonical": "Luocha",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Luocha",
+        "羅刹",
+        "나찰"
+      ],
+      "localizations": {
+        "ko": "나찰",
+        "ja": "羅刹",
+        "en": "Luocha"
+      }
+    },
+    {
+      "canonical": "Dr. Ratio",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Dr. Ratio",
+        "Dr.レイシオ",
+        "Dr. 레이시오"
+      ],
+      "localizations": {
+        "ko": "Dr. 레이시오",
+        "ja": "Dr.レイシオ",
+        "en": "Dr. Ratio"
+      }
+    },
+    {
+      "canonical": "Jade",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Jade",
+        "ジェイド",
+        "제이드"
+      ],
+      "localizations": {
+        "ko": "제이드",
+        "ja": "ジェイド",
+        "en": "Jade"
+      }
+    },
+    {
+      "canonical": "Guinaifen",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Guinaifen",
+        "桂乃芬",
+        "계네빈"
+      ],
+      "localizations": {
+        "ko": "계네빈",
+        "ja": "桂乃芬",
+        "en": "Guinaifen"
+      }
+    },
+    {
+      "canonical": "Topaz",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Topaz",
+        "トパーズ",
+        "토파즈"
+      ],
+      "localizations": {
+        "ko": "토파즈",
+        "ja": "トパーズ",
+        "en": "Topaz"
+      }
+    },
+    {
+      "canonical": "Feixiao",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Feixiao",
+        "飛霄",
+        "비소"
+      ],
+      "localizations": {
+        "ko": "비소",
+        "ja": "飛霄",
+        "en": "Feixiao"
+      }
+    },
+    {
+      "canonical": "Lingsha",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Lingsha",
+        "霊砂",
+        "영사"
+      ],
+      "localizations": {
+        "ko": "영사",
+        "ja": "霊砂",
+        "en": "Lingsha"
+      }
+    },
+    {
+      "canonical": "Moze",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Moze",
+        "モゼ",
+        "맥택"
+      ],
+      "localizations": {
+        "ko": "맥택",
+        "ja": "モゼ",
+        "en": "Moze"
+      }
+    },
+    {
+      "canonical": "Rappa",
+      "parent_series": "Honkai: Star Rail",
+      "aliases": [
+        "Rappa",
+        "乱破",
+        "라파"
+      ],
+      "localizations": {
+        "ko": "라파",
+        "ja": "乱破",
+        "en": "Rappa"
       }
     }
   ]

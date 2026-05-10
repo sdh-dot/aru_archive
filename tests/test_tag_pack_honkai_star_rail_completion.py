@@ -47,10 +47,23 @@ MISC_SEEDED_CANONICAL = [
     "Boothill", "Acheron", "Aventurine", "Gallagher",
 ]
 
-ALL_SEEDED_KO = ASTRAL_SEEDED_KO + BELOBOG_SEEDED_KO + XIANZHOU_SEEDED_KO + MISC_SEEDED_KO
+# Phase 2 seed: needs_review 검증 후 확정 11인
+PHASE2_SEEDED_KO = [
+    "제레", "반디", "나찰", "Dr. 레이시오",
+    "제이드", "계네빈", "토파즈", "비소",
+    "영사", "맥택", "라파",
+]
+PHASE2_SEEDED_CANONICAL = [
+    "Seele", "Firefly", "Luocha", "Dr. Ratio",
+    "Jade", "Guinaifen", "Topaz", "Feixiao",
+    "Lingsha", "Moze", "Rappa",
+]
+
+ALL_SEEDED_KO = ASTRAL_SEEDED_KO + BELOBOG_SEEDED_KO + XIANZHOU_SEEDED_KO + MISC_SEEDED_KO + PHASE2_SEEDED_KO
 ALL_SEEDED_CANONICAL = (
     ASTRAL_SEEDED_CANONICAL + BELOBOG_SEEDED_CANONICAL
     + XIANZHOU_SEEDED_CANONICAL + MISC_SEEDED_CANONICAL
+    + PHASE2_SEEDED_CANONICAL
 )
 
 NON_CHARACTER_TAGS = [
@@ -188,18 +201,18 @@ def test_non_character_tags_not_in_character_aliases(db, non_char_tag):
 
 # ---------- 8. JSON 구조 검증 ----------
 
-def test_hsr_pack_has_39_characters():
-    """honkai_star_rail.json에는 캐릭터가 정확히 39명이어야 한다."""
+def test_hsr_pack_has_50_characters():
+    """honkai_star_rail.json에는 캐릭터가 정확히 50명이어야 한다 (Phase B1/B2 39 + Phase 2 11)."""
     data = json.loads(HSR_PACK.read_text(encoding="utf-8"))
-    assert len(data.get("characters", [])) == 39, (
+    assert len(data.get("characters", [])) == 50, (
         f"캐릭터 수 불일치: {len(data.get('characters', []))}"
     )
 
 
 def test_hsr_pack_version():
-    """honkai_star_rail.json version은 1.3.0이어야 한다."""
+    """honkai_star_rail.json version은 1.4.0이어야 한다."""
     data = json.loads(HSR_PACK.read_text(encoding="utf-8"))
-    assert data["version"] == "1.3.0", f"version 불일치: {data['version']!r}"
+    assert data["version"] == "1.4.0", f"version 불일치: {data['version']!r}"
 
 
 def test_imbibitor_lunae_ko_alias_resolves(db):
@@ -249,3 +262,116 @@ def test_hsr_pack_has_one_series():
     data = json.loads(HSR_PACK.read_text(encoding="utf-8"))
     assert len(data.get("series", [])) == 1
     assert data["series"][0]["canonical"] == CANONICAL_SERIES
+
+
+# ---------- Phase 2: needs_review 검증 후 확정 11인 ----------
+
+def test_seele_ko_is_jere(db):
+    """'제레' alias는 canonical='Seele'로 resolve되어야 한다 (HSR 스코프, HI3와 별개)."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='제레' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'제레' alias 없음"
+    assert row[0] == "Seele"
+
+
+def test_firefly_ko_is_bandi_not_bulkkochi(db):
+    """Firefly KO는 '반디'(불꽃이 아님) — 나무위키 공식 KO는 native Korean '반디'."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='반디' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'반디' alias 없음"
+    assert row[0] == "Firefly"
+    wrong = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='불꽃이' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert wrong is None, "'불꽃이'가 character alias로 존재함 — 나무위키 공식 표기 아님"
+
+
+def test_luocha_ko_is_nachal_not_nakcha(db):
+    """'나찰' alias는 canonical='Luocha'로 resolve되어야 한다 (羅刹 한자독음, 낙차 아님)."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='나찰' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'나찰' alias 없음"
+    assert row[0] == "Luocha"
+
+
+def test_dr_ratio_ko_is_reyisio(db):
+    """'Dr. 레이시오' alias는 canonical='Dr. Ratio'로 resolve되어야 한다 (닥터 라샤 아님)."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='Dr. 레이시오' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'Dr. 레이시오' alias 없음"
+    assert row[0] == "Dr. Ratio"
+
+
+def test_guinaifen_ko_is_gyenebin_not_guinaipun(db):
+    """Guinaifen KO는 '계네빈'(귀나이펀 아님) — 나무위키/공식 KO 기준."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='계네빈' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'계네빈' alias 없음"
+    assert row[0] == "Guinaifen"
+    wrong = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='귀나이펀' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert wrong is None, "'귀나이펀'이 character alias로 존재함 — 나무위키 공식 표기 아님"
+
+
+def test_topaz_ko_is_topajeu_not_topa(db):
+    """'토파즈' alias는 canonical='Topaz'로 resolve되어야 한다 (토파 아님)."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='토파즈' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'토파즈' alias 없음"
+    assert row[0] == "Topaz"
+
+
+def test_feixiao_ko_is_biso_not_peyisyao(db):
+    """Feixiao KO는 '비소'(飛霄 한자독음, 페이샤오 아님) — 선주 캐릭터 한자독음 정책."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='비소' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'비소' alias 없음"
+    assert row[0] == "Feixiao"
+    wrong = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='페이샤오' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert wrong is None, "'페이샤오'가 character alias로 존재함 — 나무위키 공식 표기 아님"
+
+
+def test_moze_ko_is_maektaek_not_moje(db):
+    """Moze KO는 '맥택'(貊泽 한자독음, 모제 아님) — 공식 KO 로컬라이제이션 기준."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='맥택' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'맥택' alias 없음"
+    assert row[0] == "Moze"
+    wrong = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='모제' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert wrong is None, "'모제'가 character alias로 존재함 — 나무위키 공식 표기 아님"
+
+
+def test_trailblazer_not_seeded(db):
+    """개척자(Trailblazer)는 다중 변형 정책 미결로 아직 seed되지 않아야 한다."""
+    for alias in ("Trailblazer", "개척자", "카엘루스", "스텔레"):
+        row = db.execute(
+            "SELECT canonical FROM tag_aliases "
+            "WHERE alias=? AND tag_type='character' AND enabled=1",
+            (alias,),
+        ).fetchone()
+        assert row is None, f"미seed 항목 {alias!r} 가 등록됨"
