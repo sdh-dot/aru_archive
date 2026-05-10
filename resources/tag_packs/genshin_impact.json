@@ -1,7 +1,7 @@
 {
   "pack_id": "genshin_impact",
   "name": "Genshin Impact",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "source": "built_in",
   "series": [
     {
@@ -27,44 +27,355 @@
     {
       "canonical": "Hu Tao",
       "parent_series": "Genshin Impact",
-      "aliases": ["Hu Tao", "胡桃", "호두"],
-      "localizations": { "ko": "호두", "ja": "胡桃", "en": "Hu Tao" }
+      "aliases": [
+        "Hu Tao",
+        "胡桃",
+        "호두"
+      ],
+      "localizations": {
+        "ko": "호두",
+        "ja": "胡桃",
+        "en": "Hu Tao"
+      }
     },
     {
       "canonical": "Keqing",
       "parent_series": "Genshin Impact",
-      "aliases": ["Keqing", "刻晴", "각청"],
-      "localizations": { "ko": "각청", "ja": "刻晴", "en": "Keqing" }
+      "aliases": [
+        "Keqing",
+        "刻晴",
+        "각청"
+      ],
+      "localizations": {
+        "ko": "각청",
+        "ja": "刻晴",
+        "en": "Keqing"
+      }
     },
     {
       "canonical": "Ganyu",
       "parent_series": "Genshin Impact",
-      "aliases": ["Ganyu", "甘雨", "감우"],
-      "localizations": { "ko": "감우", "ja": "甘雨", "en": "Ganyu" }
+      "aliases": [
+        "Ganyu",
+        "甘雨",
+        "감우"
+      ],
+      "localizations": {
+        "ko": "감우",
+        "ja": "甘雨",
+        "en": "Ganyu"
+      }
     },
     {
       "canonical": "Zhongli",
       "parent_series": "Genshin Impact",
-      "aliases": ["Zhongli", "鍾離", "종리"],
-      "localizations": { "ko": "종리", "ja": "鍾離", "en": "Zhongli" }
+      "aliases": [
+        "Zhongli",
+        "鍾離",
+        "종리"
+      ],
+      "localizations": {
+        "ko": "종리",
+        "ja": "鍾離",
+        "en": "Zhongli"
+      }
     },
     {
       "canonical": "Raiden Shogun",
       "parent_series": "Genshin Impact",
-      "aliases": ["Raiden Shogun", "雷電将軍", "라이덴 쇼군", "Ei", "에이"],
-      "localizations": { "ko": "라이덴 쇼군", "ja": "雷電将軍", "en": "Raiden Shogun" }
+      "aliases": [
+        "Raiden Shogun",
+        "雷電将軍",
+        "라이덴 쇼군",
+        "Ei",
+        "에이"
+      ],
+      "localizations": {
+        "ko": "라이덴 쇼군",
+        "ja": "雷電将軍",
+        "en": "Raiden Shogun"
+      }
     },
     {
       "canonical": "Nahida",
       "parent_series": "Genshin Impact",
-      "aliases": ["Nahida", "ナヒーダ", "나히다"],
-      "localizations": { "ko": "나히다", "ja": "ナヒーダ", "en": "Nahida" }
+      "aliases": [
+        "Nahida",
+        "ナヒーダ",
+        "나히다"
+      ],
+      "localizations": {
+        "ko": "나히다",
+        "ja": "ナヒーダ",
+        "en": "Nahida"
+      }
     },
     {
       "canonical": "Furina",
       "parent_series": "Genshin Impact",
-      "aliases": ["Furina", "フリーナ", "후리나", "Focalors", "포칼로스"],
-      "localizations": { "ko": "후리나", "ja": "フリーナ", "en": "Furina" }
+      "aliases": [
+        "Furina",
+        "フリーナ",
+        "후리나",
+        "Focalors",
+        "포칼로스"
+      ],
+      "localizations": {
+        "ko": "후리나",
+        "ja": "フリーナ",
+        "en": "Furina"
+      }
+    },
+    {
+      "canonical": "Amber",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Amber",
+        "アンバー",
+        "앰버"
+      ],
+      "localizations": {
+        "ko": "앰버",
+        "ja": "アンバー",
+        "en": "Amber"
+      }
+    },
+    {
+      "canonical": "Barbara",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Barbara",
+        "バーバラ",
+        "바바라"
+      ],
+      "localizations": {
+        "ko": "바바라",
+        "ja": "バーバラ",
+        "en": "Barbara"
+      }
+    },
+    {
+      "canonical": "Bennett",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Bennett",
+        "ベネット",
+        "베넷"
+      ],
+      "localizations": {
+        "ko": "베넷",
+        "ja": "ベネット",
+        "en": "Bennett"
+      }
+    },
+    {
+      "canonical": "Diluc",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Diluc",
+        "ディルック",
+        "딜럭"
+      ],
+      "localizations": {
+        "ko": "딜럭",
+        "ja": "ディルック",
+        "en": "Diluc"
+      }
+    },
+    {
+      "canonical": "Diona",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Diona",
+        "ディオナ",
+        "디오나"
+      ],
+      "localizations": {
+        "ko": "디오나",
+        "ja": "ディオナ",
+        "en": "Diona"
+      }
+    },
+    {
+      "canonical": "Eula",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Eula",
+        "エウルア",
+        "유라"
+      ],
+      "localizations": {
+        "ko": "유라",
+        "ja": "エウルア",
+        "en": "Eula"
+      }
+    },
+    {
+      "canonical": "Fischl",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Fischl",
+        "フィッシュル",
+        "피슐"
+      ],
+      "localizations": {
+        "ko": "피슐",
+        "ja": "フィッシュル",
+        "en": "Fischl"
+      }
+    },
+    {
+      "canonical": "Jean",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Jean",
+        "ジン"
+      ],
+      "localizations": {
+        "ko": "진",
+        "ja": "ジン",
+        "en": "Jean"
+      }
+    },
+    {
+      "canonical": "Kaeya",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Kaeya",
+        "カエヤ",
+        "카에야"
+      ],
+      "localizations": {
+        "ko": "카에야",
+        "ja": "カエヤ",
+        "en": "Kaeya"
+      }
+    },
+    {
+      "canonical": "Klee",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Klee",
+        "クレー",
+        "클레"
+      ],
+      "localizations": {
+        "ko": "클레",
+        "ja": "クレー",
+        "en": "Klee"
+      }
+    },
+    {
+      "canonical": "Lisa",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Lisa",
+        "リサ",
+        "리사"
+      ],
+      "localizations": {
+        "ko": "리사",
+        "ja": "リサ",
+        "en": "Lisa"
+      }
+    },
+    {
+      "canonical": "Mona",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Mona",
+        "モナ",
+        "모나"
+      ],
+      "localizations": {
+        "ko": "모나",
+        "ja": "モナ",
+        "en": "Mona"
+      }
+    },
+    {
+      "canonical": "Noelle",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Noelle",
+        "ノエル",
+        "노엘"
+      ],
+      "localizations": {
+        "ko": "노엘",
+        "ja": "ノエル",
+        "en": "Noelle"
+      }
+    },
+    {
+      "canonical": "Razor",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Razor",
+        "レザー",
+        "레이저"
+      ],
+      "localizations": {
+        "ko": "레이저",
+        "ja": "レザー",
+        "en": "Razor"
+      }
+    },
+    {
+      "canonical": "Rosaria",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Rosaria",
+        "ロザリア",
+        "로자리아"
+      ],
+      "localizations": {
+        "ko": "로자리아",
+        "ja": "ロザリア",
+        "en": "Rosaria"
+      }
+    },
+    {
+      "canonical": "Sucrose",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Sucrose",
+        "スクロース",
+        "슈크로스"
+      ],
+      "localizations": {
+        "ko": "슈크로스",
+        "ja": "スクロース",
+        "en": "Sucrose"
+      }
+    },
+    {
+      "canonical": "Venti",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Venti",
+        "ウェンティ",
+        "벤티"
+      ],
+      "localizations": {
+        "ko": "벤티",
+        "ja": "ウェンティ",
+        "en": "Venti"
+      }
+    },
+    {
+      "canonical": "Albedo",
+      "parent_series": "Genshin Impact",
+      "aliases": [
+        "Albedo",
+        "アルベド",
+        "알베도"
+      ],
+      "localizations": {
+        "ko": "알베도",
+        "ja": "アルベド",
+        "en": "Albedo"
+      }
     }
   ]
 }
