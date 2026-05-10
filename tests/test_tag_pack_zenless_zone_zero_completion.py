@@ -47,8 +47,20 @@ NEW_SEEDED_CANONICAL = [
 EXISTING_SEEDED_KO = ["니콜 드마라", "엘런 조", "야나기", "제인"]
 EXISTING_SEEDED_CANONICAL = ["Nicole Demara", "Ellen Joe", "Yanagi", "Jane Doe"]
 
-ALL_SEEDED_KO = EXISTING_SEEDED_KO + NEW_SEEDED_KO
-ALL_SEEDED_CANONICAL = EXISTING_SEEDED_CANONICAL + NEW_SEEDED_CANONICAL
+# Phase 2 seed: hold/needs_review 검증 후 확정 7인
+PHASE2_SEEDED_KO = [
+    "파이퍼 휠", "콜레다 벨로보그", "11호",
+    "루시아나 드 몬테피오", "알렉산드리나 세바스티안",
+    "트리거", "비비안 밴시",
+]
+PHASE2_SEEDED_CANONICAL = [
+    "Piper Wheel", "Koleda Belobog", "Soldier 11",
+    "Luciana de Montefio", "Alexandrina Sebastiane",
+    "Trigger", "Vivian Banshee",
+]
+
+ALL_SEEDED_KO = EXISTING_SEEDED_KO + NEW_SEEDED_KO + PHASE2_SEEDED_KO
+ALL_SEEDED_CANONICAL = EXISTING_SEEDED_CANONICAL + NEW_SEEDED_CANONICAL + PHASE2_SEEDED_CANONICAL
 
 # 단일명 alias — 전역 character 등록 금지
 FORBIDDEN_SINGLE_NAME_ALIASES = ["Nicole", "Ellen", "Jane", "Billy", "Anby", "Piper"]
@@ -59,15 +71,15 @@ NON_CHARACTER_TAGS = [
     "Cunning Hares", "Belobog Heavy Industries",
     "Victoria Housekeeping Co.", "Sons of Calydon",
     "CIST", "Section 6", "Yunkui Summit",
+    "Obol Squad", "Mockingbird",
 ]
 
-# 미 seed 확인 대상 (needs_review / hold)
+# 미 seed 확인 대상 (needs_review — canonical_en 정책 미결 / 주인공 쌍 정책 미결)
 NOT_SEEDED_ALIASES = [
     "Nekomata", "네코마타", "네코미야 마나",
-    "Soldier 11", "솔저 11", "11호",
+    "솔저 11",           # 나무위키 KO는 '11호'이므로 '솔저 11'은 alias 없음
     "Belle", "벨", "Wise", "와이즈",
-    "Piper", "파이퍼",
-    "Koleda", "콜레다",
+    "Piper", "파이퍼",   # Piper Wheel의 단일명 — 전역 등록 금지
 ]
 
 
@@ -200,18 +212,18 @@ def test_non_character_tags_not_in_character_aliases(db, tag):
 
 # ---------- 8. JSON 구조 검증 ----------
 
-def test_zzz_pack_has_22_characters():
-    """zenless_zone_zero.json에는 캐릭터가 정확히 22명이어야 한다."""
+def test_zzz_pack_has_29_characters():
+    """zenless_zone_zero.json에는 캐릭터가 정확히 29명이어야 한다 (Phase A 22 + Phase 2 7)."""
     data = json.loads(ZZZ_PACK.read_text(encoding="utf-8"))
-    assert len(data.get("characters", [])) == 22, (
+    assert len(data.get("characters", [])) == 29, (
         f"캐릭터 수 불일치: {len(data.get('characters', []))}"
     )
 
 
 def test_zzz_pack_version():
-    """zenless_zone_zero.json version은 1.2.0이어야 한다."""
+    """zenless_zone_zero.json version은 1.3.0이어야 한다."""
     data = json.loads(ZZZ_PACK.read_text(encoding="utf-8"))
-    assert data["version"] == "1.2.0", f"version 불일치: {data['version']!r}"
+    assert data["version"] == "1.3.0", f"version 불일치: {data['version']!r}"
 
 
 def test_nicole_no_single_name_alias_in_json():
@@ -243,3 +255,135 @@ def test_zzz_pack_has_one_series():
     data = json.loads(ZZZ_PACK.read_text(encoding="utf-8"))
     assert len(data.get("series", [])) == 1
     assert data["series"][0]["canonical"] == CANONICAL_SERIES
+
+
+# ---------- Phase 2: hold/needs_review 검증 후 확정 7인 ----------
+
+def test_piper_wheel_full_name_seeded(db):
+    """'파이퍼 휠' alias는 canonical='Piper Wheel'로 resolve되어야 한다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='파이퍼 휠' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'파이퍼 휠' alias 없음"
+    assert row[0] == "Piper Wheel"
+
+
+def test_piper_short_name_not_alias(db):
+    """'Piper'(단일명)은 character alias로 등록되어선 안 된다 (Piper Wheel의 단축명)."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='Piper' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is None, f"단일명 'Piper' 가 character alias로 존재함 → canonical={row[0] if row else None}"
+
+
+def test_koleda_belobog_ko_alias_resolves(db):
+    """'콜레다 벨로보그' alias는 canonical='Koleda Belobog'로 resolve되어야 한다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='콜레다 벨로보그' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'콜레다 벨로보그' alias 없음"
+    assert row[0] == "Koleda Belobog"
+
+
+def test_koleda_short_alias_resolves(db):
+    """'콜레다' 단축 alias는 canonical='Koleda Belobog'로 resolve되어야 한다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='콜레다' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'콜레다' alias 없음"
+    assert row[0] == "Koleda Belobog"
+
+
+def test_koleda_ja_is_kureta_not_koreda(db):
+    """Koleda Belobog의 JA alias는 'クレタ・ベロボーグ'이어야 한다 (NOT コレダ)."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='クレタ・ベロボーグ' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'クレタ・ベロボーグ' alias 없음"
+    assert row[0] == "Koleda Belobog"
+
+
+def test_soldier11_ko_is_11ho(db):
+    """'11호'(나무위키 표기)가 Soldier 11의 KO alias로 등록된다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='11호' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'11호' alias 없음"
+    assert row[0] == "Soldier 11"
+
+
+def test_soldier11_ko_not_soljeo11(db):
+    """'솔저 11'은 character alias로 등록되지 않아야 한다 (나무위키 KO는 '11호')."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='솔저 11' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is None, f"'솔저 11' 가 character alias로 존재함 → canonical={row[0] if row else None}"
+
+
+def test_lucy_full_name_resolves(db):
+    """'루시아나 드 몬테피오' alias는 canonical='Luciana de Montefio'로 resolve되어야 한다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='루시아나 드 몬테피오' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'루시아나 드 몬테피오' alias 없음"
+    assert row[0] == "Luciana de Montefio"
+
+
+def test_rina_full_name_resolves(db):
+    """'알렉산드리나 세바스티안' alias는 canonical='Alexandrina Sebastiane'로 resolve되어야 한다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='알렉산드리나 세바스티안' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'알렉산드리나 세바스티안' alias 없음"
+    assert row[0] == "Alexandrina Sebastiane"
+
+
+def test_vivian_surname_is_banshee(db):
+    """canonical='Vivian Banshee' (NOT 'Vivian') — 나무위키/HoYoWiki 확인 완료."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='비비안 밴시' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'비비안 밴시' alias 없음"
+    assert row[0] == "Vivian Banshee"
+
+
+def test_trigger_ko_alias_resolves(db):
+    """'트리거' alias는 canonical='Trigger'로 resolve되어야 한다."""
+    row = db.execute(
+        "SELECT canonical FROM tag_aliases "
+        "WHERE alias='트리거' AND tag_type='character' AND enabled=1",
+    ).fetchone()
+    assert row is not None, "'트리거' alias 없음"
+    assert row[0] == "Trigger"
+
+
+def test_nekomata_still_not_seeded(db):
+    """Nekomata/네코미야 마나는 canonical_en 정책 미결로 아직 seed되지 않아야 한다."""
+    for alias in ("Nekomata", "네코마타", "네코미야 마나"):
+        row = db.execute(
+            "SELECT canonical FROM tag_aliases "
+            "WHERE alias=? AND tag_type='character' AND enabled=1",
+            (alias,),
+        ).fetchone()
+        assert row is None, f"미seed 항목 {alias!r} 가 등록됨"
+
+
+def test_belle_wise_still_not_seeded(db):
+    """Belle/Wise는 주인공 쌍 정책 미결로 아직 seed되지 않아야 한다."""
+    for alias in ("Belle", "벨", "Wise", "와이즈"):
+        row = db.execute(
+            "SELECT canonical FROM tag_aliases "
+            "WHERE alias=? AND tag_type='character' AND enabled=1",
+            (alias,),
+        ).fetchone()
+        assert row is None, f"미seed 항목 {alias!r} 가 등록됨"
