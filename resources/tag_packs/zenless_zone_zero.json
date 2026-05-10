@@ -1,7 +1,7 @@
 {
   "pack_id": "zenless_zone_zero",
   "name": "Zenless Zone Zero",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "source": "built_in",
   "series": [
     {
@@ -330,6 +330,106 @@
         "ko": "이블린 슈발리에",
         "ja": "イヴリン",
         "en": "Evelyn Chevalier"
+      }
+    },
+    {
+      "canonical": "Piper Wheel",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Piper Wheel",
+        "パイパー・ウィール",
+        "파이퍼 휠"
+      ],
+      "localizations": {
+        "ko": "파이퍼 휠",
+        "ja": "パイパー・ウィール",
+        "en": "Piper Wheel"
+      }
+    },
+    {
+      "canonical": "Koleda Belobog",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Koleda Belobog",
+        "クレタ・ベロボーグ",
+        "콜레다 벨로보그",
+        "Koleda",
+        "콜레다"
+      ],
+      "localizations": {
+        "ko": "콜레다 벨로보그",
+        "ja": "クレタ・ベロボーグ",
+        "en": "Koleda Belobog"
+      }
+    },
+    {
+      "canonical": "Soldier 11",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Soldier 11",
+        "11号",
+        "11호"
+      ],
+      "localizations": {
+        "ko": "11호",
+        "ja": "11号",
+        "en": "Soldier 11"
+      }
+    },
+    {
+      "canonical": "Luciana de Montefio",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Luciana de Montefio",
+        "ルシアーナ・デ・モンテフィーノ",
+        "루시아나 드 몬테피오"
+      ],
+      "localizations": {
+        "ko": "루시아나 드 몬테피오",
+        "ja": "ルシアーナ・デ・モンテフィーノ",
+        "en": "Luciana de Montefio"
+      }
+    },
+    {
+      "canonical": "Alexandrina Sebastiane",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Alexandrina Sebastiane",
+        "アレクサンドリナ・セバスチャン",
+        "알렉산드리나 세바스티안"
+      ],
+      "localizations": {
+        "ko": "알렉산드리나 세바스티안",
+        "ja": "アレクサンドリナ・セバスチャン",
+        "en": "Alexandrina Sebastiane"
+      }
+    },
+    {
+      "canonical": "Trigger",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Trigger",
+        "トリガー",
+        "트리거"
+      ],
+      "localizations": {
+        "ko": "트리거",
+        "ja": "トリガー",
+        "en": "Trigger"
+      }
+    },
+    {
+      "canonical": "Vivian Banshee",
+      "parent_series": "Zenless Zone Zero",
+      "aliases": [
+        "Vivian Banshee",
+        "ビビアン・バンシー",
+        "비비안 밴시"
+      ],
+      "localizations": {
+        "ko": "비비안 밴시",
+        "ja": "ビビアン・バンシー",
+        "en": "Vivian Banshee"
       }
     }
   ]
