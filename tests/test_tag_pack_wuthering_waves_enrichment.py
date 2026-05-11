@@ -1,9 +1,9 @@
 """Phase C-2: Wuthering Waves tag pack enrichment tests.
 
 Covers:
-  - Pack file structure (v1.0.0, 28 characters applied)
+  - Pack file structure (v1.1.0, 33 characters applied)
   - EN canonical policy (global game → EN canonical)
-  - KO/JA localizations for all 28 confirmed characters
+  - KO/JA localizations for all 33 confirmed characters
   - Locale-mismatch safety (ko=hangul, ja=CJK/kana)
   - DB alias round-trip via seed_tag_pack + initialize_database
   - needs_review characters absent from pack
@@ -50,12 +50,18 @@ WW_CHARACTERS = {
     "Carlotta":     ("카를로타",  "カルロッタ"),
     "Phoebe":       ("피비",      "フィービー"),
     "Cantarella":   ("칸타렐라",  "カンタレラ"),
-    "Cartethyia":   ("카르테시아","カルテジア"),
+    "Cartethyia":   ("카르티시아","カルテジア"),
     "Lupa":         ("루파",      "ルパ"),
+    # Gap A v1.1.0
+    "Youhu":        ("유호",      "釉瑚"),
+    "Roccia":       ("로코코",    "ロココ"),
+    "Brant":        ("브렌트",    "ブラント"),
+    "Zani":         ("젠니",      "ザンニー"),
+    "Ciaccona":     ("샤콘",      "シャコンヌ"),
 }
 
 # Characters held as needs_review — must NOT appear in the pack
-NEEDS_REVIEW = ["Rover", "Roccia", "Brant", "Zani", "Ciaccona"]
+NEEDS_REVIEW = ["Rover"]
 
 
 @pytest.fixture(scope="module")
@@ -80,7 +86,7 @@ class TestWuWaPackFile:
         with open(_WW_PACK, encoding="utf-8") as f:
             data = json.load(f)
         assert data["pack_id"] == "wuthering_waves"
-        assert data["version"] == "1.0.0"
+        assert data["version"] == "1.1.0"
         assert data["source"] == "built_in"
 
     def test_pack_has_series(self):
@@ -98,10 +104,10 @@ class TestWuWaPackFile:
         assert locs["ja"] == "鳴潮"
         assert locs["en"] == "Wuthering Waves"
 
-    def test_pack_has_28_characters(self):
+    def test_pack_has_33_characters(self):
         with open(_WW_PACK, encoding="utf-8") as f:
             data = json.load(f)
-        assert len(data["characters"]) == 28
+        assert len(data["characters"]) == 33
 
     def test_all_characters_have_en_canonical(self):
         with open(_WW_PACK, encoding="utf-8") as f:

@@ -881,8 +881,8 @@ def build_classify_preview(
                     group_dict_for_build["character_tags_json"] = json.dumps(
                         _new_chars, ensure_ascii=False
                     )
-                elif not _raw_only_tags and not _mixed_post_needs_review:
-                    # Legacy row: no raw tags → preserve existing chars to avoid data loss.
+                elif not _parse_json_list(group_dict_for_build.get("raw_tags_json")) and not _mixed_post_needs_review:
+                    # Legacy row: raw_tags_json absent → preserve existing chars to avoid data loss.
                     _legacy_fallback_used = True
                     group_dict_for_build["character_tags_json"] = json.dumps(
                         list(dict.fromkeys([*_new_chars, *_existing_chars])),

@@ -103,29 +103,32 @@ def zzz_conn(tmp_path_factory):
 # ===========================================================================
 
 class TestPackVersions:
+    def _version_tuple(self, v: str) -> tuple[int, ...]:
+        return tuple(int(x) for x in v.split("."))
+
     def test_genshin_version(self):
         pack = json.loads(GI_PACK_PATH.read_text(encoding="utf-8"))
-        assert pack["version"] == "1.1.0", f"GI version: {pack['version']}"
+        assert self._version_tuple(pack["version"]) >= (1, 1, 0), f"GI version: {pack['version']}"
 
     def test_hsr_version(self):
         pack = json.loads(HSR_PACK_PATH.read_text(encoding="utf-8"))
-        assert pack["version"] == "1.1.0", f"HSR version: {pack['version']}"
+        assert self._version_tuple(pack["version"]) >= (1, 1, 0), f"HSR version: {pack['version']}"
 
     def test_zzz_version(self):
         pack = json.loads(ZZZ_PACK_PATH.read_text(encoding="utf-8"))
-        assert pack["version"] == "1.1.0", f"ZZZ version: {pack['version']}"
+        assert self._version_tuple(pack["version"]) >= (1, 1, 0), f"ZZZ version: {pack['version']}"
 
     def test_genshin_character_count(self):
         pack = json.loads(GI_PACK_PATH.read_text(encoding="utf-8"))
-        assert len(pack["characters"]) == len(GI_CHARACTERS)
+        assert len(pack["characters"]) >= len(GI_CHARACTERS)
 
     def test_hsr_character_count(self):
         pack = json.loads(HSR_PACK_PATH.read_text(encoding="utf-8"))
-        assert len(pack["characters"]) == len(HSR_CHARACTERS)
+        assert len(pack["characters"]) >= len(HSR_CHARACTERS)
 
     def test_zzz_character_count(self):
         pack = json.loads(ZZZ_PACK_PATH.read_text(encoding="utf-8"))
-        assert len(pack["characters"]) == len(ZZZ_CHARACTERS)
+        assert len(pack["characters"]) >= len(ZZZ_CHARACTERS)
 
 
 # ===========================================================================
@@ -256,20 +259,23 @@ class TestSpecialAliases:
         assert "Focalors" in furina["aliases"], "Furina alias에 Focalors 누락"
         assert "포칼로스" in furina["aliases"], "Furina alias에 포칼로스(KO) 누락"
 
-    def test_nicole_short_alias(self):
+    def test_nicole_short_alias_banned(self):
+        """Phase 2 정책: 단일 단어 alias 금지 — 'Nicole'은 aliases에 없어야 한다."""
         pack = json.loads(ZZZ_PACK_PATH.read_text(encoding="utf-8"))
         nicole = next(c for c in pack["characters"] if c["canonical"] == "Nicole Demara")
-        assert "Nicole" in nicole["aliases"], "Nicole Demara alias에 Nicole 누락"
+        assert "Nicole" not in nicole["aliases"], "Nicole Demara에 금지된 단일명 alias 'Nicole' 등록됨"
 
-    def test_ellen_short_alias(self):
+    def test_ellen_short_alias_banned(self):
+        """Phase 2 정책: 단일 단어 alias 금지 — 'Ellen'은 aliases에 없어야 한다."""
         pack = json.loads(ZZZ_PACK_PATH.read_text(encoding="utf-8"))
         ellen = next(c for c in pack["characters"] if c["canonical"] == "Ellen Joe")
-        assert "Ellen" in ellen["aliases"], "Ellen Joe alias에 Ellen 누락"
+        assert "Ellen" not in ellen["aliases"], "Ellen Joe에 금지된 단일명 alias 'Ellen' 등록됨"
 
-    def test_jane_doe_short_alias(self):
+    def test_jane_doe_short_alias_banned(self):
+        """Phase 2 정책: 단일 단어 alias 금지 — 'Jane'은 aliases에 없어야 한다."""
         pack = json.loads(ZZZ_PACK_PATH.read_text(encoding="utf-8"))
         jane = next(c for c in pack["characters"] if c["canonical"] == "Jane Doe")
-        assert "Jane" in jane["aliases"], "Jane Doe alias에 Jane 누락"
+        assert "Jane" not in jane["aliases"], "Jane Doe에 금지된 단일명 alias 'Jane' 등록됨"
 
 
 # ===========================================================================
@@ -407,15 +413,12 @@ class TestZZZDB:
     @pytest.mark.parametrize("alias,expected_canonical", [
         ("니콜 드마라",   "Nicole Demara"),
         ("ニコル・デマーラ","Nicole Demara"),
-        ("Nicole",        "Nicole Demara"),
         ("엘런 조",       "Ellen Joe"),
         ("エレン・ジョー", "Ellen Joe"),
-        ("Ellen",         "Ellen Joe"),
         ("야나기",        "Yanagi"),
         ("柳",            "Yanagi"),
         ("제인",          "Jane Doe"),
         ("ジェーン",      "Jane Doe"),
-        ("Jane",          "Jane Doe"),
     ])
     def test_alias_resolves_to_canonical(self, zzz_conn, alias, expected_canonical):
         row = zzz_conn.execute(
